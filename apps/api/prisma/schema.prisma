@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  String               @id @default(uuid())
+  fullName            String
+  email               String               @unique
+  passwordHash        String
+  role                String
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  prePatrolChecklists PrePatrolChecklist[]
+  patrolSessions      PatrolSession[]
+}
+
+model PrePatrolChecklist {
+  id                   String   @id @default(uuid())
+  userId               String
+  patrolDate           DateTime
+  vehicleInspected     Boolean  @default(false)
+  safetyCheckCompleted Boolean  @default(false)
+  radioChecked         Boolean  @default(false)
+  vestChecked          Boolean  @default(false)
+  callSignConfirmed    Boolean  @default(false)
+  vehicleFuelLevel     String?
+  notes                String?
+  completedAt          DateTime @default(now())
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patrolSessions       PatrolSession[]
+
+  @@index([userId, patrolDate])
+}
+
+model Vehicle {
+  id             String          @id @default(uuid())
+  make           String
+  type           String
+  registration   String          @unique
+  colour         String
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  patrolSessions PatrolSession[]
+}
+
+model PatrolSession {
+  id           String               @id @default(uuid())
+  userId       String
+  vehicleId    String
+  sector       String
+  checklistId  String?
+  startTime    DateTime             @default(now())
+  endTime      DateTime?
+  startKm      Int
+  endKm        Int?
+  totalKm      Int?
+  summary      String?
+  status       String               @default("ACTIVE")
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  checklist    PrePatrolChecklist?  @relation(fields: [checklistId], references: [id], onDelete: SetNull)
+  patrolEvents PatrolEvent[]
+
+  @@index([userId, startTime])
+  @@index([vehicleId, startTime])
+  @@index([status])
+}
+
+model PatrolEvent {
+  id           String        @id @default(uuid())
+  patrolId     String
+  type         String
+  incidentCode String?
+  description  String?
+  assistance   String?
+  sceneActive  Boolean?
+  createdAt    DateTime      @default(now())
+
+  patrol       PatrolSession @relation(fields: [patrolId], references: [id], onDelete: Cascade)
+
+  @@index([patrolId, createdAt])
+  @@index([type])
+}
