@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import usersRoutes from "./routes/users.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import intelligenceRoutes from "./routes/intelligence.routes.js";
@@ -8,6 +9,8 @@ import patrolsRoutes from "./routes/patrols.routes.js";
 import patrolEventsRoutes from "./routes/patrol-events.routes.js";
 
 const app = express();
+
+app.use(cors());
 
 app.use(express.json());
 

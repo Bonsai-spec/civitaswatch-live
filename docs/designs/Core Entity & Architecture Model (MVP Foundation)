@@ -1,0 +1,474 @@
+# CIVITASWATCH SYSTEM BLUEPRINT
+
+## Core Entity & Architecture Model (MVP Foundation)
+
+---
+
+# 1. PURPOSE
+
+This document defines the **core data model and system architecture** for CivitasWatch.
+
+It ensures:
+
+* consistency across modules
+* scalability across sectors
+* clean separation between operations and intelligence
+* ability to link people, vehicles, places, and incidents
+
+This is the **foundation layer** — all future features must align with this.
+
+---
+
+# 2. CORE DESIGN PRINCIPLES
+
+## 2.1 One Real-World Thing = One Record
+
+* One person = one Person record
+* One vehicle = one Vehicle record
+* One place = one Place record
+
+No duplication.
+
+---
+
+## 2.2 Link Everything (Do Not Embed Everything)
+
+Use relationships instead of duplication:
+
+* Incident ↔ Person
+* Incident ↔ Vehicle
+* Incident ↔ Place
+* Patrol ↔ Events
+
+---
+
+## 2.3 Separate Operations from Intelligence
+
+* Operational data = visible to patrol/admin
+* Intelligence data = restricted access
+
+---
+
+## 2.4 Role-Based Visibility
+
+Different users see different layers:
+
+* Patroller
+* Control Room
+* Admin
+* Intelligence
+
+---
+
+# 3. CORE ENTITIES
+
+---
+
+## 3.1 Person
+
+Represents any human in the system.
+
+**Used for:**
+
+* resident
+* patroller
+* witness
+* victim
+* suspect
+* person of interest
+
+**Fields:**
+
+* id
+* firstName
+* lastName
+* phonePrimary
+* phoneSecondary
+* idNumber (optional)
+* dateOfBirth (optional)
+* gender (optional)
+* notes
+* status (active/inactive)
+* createdAt
+* updatedAt
+
+---
+
+## 3.2 Resident
+
+Linked to Person (NOT separate duplicate data).
+
+**Fields:**
+
+* id
+* personId
+* addressId (placeId)
+* sectorId
+* residentType (resident/business/caretaker/etc)
+* emergencyContactName
+* emergencyContactPhone
+* isKeyholder
+* isVulnerable
+* notes
+* status
+
+---
+
+## 3.3 User (System Login)
+
+Authentication layer.
+
+**Fields:**
+
+* id
+* personId
+* email
+* passwordHash
+* role
+* isActive
+* lastLoginAt
+
+---
+
+## 3.4 PatrollerProfile
+
+Operational identity of patroller.
+
+**Fields:**
+
+* id
+* personId
+* callSign
+* radioNumber (optional)
+* employmentType
+* status
+* joinedAt
+* notes
+
+---
+
+## 3.5 Vehicle
+
+Patrol + observed vehicles.
+
+**Fields:**
+
+* id
+* registration
+* make
+* model
+* type
+* colour
+* ownershipType
+* status
+* notes
+
+---
+
+## 3.6 Place
+
+Universal location entity.
+
+**Used for:**
+
+* addresses
+* incidents
+* checkpoints
+* hotspots
+
+**Fields:**
+
+* id
+* name
+* addressLine1
+* addressLine2
+* suburb
+* city
+* sectorId
+* latitude
+* longitude
+* placeType
+* notes
+
+---
+
+## 3.7 Sector
+
+Operational boundary.
+
+**Fields:**
+
+* id
+* name
+* code
+* description
+* parentSectorId
+* isActive
+
+---
+
+## 3.8 PatrolSession
+
+Active patrol lifecycle.
+
+**Fields:**
+
+* id
+* userId
+* vehicleId
+* sectorId
+* checklistId
+* startTime
+* endTime
+* startKm
+* endKm
+* totalKm
+* summary
+* status
+
+---
+
+## 3.9 PatrolEvent
+
+Logs actions during patrol.
+
+**Fields:**
+
+* id
+* patrolId
+* eventType (STAND_DOWN, RESUME, etc)
+* incidentId (optional)
+* infrastructureReportId (optional)
+* description
+* assistanceType
+* sceneActive
+* createdAt
+
+---
+
+## 3.10 Incident
+
+Core operational event.
+
+**Fields:**
+
+* id
+* incidentCode
+* title
+* description
+* placeId
+* sectorId
+* reportedAt
+* occurredAt
+* status
+* severity
+* source
+* createdByUserId
+* linkedPatrolId
+
+---
+
+## 3.11 IncidentPersonLink
+
+Connects people to incidents.
+
+**Fields:**
+
+* id
+* incidentId
+* personId
+* roleInIncident (witness/victim/suspect/etc)
+* notes
+
+---
+
+## 3.12 IncidentVehicleLink
+
+Connects vehicles to incidents.
+
+**Fields:**
+
+* id
+* incidentId
+* vehicleId (optional)
+* externalRegistration
+* externalMake
+* externalColour
+* roleInIncident
+* notes
+
+---
+
+## 3.13 InterestFlag (INTELLIGENCE LAYER)
+
+Used for POI / VOI / Place of Interest.
+
+**Fields:**
+
+* id
+* entityType (PERSON / VEHICLE / PLACE)
+* entityId
+* flagType
+* reason
+* riskLevel
+* createdByUserId
+* restrictedLevel
+* active
+* createdAt
+
+---
+
+## 3.14 InfrastructureReport
+
+Operational issue tracking.
+
+**Fields:**
+
+* id
+* patrolId
+* reportedByUserId
+* placeId
+* sectorId
+* category
+* description
+* severity
+* status
+* reportedAt
+* resolvedAt
+
+---
+
+## 3.15 Attachment
+
+Shared media storage.
+
+**Fields:**
+
+* id
+* entityType
+* entityId
+* fileUrl
+* fileType
+* caption
+* uploadedByUserId
+* classification
+* createdAt
+
+---
+
+## 3.16 Checklist
+
+Operational compliance.
+
+**Fields:**
+
+* id
+* checklistType
+* userId
+* vehicleId
+* completedAt
+* notes
+
+---
+
+# 4. RELATIONSHIPS
+
+* Person ↔ Resident
+* Person ↔ User
+* Person ↔ PatrollerProfile
+* Incident ↔ Person (via link table)
+* Incident ↔ Vehicle
+* Incident ↔ Place
+* PatrolSession ↔ PatrolEvent
+* PatrolEvent ↔ Incident
+* PatrolEvent ↔ InfrastructureReport
+
+---
+
+# 5. ACCESS MODEL
+
+## Patroller
+
+* Patrol operations
+* Events
+* Basic resident info
+
+## Control Room
+
+* Active patrols
+* Incidents
+* Assistance
+
+## Admin
+
+* Reports
+* Users
+* Vehicles
+* Residents
+
+## Intelligence
+
+* Interest flags
+* Linked entities
+* Restricted data
+
+---
+
+# 6. SYSTEM LAYERS
+
+## Layer 1 — Operational
+
+* Patrols
+* Residents
+* Incidents
+* Infrastructure
+
+## Layer 2 — Reporting
+
+* Patrol reports
+* Incident reports
+* Patroller activity
+
+## Layer 3 — Intelligence
+
+* POI / VOI / Places of Interest
+* Cross-sector linkage
+* Pattern analysis
+
+---
+
+# 7. MVP CORE (CURRENT SYSTEM)
+
+Already implemented:
+
+* PatrolSession
+* PatrolEvent
+* Vehicle
+* User
+* Basic reporting
+
+---
+
+# 8. NEXT BUILD ORDER
+
+1. Incident entity
+2. Patroller Activity Report
+3. Report selector UI
+4. Infrastructure reporting
+5. Resident module
+6. Intelligence flags
+
+---
+
+# FINAL NOTE
+
+This blueprint ensures:
+
+* scalability across sectors
+* clean data structure
+* intelligence capability later
+* commercial viability
+
+All new features must align with this model.
+
+---
