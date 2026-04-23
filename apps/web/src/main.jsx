@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import ReactDOM from "react-dom/client";
+import "./styles.css";
 
 const API_BASE = "http://localhost:4000";
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("cw_token") || "");
-  const [loginEmail, setLoginEmail] = useState("patroller@civitaswatch.com");
+  const [loginEmail, setLoginEmail] = useState("admin2@civitaswatch.com");
   const [loginPassword, setLoginPassword] = useState("Password123!");
   const [message, setMessage] = useState("");
+  const [activeView, setActiveView] = useState("incidents");
 
   const [me, setMe] = useState(null);
   const [vehicles, setVehicles] = useState([]);
@@ -16,6 +18,17 @@ function App() {
   const [latestChecklistId, setLatestChecklistId] = useState("");
   const [endedPatrolSummary, setEndedPatrolSummary] = useState(null);
   const [adminReport, setAdminReport] = useState([]);
+
+  const [incidents, setIncidents] = useState([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState("");
+  const [selectedIncident, setSelectedIncident] = useState(null);
+
+  const [incidentTitle, setIncidentTitle] = useState("");
+  const [incidentDescription, setIncidentDescription] = useState("");
+  const [incidentSector, setIncidentSector] = useState("Sector 1");
+  const [incidentSeverity, setIncidentSeverity] = useState("HIGH");
+  const [incidentLinkedPatrolId, setIncidentLinkedPatrolId] = useState("");
+  const [incidentOccurredAt, setIncidentOccurredAt] = useState("");
 
   const [startVehicleId, setStartVehicleId] = useState("");
   const [sector, setSector] = useState("Sector 1");
@@ -47,11 +60,11 @@ function App() {
       const status = row.status || "";
       const createdAt = row.createdAt ? new Date(row.createdAt) : null;
 
-      const matchesPatroller = !filterPatroller ||
-        patrollerName.toLowerCase().includes(filterPatroller.toLowerCase());
+      const matchesPatroller =
+        !filterPatroller || patrollerName.toLowerCase().includes(filterPatroller.toLowerCase());
 
-      const matchesVehicle = !filterVehicle ||
-        vehicleReg.toLowerCase().includes(filterVehicle.toLowerCase());
+      const matchesVehicle =
+        !filterVehicle || vehicleReg.toLowerCase().includes(filterVehicle.toLowerCase());
 
       const matchesStatus = !filterStatus || status === filterStatus;
 
@@ -76,6 +89,25 @@ function App() {
       );
     });
   }, [adminReport, filterPatroller, filterVehicle, filterStatus, filterDateFrom, filterDateTo]);
+
+  async function authedFetch(path, options = {}) {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+        ...(options.headers || {}),
+      },
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.error || "Request failed");
+    }
+
+    return data;
+  }
 
   async function login() {
     try {
@@ -111,32 +143,28 @@ function App() {
     setActivePatrol(null);
     setTimeline([]);
     setLatestChecklistId("");
-    setStartVehicleId("");
     setEndedPatrolSummary(null);
     setAdminReport([]);
+    setIncidents([]);
+    setSelectedIncidentId("");
+    setSelectedIncident(null);
+    setStartVehicleId("");
     setFilterPatroller("");
     setFilterVehicle("");
     setFilterStatus("");
     setFilterDateFrom("");
     setFilterDateTo("");
+    setActiveView("incidents");
     setMessage("Logged out.");
   }
 
-  async function authedFetch(path, options = {}) {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders,
-        ...(options.headers || {}),
-      },
-    });
-
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || "Request failed");
+  async function loadMe() {
+    try {
+      const data = await authedFetch("/auth/me");
+      setMe(data);
+    } catch (error) {
+      setMessage(error.message);
     }
-    return data;
   }
 
   async function loadVehicles() {
@@ -154,7 +182,7 @@ function App() {
   async function loadLatestChecklist() {
     try {
       const data = await authedFetch("/checklists/pre-patrol/latest");
-      if (data && data.id) {
+      if (data?.id) {
         setLatestChecklistId(data.id);
       }
     } catch (error) {
@@ -166,7 +194,7 @@ function App() {
     try {
       const data = await authedFetch("/patrols/active");
       setActivePatrol(data);
-      if (data && data.id) {
+      if (data?.id) {
         await loadTimeline(data.id);
       } else {
         setTimeline([]);
@@ -190,6 +218,128 @@ function App() {
     try {
       const data = await authedFetch("/patrols/report/all");
       setAdminReport(data);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function loadIncidents() {
+    try {
+      const data = await authedFetch("/incidents");
+      setIncidents(data);
+
+      if (selectedIncidentId) {
+        const match = data.find((item) => item.id === selectedIncidentId);
+        if (match) {
+          setSelectedIncident(match);
+        }
+      }
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function loadIncidentDetail(incidentId) {
+    try {
+      setSelectedIncidentId(incidentId);
+      const data = await authedFetch(`/incidents/${incidentId}`);
+      setSelectedIncident(data);
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function createIncident() {
+    try {
+      if (!incidentTitle.trim()) {
+        setMessage("Incident title is required.");
+        return;
+      }
+
+      if (!incidentSector.trim()) {
+        setMessage("Incident sector is required.");
+        return;
+      }
+
+      setMessage("Creating incident...");
+
+      const payload = {
+        title: incidentTitle,
+        description: incidentDescription || null,
+        sector: incidentSector,
+        severity: incidentSeverity,
+        source: activePatrol ? "PATROL" : "ADMIN",
+        linkedPatrolId: incidentLinkedPatrolId || activePatrol?.id || null,
+        occurredAt: incidentOccurredAt || null,
+      };
+
+      const created = await authedFetch("/incidents/report", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setIncidentTitle("");
+      setIncidentDescription("");
+      setIncidentSector(activePatrol?.sector || "Sector 1");
+      setIncidentSeverity("HIGH");
+      setIncidentLinkedPatrolId(activePatrol?.id || "");
+      setIncidentOccurredAt("");
+      setSelectedIncidentId(created.id);
+      setSelectedIncident(created);
+      setMessage("Incident created.");
+
+      await loadIncidents();
+
+      if (created.linkedPatrolId) {
+        await loadTimeline(created.linkedPatrolId);
+      }
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function updateIncidentStatus(status) {
+    if (!selectedIncidentId) {
+      setMessage("Select an incident first.");
+      return;
+    }
+
+    try {
+      setMessage(`Updating incident to ${status}...`);
+      const updated = await authedFetch(`/incidents/${selectedIncidentId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setSelectedIncident(updated);
+      setMessage(`Incident updated to ${status}.`);
+      await loadIncidents();
+
+      if (updated.linkedPatrolId) {
+        await loadTimeline(updated.linkedPatrolId);
+      }
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function resolveIncident() {
+    if (!selectedIncidentId) {
+      setMessage("Select an incident first.");
+      return;
+    }
+
+    try {
+      setMessage("Resolving incident...");
+      const updated = await authedFetch(`/incidents/${selectedIncidentId}/resolve`, {
+        method: "PATCH",
+      });
+      setSelectedIncident(updated);
+      setMessage("Incident resolved.");
+      await loadIncidents();
+
+      if (updated.linkedPatrolId) {
+        await loadTimeline(updated.linkedPatrolId);
+      }
     } catch (error) {
       setMessage(error.message);
     }
@@ -271,6 +421,8 @@ function App() {
       });
 
       setActivePatrol(data);
+      setIncidentLinkedPatrolId(data.id);
+      setIncidentSector(data.sector || "Sector 1");
       setMessage("Patrol started.");
       await loadTimeline(data.id);
     } catch (error) {
@@ -300,6 +452,7 @@ function App() {
 
       setMessage("Stand down logged.");
       await loadTimeline(activePatrol.id);
+      await loadIncidents();
     } catch (error) {
       setMessage(error.message);
     }
@@ -350,6 +503,8 @@ function App() {
       setMessage(`Patrol ended. Total KM: ${data.totalKm}`);
       setActivePatrol(null);
       await loadTimeline(data.id);
+      await loadIncidents();
+
       if (me?.role === "ADMIN") {
         await loadAdminReport();
       }
@@ -360,519 +515,556 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
+    loadMe();
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
     loadVehicles();
     loadLatestChecklist();
     loadActivePatrol();
+    loadIncidents();
+
     if (me?.role === "ADMIN") {
       loadAdminReport();
     }
   }, [token, me?.role]);
 
-  return React.createElement(
-    "div",
-    {
-      style: {
-        padding: "20px",
-        fontFamily: "Arial, sans-serif",
-        maxWidth: "1200px",
-        margin: "0 auto",
-      },
-    },
-    [
-      React.createElement("h1", { key: "title", style: titleStyle }, "CivitasWatch Patrol"),
-      React.createElement("p", { key: "msg", style: messageStyle }, message),
+  useEffect(() => {
+    if (activePatrol?.id) {
+      setIncidentLinkedPatrolId(activePatrol.id);
+      if (activePatrol.sector) {
+        setIncidentSector(activePatrol.sector);
+      }
+    }
+  }, [activePatrol?.id, activePatrol?.sector]);
 
-      !token
-        ? React.createElement(
-            "div",
-            { key: "login", style: boxStyle },
-            [
-              React.createElement("h2", { key: "h2" }, "Login"),
-              React.createElement("input", {
-                key: "email",
-                value: loginEmail,
-                onChange: (e) => setLoginEmail(e.target.value),
-                placeholder: "Email",
-                style: inputStyle,
-              }),
-              React.createElement("input", {
-                key: "password",
-                type: "password",
-                value: loginPassword,
-                onChange: (e) => setLoginPassword(e.target.value),
-                placeholder: "Password",
-                style: inputStyle,
-              }),
-              React.createElement(
-                "button",
-                { key: "loginBtn", onClick: login, style: buttonStyle },
-                "Login"
-              ),
-            ]
-          )
-        : React.createElement(
-            React.Fragment,
-            { key: "app" },
-            [
-              React.createElement(
-                "div",
-                { key: "topbar", style: boxStyle },
-                [
-                  React.createElement("h2", { key: "session" }, "Session"),
-                  React.createElement("p", { key: "tokenState" }, `Token loaded: ${token ? "Yes" : "No"}`),
-                  React.createElement("p", { key: "role" }, `Role: ${me?.role || "-"}`),
-                  React.createElement(
-                    "button",
-                    { key: "logout", onClick: logout, style: secondaryButtonStyle },
-                    "Logout"
-                  ),
-                ]
-              ),
+  return (
+    <div className="container" style={{ maxWidth: "1200px" }}>
+      <h1 style={titleStyle}>CivitasWatch Live</h1>
+      <p style={messageStyle}>{message}</p>
 
-              me?.role !== "ADMIN"
-                ? React.createElement(
-                    React.Fragment,
-                    { key: "patroller-view" },
-                    [
-                      React.createElement(
-                        "div",
-                        { key: "startCard", style: boxStyle },
-                        [
-                          React.createElement("h2", { key: "h2" }, "Start Patrol"),
-                          React.createElement("label", { key: "vehicleLabel" }, "Vehicle"),
-                          React.createElement(
-                            "select",
-                            {
-                              key: "vehicleSelect",
-                              value: startVehicleId,
-                              onChange: (e) => setStartVehicleId(e.target.value),
-                              style: inputStyle,
-                            },
-                            [
-                              React.createElement("option", { key: "blank", value: "" }, "Select vehicle"),
-                              ...vehicles.map((v) =>
-                                React.createElement(
-                                  "option",
-                                  { key: v.id, value: v.id },
-                                  `${v.registration} - ${v.make} ${v.type}`
-                                )
-                              ),
-                            ]
-                          ),
-                          React.createElement("input", {
-                            key: "sector",
-                            value: sector,
-                            onChange: (e) => setSector(e.target.value),
-                            placeholder: "Sector",
-                            style: inputStyle,
-                          }),
-                          React.createElement("input", {
-                            key: "startKm",
-                            value: startKm,
-                            onChange: (e) => setStartKm(e.target.value),
-                            placeholder: "Start KM",
-                            style: inputStyle,
-                          }),
-                          React.createElement(
-                            "p",
-                            { key: "checklist", style: smallTextStyle },
-                            `Latest checklist ID: ${latestChecklistId || "None"}`
-                          ),
-                          React.createElement(
-                            "button",
-                            {
-                              key: "startBtn",
-                              onClick: startPatrol,
-                              style: buttonStyle,
-                              disabled: !!activePatrol,
-                            },
-                            activePatrol ? "Patrol Already Active" : "Start Patrol"
-                          ),
-                        ]
-                      ),
+      {!token ? (
+        <div className="card">
+          <h2>Login</h2>
+          <div className="grid">
+            <input
+              value={loginEmail}
+              onChange={(e) => setLoginEmail(e.target.value)}
+              placeholder="Email"
+            />
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              placeholder="Password"
+            />
+            <button onClick={login}>Login</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="card">
+            <h2>Session</h2>
+            <p>Token loaded: Yes</p>
+            <p>Role: {me?.role || "-"}</p>
+            <div className="row">
+              <button
+                className="secondary"
+                onClick={() => {
+                  loadIncidents();
+                  if (selectedIncidentId) loadIncidentDetail(selectedIncidentId);
+                  if (activePatrol?.id) loadTimeline(activePatrol.id);
+                  if (me?.role === "ADMIN") loadAdminReport();
+                }}
+              >
+                Refresh
+              </button>
+              <button className="secondary" onClick={logout}>Logout</button>
+            </div>
+          </div>
 
-                      React.createElement(
-                        "div",
-                        { key: "activeCard", style: boxStyle },
-                        [
-                          React.createElement("h2", { key: "h2" }, "Current Patrol"),
-                          activePatrol
-                            ? React.createElement(
-                                "div",
-                                { key: "activeData" },
-                                [
-                                  React.createElement("p", { key: "id" }, `Patrol ID: ${activePatrol.id}`),
-                                  React.createElement("p", { key: "status" }, `Status: ${activePatrol.status}`),
-                                  React.createElement("p", { key: "sector" }, `Sector: ${activePatrol.sector}`),
-                                  React.createElement("p", { key: "km" }, `Start KM: ${activePatrol.startKm}`),
-                                ]
-                              )
-                            : React.createElement("p", { key: "none" }, "No active patrol."),
-                        ]
-                      ),
+          <div className="card">
+            <h2>Workspace</h2>
+            <div style={tabBarStyle}>
+              <button
+                type="button"
+                onClick={() => setActiveView("incidents")}
+                style={getTabStyle(activeView === "incidents")}
+              >
+                Incidents
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("patrols")}
+                style={getTabStyle(activeView === "patrols")}
+              >
+                Patrols
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("reports")}
+                style={getTabStyle(activeView === "reports")}
+              >
+                Reports
+              </button>
+            </div>
+          </div>
 
-                      React.createElement(
-                        "div",
-                        { key: "standDownCard", style: boxStyle },
-                        [
-                          React.createElement("h2", { key: "h2" }, "Stand Down"),
-                          React.createElement("input", {
-                            key: "incidentCode",
-                            value: incidentCode,
-                            onChange: (e) => setIncidentCode(e.target.value),
-                            placeholder: "Incident Code",
-                            style: inputStyle,
-                          }),
-                          React.createElement("textarea", {
-                            key: "standDownDesc",
-                            value: standDownDescription,
-                            onChange: (e) => setStandDownDescription(e.target.value),
-                            placeholder: "Description",
-                            style: textAreaStyle,
-                          }),
-                          React.createElement(
-                            "select",
-                            {
-                              key: "assistance",
-                              value: assistance,
-                              onChange: (e) => setAssistance(e.target.value),
-                              style: inputStyle,
-                            },
-                            [
-                              React.createElement("option", { key: "AMBO", value: "AMBO" }, "AMBO"),
-                              React.createElement("option", { key: "SAPS", value: "SAPS" }, "SAPS"),
-                              React.createElement("option", { key: "FIRE", value: "FIRE" }, "FIRE"),
-                              React.createElement("option", { key: "BACKUP_PATROL", value: "BACKUP_PATROL" }, "BACKUP_PATROL"),
-                              React.createElement("option", { key: "CONTROL_ROOM_SUPPORT", value: "CONTROL_ROOM_SUPPORT" }, "CONTROL_ROOM_SUPPORT"),
-                            ]
-                          ),
-                          React.createElement(
-                            "label",
-                            { key: "sceneLabel", style: smallTextStyle },
-                            [
-                              React.createElement("input", {
-                                key: "sceneCheckbox",
-                                type: "checkbox",
-                                checked: sceneActive,
-                                onChange: (e) => setSceneActive(e.target.checked),
-                                style: { marginRight: "8px" },
-                              }),
-                              "Scene still active",
-                            ]
-                          ),
-                          React.createElement(
-                            "button",
-                            {
-                              key: "standDownBtn",
-                              onClick: standDown,
-                              style: buttonStyle,
-                              disabled: !activePatrol,
-                            },
-                            "Stand Down"
-                          ),
-                        ]
-                      ),
+          {activeView === "incidents" && (
+            <div className="card">
+              <h2>Incident Workspace</h2>
+              <div className="grid grid-2">
+                <div>
+                  <h3>Create Incident</h3>
+                  <input
+                    value={incidentTitle}
+                    onChange={(e) => setIncidentTitle(e.target.value)}
+                    placeholder="Incident title"
+                  />
+                  <textarea
+                    value={incidentDescription}
+                    onChange={(e) => setIncidentDescription(e.target.value)}
+                    placeholder="Description"
+                  />
+                  <input
+                    value={incidentSector}
+                    onChange={(e) => setIncidentSector(e.target.value)}
+                    placeholder="Sector"
+                  />
+                  <select
+                    value={incidentSeverity}
+                    onChange={(e) => setIncidentSeverity(e.target.value)}
+                  >
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM">MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+                  <input
+                    value={incidentLinkedPatrolId}
+                    onChange={(e) => setIncidentLinkedPatrolId(e.target.value)}
+                    placeholder="Linked patrol ID (optional)"
+                  />
+                  <input
+                    type="datetime-local"
+                    value={incidentOccurredAt}
+                    onChange={(e) => setIncidentOccurredAt(e.target.value)}
+                  />
+                  <div className="row">
+                    <button onClick={createIncident}>Create Incident</button>
+                    {activePatrol?.id ? (
+                      <button
+                        className="secondary"
+                        onClick={() => setIncidentLinkedPatrolId(activePatrol.id)}
+                      >
+                        Use Active Patrol
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="small">
+                    Active patrol: {activePatrol?.id || "None"}
+                  </p>
+                </div>
 
-                      React.createElement(
-                        "div",
-                        { key: "resumeCard", style: boxStyle },
-                        [
-                          React.createElement("h2", { key: "h2" }, "Resume Patrol"),
-                          React.createElement("textarea", {
-                            key: "resumeDesc",
-                            value: resumeDescription,
-                            onChange: (e) => setResumeDescription(e.target.value),
-                            placeholder: "Resume description",
-                            style: textAreaStyle,
-                          }),
-                          React.createElement(
-                            "button",
-                            {
-                              key: "resumeBtn",
-                              onClick: resumePatrol,
-                              style: secondaryButtonStyle,
-                              disabled: !activePatrol,
-                            },
-                            "Resume"
-                          ),
-                        ]
-                      ),
+                <div>
+                  <h3>Selected Incident</h3>
+                  {!selectedIncident ? (
+                    <p className="small">Select an incident from the list below.</p>
+                  ) : (
+                    <>
+                      <p><strong>Code:</strong> {selectedIncident.incidentCode}</p>
+                      <p><strong>Title:</strong> {selectedIncident.title}</p>
+                      <p><strong>Sector:</strong> {selectedIncident.sector}</p>
+                      <p><strong>Severity:</strong> {selectedIncident.severity}</p>
+                      <p>
+                        <strong>Status:</strong>{" "}
+                        <StatusPill status={selectedIncident.status} />
+                      </p>
+                      <p><strong>Source:</strong> {selectedIncident.source}</p>
+                      <p><strong>Reported By:</strong> {selectedIncident.createdBy?.fullName || "-"}</p>
+                      <p><strong>Linked Patrol:</strong> {selectedIncident.linkedPatrolId || "-"}</p>
+                      <p><strong>Reported At:</strong> {formatDate(selectedIncident.reportedAt)}</p>
+                      <p><strong>Description:</strong> {selectedIncident.description || "-"}</p>
 
-                      React.createElement(
-                        "div",
-                        { key: "endCard", style: boxStyle },
-                        [
-                          React.createElement("h2", { key: "h2" }, "End Patrol"),
-                          React.createElement("input", {
-                            key: "endKm",
-                            value: endKm,
-                            onChange: (e) => setEndKm(e.target.value),
-                            placeholder: "End KM",
-                            style: inputStyle,
-                          }),
-                          React.createElement("textarea", {
-                            key: "endSummary",
-                            value: endSummary,
-                            onChange: (e) => setEndSummary(e.target.value),
-                            placeholder: "Summary",
-                            style: textAreaStyle,
-                          }),
-                          React.createElement(
-                            "button",
-                            {
-                              key: "endBtn",
-                              onClick: endPatrol,
-                              style: dangerButtonStyle,
-                              disabled: !activePatrol,
-                            },
-                            "End Patrol"
-                          ),
-                        ]
-                      ),
+                      <div className="row">
+                        <button
+                          className="secondary"
+                          onClick={() => updateIncidentStatus("OPEN")}
+                        >
+                          Mark Open
+                        </button>
+                        <button
+                          className="secondary"
+                          onClick={() => updateIncidentStatus("IN_PROGRESS")}
+                        >
+                          Mark In Progress
+                        </button>
+                        <button className="danger" onClick={resolveIncident}>
+                          Resolve Incident
+                        </button>
+                      </div>
 
-                      endedPatrolSummary
-                        ? React.createElement(
-                            "div",
-                            { key: "endedSummaryCard", style: boxStyle },
-                            [
-                              React.createElement("h2", { key: "h2" }, "Last Ended Patrol Summary"),
-                              React.createElement("p", { key: "patrolId" }, `Patrol ID: ${endedPatrolSummary.id}`),
-                              React.createElement("p", { key: "startKm" }, `Start KM: ${endedPatrolSummary.startKm ?? "-"}`),
-                              React.createElement("p", { key: "endKm" }, `End KM: ${endedPatrolSummary.endKm ?? "-"}`),
-                              React.createElement("p", { key: "totalKm" }, `Total KM: ${endedPatrolSummary.totalKm ?? "-"}`),
-                              React.createElement("p", { key: "status" }, `Status: ${endedPatrolSummary.status ?? "-"}`),
-                              React.createElement("p", { key: "summary" }, `Summary: ${endedPatrolSummary.summary || "-"}`),
-                            ]
-                          )
-                        : null,
-                    ]
-                  )
-                : React.createElement(
-                    "div",
-                    { key: "adminReportCard", style: boxStyle },
-                    [
-                      React.createElement("h2", { key: "h2" }, "Admin Patrol Report"),
+                      <div style={{ marginTop: "16px" }}>
+                        <h3 style={{ marginBottom: "8px" }}>Linked Patrol Events</h3>
+                        {selectedIncident.patrolEvents?.length ? (
+                          [...selectedIncident.patrolEvents].map((event) => (
+                            <div key={event.id} style={timelineItemStyle}>
+                              <div style={getBadgeStyle(event.type)}>{formatType(event.type)}</div>
+                              <div style={{ flex: 1 }}>
+                                <div style={timelineTitleStyle}>
+                                  {event.description || event.incidentCode || event.type}
+                                </div>
+                                <div style={timelineMetaStyle}>
+                                  {formatDate(event.createdAt)}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="small">No linked patrol events yet.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
 
-                      React.createElement(
-                        "div",
-                        { key: "filters", style: filterGridStyle },
-                        [
-                          React.createElement("input", {
-                            key: "filterPatroller",
-                            value: filterPatroller,
-                            onChange: (e) => setFilterPatroller(e.target.value),
-                            placeholder: "Filter by patroller",
-                            style: inputStyle,
-                          }),
-                          React.createElement("input", {
-                            key: "filterVehicle",
-                            value: filterVehicle,
-                            onChange: (e) => setFilterVehicle(e.target.value),
-                            placeholder: "Filter by vehicle",
-                            style: inputStyle,
-                          }),
-                          React.createElement(
-                            "select",
-                            {
-                              key: "filterStatus",
-                              value: filterStatus,
-                              onChange: (e) => setFilterStatus(e.target.value),
-                              style: inputStyle,
-                            },
-                            [
-                              React.createElement("option", { key: "all", value: "" }, "All statuses"),
-                              React.createElement("option", { key: "completed", value: "COMPLETED" }, "COMPLETED"),
-                              React.createElement("option", { key: "active", value: "ACTIVE" }, "ACTIVE"),
-                            ]
-                          ),
-                          React.createElement("input", {
-                            key: "filterDateFrom",
-                            type: "date",
-                            value: filterDateFrom,
-                            onChange: (e) => setFilterDateFrom(e.target.value),
-                            style: inputStyle,
-                          }),
-                          React.createElement("input", {
-                            key: "filterDateTo",
-                            type: "date",
-                            value: filterDateTo,
-                            onChange: (e) => setFilterDateTo(e.target.value),
-                            style: inputStyle,
-                          }),
-                        ]
-                      ),
+              <div style={{ marginTop: "20px" }}>
+                <h3>Incident List</h3>
+                {incidents.length === 0 ? (
+                  <p className="small">No incidents found.</p>
+                ) : (
+                  <div className="grid">
+                    {incidents.map((incident) => (
+                      <button
+                        key={incident.id}
+                        type="button"
+                        onClick={() => loadIncidentDetail(incident.id)}
+                        style={{
+                          ...incidentRowStyle,
+                          border:
+                            selectedIncidentId === incident.id
+                              ? "2px solid #111827"
+                              : "1px solid #d1d5db",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center" }}>
+                          <div style={{ textAlign: "left" }}>
+                            <div style={{ fontWeight: 700 }}>
+                              {incident.incidentCode} — {incident.title}
+                            </div>
+                            <div className="small">
+                              {incident.sector} • {incident.severity} • {formatDate(incident.reportedAt)}
+                            </div>
+                          </div>
+                          <StatusPill status={incident.status} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                      React.createElement(
-                        "div",
-                        { key: "adminButtons", style: buttonRowStyle },
-                        [
-                          React.createElement(
-                            "button",
-                            {
-                              key: "refreshReport",
-                              onClick: loadAdminReport,
-                              style: secondaryButtonStyle,
-                            },
-                            "Refresh Report"
-                          ),
-                          React.createElement(
-                            "button",
-                            {
-                              key: "clearFilters",
-                              onClick: clearFilters,
-                              style: secondaryButtonStyle,
-                            },
-                            "Clear Filters"
-                          ),
-                          React.createElement(
-                            "button",
-                            {
-                              key: "exportCsv",
-                              onClick: exportCsv,
-                              style: buttonStyle,
-                            },
-                            "Export CSV"
-                          ),
-                        ]
-                      ),
+          {activeView === "patrols" && (
+            <>
+              <div className="card">
+                <h2>Current Patrol</h2>
+                {activePatrol ? (
+                  <>
+                    <p>Patrol ID: {activePatrol.id}</p>
+                    <p>Status: {activePatrol.status}</p>
+                    <p>Sector: {activePatrol.sector}</p>
+                    <p>Start KM: {activePatrol.startKm}</p>
+                  </>
+                ) : (
+                  <p>No active patrol.</p>
+                )}
+              </div>
 
-                      React.createElement(
-                        "p",
-                        { key: "reportCount", style: smallTextStyle },
-                        `Showing ${filteredAdminReport.length} of ${adminReport.length} patrol records`
-                      ),
+              {me?.role !== "ADMIN" && (
+                <>
+                  <div className="card">
+                    <h2>Start Patrol</h2>
+                    <div className="grid">
+                      <label>Vehicle</label>
+                      <select
+                        value={startVehicleId}
+                        onChange={(e) => setStartVehicleId(e.target.value)}
+                      >
+                        <option value="">Select vehicle</option>
+                        {vehicles.map((v) => (
+                          <option key={v.id} value={v.id}>
+                            {v.registration} - {v.make} {v.type}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={sector}
+                        onChange={(e) => setSector(e.target.value)}
+                        placeholder="Sector"
+                      />
+                      <input
+                        value={startKm}
+                        onChange={(e) => setStartKm(e.target.value)}
+                        placeholder="Start KM"
+                      />
+                      <p className="small">Latest checklist ID: {latestChecklistId || "None"}</p>
+                      <button onClick={startPatrol} disabled={!!activePatrol}>
+                        {activePatrol ? "Patrol Already Active" : "Start Patrol"}
+                      </button>
+                    </div>
+                  </div>
 
-                      filteredAdminReport.length === 0
-                        ? React.createElement("p", { key: "empty" }, "No patrol records found.")
-                        : React.createElement(
-                            "div",
-                            { key: "tableWrap", style: tableWrapStyle },
-                            React.createElement(
-                              "table",
-                              { style: tableStyle },
-                              [
-                                React.createElement(
-                                  "thead",
-                                  { key: "thead" },
-                                  React.createElement(
-                                    "tr",
-                                    null,
-                                    [
-                                      "Date",
-                                      "Patroller",
-                                      "Vehicle",
-                                      "Sector",
-                                      "Start KM",
-                                      "End KM",
-                                      "Total KM",
-                                      "Status",
-                                      "Summary",
-                                    ].map((header) =>
-                                      React.createElement("th", { key: header, style: thStyle }, header)
-                                    )
-                                  )
-                                ),
-                                React.createElement(
-                                  "tbody",
-                                  { key: "tbody" },
-                                  filteredAdminReport.map((row) =>
-                                    React.createElement(
-                                      "tr",
-                                      { key: row.id },
-                                      [
-                                        React.createElement("td", { style: tdStyle, key: "date" }, new Date(row.createdAt).toLocaleString()),
-                                        React.createElement("td", { style: tdStyle, key: "user" }, row.user?.fullName || "-"),
-                                        React.createElement("td", { style: tdStyle, key: "vehicle" }, row.vehicle?.registration || "-"),
-                                        React.createElement("td", { style: tdStyle, key: "sector" }, row.sector || "-"),
-                                        React.createElement("td", { style: tdStyle, key: "startKm" }, String(row.startKm ?? "-")),
-                                        React.createElement("td", { style: tdStyle, key: "endKm" }, String(row.endKm ?? "-")),
-                                        React.createElement("td", { style: tdStyle, key: "totalKm" }, String(row.totalKm ?? "-")),
-                                        React.createElement("td", { style: tdStyle, key: "status" }, row.status || "-"),
-                                        React.createElement("td", { style: tdStyle, key: "summary" }, row.summary || "-"),
-                                      ]
-                                    )
-                                  )
-                                ),
-                              ]
-                            )
-                          ),
-                    ]
-                  ),
+                  <div className="card">
+                    <h2>Stand Down</h2>
+                    <input
+                      value={incidentCode}
+                      onChange={(e) => setIncidentCode(e.target.value)}
+                      placeholder="Incident Code"
+                    />
+                    <textarea
+                      value={standDownDescription}
+                      onChange={(e) => setStandDownDescription(e.target.value)}
+                      placeholder="Description"
+                    />
+                    <select
+                      value={assistance}
+                      onChange={(e) => setAssistance(e.target.value)}
+                    >
+                      <option value="AMBO">AMBO</option>
+                      <option value="SAPS">SAPS</option>
+                      <option value="FIRE">FIRE</option>
+                      <option value="BACKUP_PATROL">BACKUP_PATROL</option>
+                      <option value="CONTROL_ROOM_SUPPORT">CONTROL_ROOM_SUPPORT</option>
+                    </select>
+                    <label className="small">
+                      <input
+                        type="checkbox"
+                        checked={sceneActive}
+                        onChange={(e) => setSceneActive(e.target.checked)}
+                        style={{ width: "auto", marginRight: "8px" }}
+                      />
+                      Scene still active
+                    </label>
+                    <button onClick={standDown} disabled={!activePatrol}>
+                      Stand Down
+                    </button>
+                  </div>
 
-              React.createElement(
-                "div",
-                { key: "timelineCard", style: boxStyle },
-                [
-                  React.createElement("h2", { key: "h2" }, "Patrol Timeline"),
-                  timeline.length === 0
-                    ? React.createElement("p", { key: "empty", style: smallTextStyle }, "No patrol events yet.")
-                    : React.createElement(
-                        "div",
-                        { key: "timelineList" },
-                        [...timeline].reverse().map((event) =>
-                          React.createElement(
-                            "div",
-                            { key: event.id, style: timelineItemStyle },
-                            [
-                              React.createElement(
-                                "div",
-                                {
-                                  key: "badge",
-                                  style: getBadgeStyle(event.type),
-                                },
-                                formatType(event.type)
-                              ),
-                              React.createElement(
-                                "div",
-                                { key: "content", style: { flex: 1 } },
-                                [
-                                  React.createElement(
-                                    "div",
-                                    { key: "line1", style: timelineTitleStyle },
-                                    buildTimelineTitle(event)
-                                  ),
-                                  React.createElement(
-                                    "div",
-                                    { key: "line2", style: timelineMetaStyle },
-                                    new Date(event.createdAt).toLocaleString()
-                                  ),
-                                  event.description
-                                    ? React.createElement(
-                                        "div",
-                                        { key: "desc", style: timelineDescStyle },
-                                        event.description
-                                      )
-                                    : null,
-                                  event.assistance
-                                    ? React.createElement(
-                                        "div",
-                                        { key: "assist", style: timelineAssistStyle },
-                                        `Assistance: ${event.assistance}`
-                                      )
-                                    : null,
-                                  typeof event.sceneActive === "boolean"
-                                    ? React.createElement(
-                                        "div",
-                                        { key: "scene", style: timelineSceneStyle },
-                                        `Scene Active: ${event.sceneActive ? "Yes" : "No"}`
-                                      )
-                                    : null,
-                                ]
-                              ),
-                            ]
-                          )
-                        )
-                      ),
-                ]
-              ),
-            ]
-          ),
-    ]
+                  <div className="card">
+                    <h2>Resume Patrol</h2>
+                    <textarea
+                      value={resumeDescription}
+                      onChange={(e) => setResumeDescription(e.target.value)}
+                      placeholder="Resume description"
+                    />
+                    <button className="secondary" onClick={resumePatrol} disabled={!activePatrol}>
+                      Resume
+                    </button>
+                  </div>
+
+                  <div className="card">
+                    <h2>End Patrol</h2>
+                    <input
+                      value={endKm}
+                      onChange={(e) => setEndKm(e.target.value)}
+                      placeholder="End KM"
+                    />
+                    <textarea
+                      value={endSummary}
+                      onChange={(e) => setEndSummary(e.target.value)}
+                      placeholder="Summary"
+                    />
+                    <button className="danger" onClick={endPatrol} disabled={!activePatrol}>
+                      End Patrol
+                    </button>
+                  </div>
+
+                  {endedPatrolSummary ? (
+                    <div className="card">
+                      <h2>Last Ended Patrol Summary</h2>
+                      <p>Patrol ID: {endedPatrolSummary.id}</p>
+                      <p>Start KM: {endedPatrolSummary.startKm ?? "-"}</p>
+                      <p>End KM: {endedPatrolSummary.endKm ?? "-"}</p>
+                      <p>Total KM: {endedPatrolSummary.totalKm ?? "-"}</p>
+                      <p>Status: {endedPatrolSummary.status ?? "-"}</p>
+                      <p>Summary: {endedPatrolSummary.summary || "-"}</p>
+                    </div>
+                  ) : null}
+                </>
+              )}
+
+              <div className="card">
+                <h2>Patrol Timeline</h2>
+                {timeline.length === 0 ? (
+                  <p className="small">No patrol events yet.</p>
+                ) : (
+                  <div>
+                    {[...timeline].reverse().map((event) => (
+                      <div key={event.id} style={timelineItemStyle}>
+                        <div style={getBadgeStyle(event.type)}>{formatType(event.type)}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={timelineTitleStyle}>{buildTimelineTitle(event)}</div>
+                          <div style={timelineMetaStyle}>{formatDate(event.createdAt)}</div>
+                          {event.description ? (
+                            <div style={timelineDescStyle}>{event.description}</div>
+                          ) : null}
+                          {event.assistance ? (
+                            <div style={timelineAssistStyle}>Assistance: {event.assistance}</div>
+                          ) : null}
+                          {typeof event.sceneActive === "boolean" ? (
+                            <div style={timelineSceneStyle}>
+                              Scene Active: {event.sceneActive ? "Yes" : "No"}
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {activeView === "reports" && (
+            <div className="card">
+              <h2>Reports</h2>
+              <p className="small" style={{ marginBottom: "16px" }}>
+                This view is structured for patrol summaries now, and ready for CPF-style incident summaries,
+                shift handover reporting, and formal exports next.
+              </p>
+
+              <h3>Admin Patrol Report</h3>
+
+              <div className="grid grid-2" style={{ marginTop: "12px" }}>
+                <input
+                  value={filterPatroller}
+                  onChange={(e) => setFilterPatroller(e.target.value)}
+                  placeholder="Filter by patroller"
+                />
+                <input
+                  value={filterVehicle}
+                  onChange={(e) => setFilterVehicle(e.target.value)}
+                  placeholder="Filter by vehicle"
+                />
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                >
+                  <option value="">All statuses</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                </select>
+                <input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                />
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                />
+              </div>
+
+              <div className="row" style={{ marginTop: "12px" }}>
+                <button className="secondary" onClick={loadAdminReport}>
+                  Refresh Report
+                </button>
+                <button className="secondary" onClick={clearFilters}>
+                  Clear Filters
+                </button>
+                <button onClick={exportCsv}>Export CSV</button>
+              </div>
+
+              <p className="small" style={{ marginTop: "12px" }}>
+                Showing {filteredAdminReport.length} of {adminReport.length} patrol records
+              </p>
+
+              {filteredAdminReport.length === 0 ? (
+                <p>No patrol records found.</p>
+              ) : (
+                <div style={{ overflowX: "auto", marginTop: "16px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1000px" }}>
+                    <thead>
+                      <tr>
+                        {["Date", "Patroller", "Vehicle", "Sector", "Start KM", "End KM", "Total KM", "Status", "Summary"].map((header) => (
+                          <th key={header} style={thStyle}>{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAdminReport.map((row) => (
+                        <tr key={row.id}>
+                          <td style={tdStyle}>{row.createdAt ? new Date(row.createdAt).toLocaleString() : "-"}</td>
+                          <td style={tdStyle}>{row.user?.fullName || "-"}</td>
+                          <td style={tdStyle}>{row.vehicle?.registration || "-"}</td>
+                          <td style={tdStyle}>{row.sector || "-"}</td>
+                          <td style={tdStyle}>{String(row.startKm ?? "-")}</td>
+                          <td style={tdStyle}>{String(row.endKm ?? "-")}</td>
+                          <td style={tdStyle}>{String(row.totalKm ?? "-")}</td>
+                          <td style={tdStyle}>{row.status || "-"}</td>
+                          <td style={tdStyle}>{row.summary || "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatusPill({ status }) {
+  const background =
+    status === "OPEN"
+      ? "#dbeafe"
+      : status === "IN_PROGRESS"
+        ? "#fef3c7"
+        : status === "RESOLVED"
+          ? "#dcfce7"
+          : "#e5e7eb";
+
+  const color =
+    status === "OPEN"
+      ? "#1d4ed8"
+      : status === "IN_PROGRESS"
+        ? "#92400e"
+        : status === "RESOLVED"
+          ? "#166534"
+          : "#374151";
+
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "6px 10px",
+        borderRadius: "999px",
+        background,
+        color,
+        fontSize: "12px",
+        fontWeight: 700,
+      }}
+    >
+      {status}
+    </span>
   );
 }
 
 function formatType(type) {
-  return type.replaceAll("_", " ");
+  return String(type || "").replaceAll("_", " ");
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString();
 }
 
 function buildTimelineTitle(event) {
@@ -884,12 +1076,20 @@ function buildTimelineTitle(event) {
     return "Resume Patrol";
   }
 
+  if (event.type === "INCIDENT_REPORTED") {
+    return event.incidentCode ? `Incident Reported – ${event.incidentCode}` : "Incident Reported";
+  }
+
+  if (event.type === "ON_SCENE") {
+    return event.incidentCode ? `On Scene – ${event.incidentCode}` : "On Scene";
+  }
+
   return formatType(event.type);
 }
 
 function getBadgeStyle(type) {
   const base = {
-    minWidth: "120px",
+    minWidth: "140px",
     padding: "8px 10px",
     borderRadius: "999px",
     fontSize: "12px",
@@ -898,11 +1098,27 @@ function getBadgeStyle(type) {
     marginRight: "16px",
   };
 
+  if (type === "INCIDENT_REPORTED") {
+    return {
+      ...base,
+      background: "#dbeafe",
+      color: "#1d4ed8",
+    };
+  }
+
   if (type === "STAND_DOWN") {
     return {
       ...base,
       background: "#fef3c7",
       color: "#92400e",
+    };
+  }
+
+  if (type === "ON_SCENE") {
+    return {
+      ...base,
+      background: "#fde68a",
+      color: "#78350f",
     };
   }
 
@@ -921,8 +1137,28 @@ function getBadgeStyle(type) {
   };
 }
 
+function getTabStyle(isActive) {
+  return {
+    width: "auto",
+    minWidth: "140px",
+    padding: "12px 18px",
+    borderRadius: "10px",
+    border: isActive ? "2px solid #111827" : "1px solid #d1d5db",
+    background: isActive ? "#111827" : "#ffffff",
+    color: isActive ? "#ffffff" : "#111827",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+}
+
+const tabBarStyle = {
+  display: "flex",
+  gap: "12px",
+  flexWrap: "wrap",
+};
+
 const titleStyle = {
-  fontSize: "56px",
+  fontSize: "48px",
   fontWeight: "bold",
   marginBottom: "10px",
 };
@@ -930,60 +1166,8 @@ const titleStyle = {
 const messageStyle = {
   fontWeight: "bold",
   color: "#444",
-  fontSize: "20px",
+  fontSize: "18px",
   marginBottom: "20px",
-};
-
-const boxStyle = {
-  border: "1px solid #ddd",
-  borderRadius: "18px",
-  padding: "24px",
-  marginBottom: "22px",
-  background: "#fff",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "14px",
-  marginBottom: "14px",
-  fontSize: "14px",
-  borderRadius: "8px",
-  border: "1px solid #999",
-};
-
-const textAreaStyle = {
-  width: "100%",
-  minHeight: "90px",
-  padding: "14px",
-  marginBottom: "14px",
-  fontSize: "14px",
-  borderRadius: "8px",
-  border: "1px solid #999",
-};
-
-const buttonStyle = {
-  padding: "12px 18px",
-  fontSize: "14px",
-  cursor: "pointer",
-  marginRight: "8px",
-  borderRadius: "8px",
-};
-
-const secondaryButtonStyle = {
-  ...buttonStyle,
-  background: "#e5e7eb",
-};
-
-const dangerButtonStyle = {
-  ...buttonStyle,
-  background: "#fecaca",
-};
-
-const smallTextStyle = {
-  fontSize: "14px",
-  color: "#444",
-  display: "block",
-  marginBottom: "10px",
 };
 
 const timelineItemStyle = {
@@ -1025,30 +1209,13 @@ const timelineSceneStyle = {
   color: "#b91c1c",
 };
 
-const filterGridStyle = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: "12px",
-  marginTop: "12px",
-};
-
-const buttonRowStyle = {
-  display: "flex",
-  gap: "10px",
-  flexWrap: "wrap",
-  marginTop: "6px",
-  marginBottom: "8px",
-};
-
-const tableWrapStyle = {
-  overflowX: "auto",
-  marginTop: "16px",
-};
-
-const tableStyle = {
+const incidentRowStyle = {
   width: "100%",
-  borderCollapse: "collapse",
-  minWidth: "1000px",
+  textAlign: "left",
+  background: "#fff",
+  color: "#111827",
+  borderRadius: "12px",
+  padding: "14px",
 };
 
 const thStyle = {
@@ -1065,5 +1232,7 @@ const tdStyle = {
 };
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  React.createElement(App)
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
 );
