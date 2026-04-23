@@ -147,21 +147,38 @@ router.post("/report", requireAuth, async (req, res) => {
       }
     }
 
-    const incident = await prisma.incident.create({
-      data: {
-        incidentCode: normalizedIncidentCode,
-        title: normalizedTitle,
-        description: normalizedDescription,
-        sector: normalizedSector,
-        severity: normalizedSeverity,
-        status: normalizedStatus,
-        source: normalizedSource,
-        linkedPatrolId: linkedPatrolId || null,
-        createdByUserId: req.user.id,
-        reportedAt: new Date(),
-        occurredAt: occurredAt ? new Date(occurredAt) : null,
-      },
-      include: incidentInclude,
+    const incident = await prisma.$transaction(async (tx) => {
+      const createdIncident = await tx.incident.create({
+        data: {
+          incidentCode: normalizedIncidentCode,
+          title: normalizedTitle,
+          description: normalizedDescription,
+          sector: normalizedSector,
+          severity: normalizedSeverity,
+          status: normalizedStatus,
+          source: normalizedSource,
+          linkedPatrolId: linkedPatrolId || null,
+          createdByUserId: req.user.id,
+          reportedAt: new Date(),
+          occurredAt: occurredAt ? new Date(occurredAt) : null,
+        },
+        include: incidentInclude,
+      });
+
+      if (linkedPatrolId) {
+        await tx.patrolEvent.create({
+          data: {
+            patrolId: linkedPatrolId,
+            incidentId: createdIncident.id,
+            type: "INCIDENT_REPORTED",
+            incidentCode: createdIncident.incidentCode,
+            description: createdIncident.title,
+            sceneActive: true,
+          },
+        });
+      }
+
+      return createdIncident;
     });
 
     return res.status(201).json(incident);
@@ -318,24 +335,47 @@ router.patch("/:id/resolve", requireAuth, async (req, res) => {
       return notFound(res);
     }
 
-    const canResolve = isAdminLike(req.user.role) || existing.createdByUserId === req.user.id;
+    const canResolve =
+      isAdminLike(req.user.role) ||
+      existing.createdByUserId === req.user.id;
 
     if (!canResolve) {
-      return res.status(403).json({ error: "You do not have permission to resolve this incident." });
+      return res.status(403).json({
+        error: "You do not have permission to resolve this incident.",
+      });
     }
 
-    const incident = await prisma.incident.update({
-      where: { id: req.params.id },
-      data: {
-        status: "RESOLVED",
-      },
-      include: incidentInclude,
+    const incident = await prisma.$transaction(async (tx) => {
+      const updated = await tx.incident.update({
+        where: { id: req.params.id },
+        data: {
+          status: "RESOLVED",
+        },
+        include: incidentInclude,
+      });
+
+      if (updated.linkedPatrolId) {
+        await tx.patrolEvent.create({
+          data: {
+            patrolId: updated.linkedPatrolId,
+            incidentId: updated.id,
+            type: "STAND_DOWN",
+            incidentCode: updated.incidentCode,
+            description: `Incident resolved: ${updated.title}`,
+            sceneActive: false,
+          },
+        });
+      }
+
+      return updated;
     });
 
     return res.json(incident);
   } catch (error) {
     console.error("PATCH /incidents/:id/resolve failed:", error);
-    return res.status(500).json({ error: "Failed to resolve incident." });
+    return res.status(500).json({
+      error: "Failed to resolve incident.",
+    });
   }
 });
 

@@ -1,0 +1,43 @@
+@baseUrl = http://localhost:4000
+@token = PASTE_REAL_TOKEN_HERE
+@incidentId = 46236d7a-5d2d-4a43-92d2-243e3558373a
+
+###
+GET {{baseUrl}}/health
+
+###
+GET {{baseUrl}}/incidents
+Authorization: Bearer {{token}}
+
+###
+GET {{baseUrl}}/incidents/mine
+Authorization: Bearer {{token}}
+
+###
+GET {{baseUrl}}/incidents/{{incidentId}}
+Authorization: Bearer {{token}}
+
+###
+POST {{baseUrl}}/incidents/report
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Test Incident",
+  "sector": "Sector 1",
+  "severity": "HIGH"
+}
+
+###
+PATCH {{baseUrl}}/incidents/{{incidentId}}/status
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status": "IN_PROGRESS"
+}
+
+###
+PATCH {{baseUrl}}/incidents/{{incidentId}}/resolve
+Content-Type: application/json
+Authorization: Bearer {{token}}

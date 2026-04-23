@@ -1,4 +1,3 @@
-
 import express from "express";
 import { prisma } from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -6,13 +5,27 @@ import { requireRole } from "../middleware/roles.js";
 
 const router = express.Router();
 
+function toNullableString(value) {
+  if (value === undefined || value === null) return null;
+  const trimmed = String(value).trim();
+  return trimmed.length ? trimmed : null;
+}
+
 router.post(
   "/",
   requireAuth,
   requireRole("PATROLLER", "ADMIN"),
   async (req, res) => {
     try {
-      const { patrolId, type, incidentCode, description, assistance, sceneActive } = req.body;
+      const {
+        patrolId,
+        incidentId,
+        type,
+        incidentCode,
+        description,
+        assistance,
+        sceneActive,
+      } = req.body;
 
       if (!patrolId || !type) {
         return res.status(400).json({ error: "patrolId and type are required" });
@@ -30,18 +43,68 @@ router.post(
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const event = await prisma.patrolEvent.create({
-        data: {
-          patrolId,
-          type,
-          incidentCode: incidentCode || null,
-          description: description || null,
-          assistance: assistance || null,
-          sceneActive:
-            typeof sceneActive === "boolean"
-              ? sceneActive
-              : null,
-        },
+      let linkedIncident = null;
+
+      if (incidentId) {
+        linkedIncident = await prisma.incident.findUnique({
+          where: { id: incidentId },
+          select: {
+            id: true,
+            incidentCode: true,
+            linkedPatrolId: true,
+          },
+        });
+
+        if (!linkedIncident) {
+          return res.status(404).json({ error: "Incident not found" });
+        }
+
+        if (linkedIncident.linkedPatrolId && linkedIncident.linkedPatrolId !== patrolId) {
+          return res.status(400).json({
+            error: "Incident is linked to a different patrol",
+          });
+        }
+      }
+
+      const event = await prisma.$transaction(async (tx) => {
+        const createdEvent = await tx.patrolEvent.create({
+          data: {
+            patrolId,
+            incidentId: linkedIncident ? linkedIncident.id : null,
+            type: String(type).trim(),
+            incidentCode: linkedIncident
+              ? linkedIncident.incidentCode
+              : toNullableString(incidentCode),
+            description: toNullableString(description),
+            assistance: toNullableString(assistance),
+            sceneActive: typeof sceneActive === "boolean" ? sceneActive : null,
+          },
+          include: {
+            incident: true,
+          },
+        });
+
+        if (createdEvent.incidentId) {
+          if (createdEvent.type === "ON_SCENE") {
+            await tx.incident.update({
+              where: { id: createdEvent.incidentId },
+              data: {
+                status: "IN_PROGRESS",
+              },
+            });
+          }
+
+          if (createdEvent.type === "STAND_DOWN") {
+            await tx.incident.update({
+              where: { id: createdEvent.incidentId },
+              data: {
+                status: "RESOLVED",
+              },
+            });
+          }
+        }
+
+        return createdEvent;
       });
 
       res.status(201).json(event);
@@ -74,6 +137,9 @@ router.get(
 
       const events = await prisma.patrolEvent.findMany({
         where: { patrolId },
+        include: {
+          incident: true,
+        },
         orderBy: { createdAt: "asc" },
       });
 
@@ -96,6 +162,7 @@ router.get(
           type: "STAND_DOWN",
         },
         include: {
+          incident: true,
           patrol: {
             include: {
               user: {
@@ -124,7 +191,7 @@ router.get(
       const summaryMap = new Map();
 
       for (const event of events) {
-        const code = event.incidentCode || "UNCODED";
+        const code = event.incident?.incidentCode || event.incidentCode || "UNCODED";
         const assistance = event.assistance || "NONE";
         const key = `${code}__${assistance}`;
 
