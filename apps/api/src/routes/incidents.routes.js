@@ -24,36 +24,21 @@ function toNullableString(value) {
   return trimmed.length ? trimmed : null;
 }
 
-function toNullableDecimal(value) {
-  if (value === undefined || value === null || value === "") return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-function normalizePriority(value) {
+function normalizeSeverity(value) {
   const allowed = new Set(["LOW", "MEDIUM", "HIGH", "CRITICAL"]);
   const normalized = String(value || "MEDIUM").trim().toUpperCase();
   return allowed.has(normalized) ? normalized : null;
 }
 
 function normalizeStatus(value) {
-  const allowed = new Set([
-    "REPORTED",
-    "ACKNOWLEDGED",
-    "ASSIGNED",
-    "EN_ROUTE",
-    "ON_SCENE",
-    "RESOLVED",
-    "CLOSED",
-    "CANCELLED",
-  ]);
-  const normalized = String(value || "").trim().toUpperCase();
+  const allowed = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
+  const normalized = String(value || "OPEN").trim().toUpperCase();
   return allowed.has(normalized) ? normalized : null;
 }
 
 function normalizeSource(value) {
-  const allowed = new Set(["PATROLLER", "CONTROL_ROOM", "ADMIN", "SYSTEM", "IMPORT"]);
-  const normalized = String(value || "PATROLLER").trim().toUpperCase();
+  const allowed = new Set(["PATROL", "CONTROL_ROOM", "ADMIN", "SYSTEM", "PUBLIC"]);
+  const normalized = String(value || "PATROL").trim().toUpperCase();
   return allowed.has(normalized) ? normalized : null;
 }
 
@@ -69,44 +54,42 @@ function buildIncidentCode() {
   return `INC-${yyyy}${mm}${dd}-${hh}${mi}${ss}-${rand}`;
 }
 
-function buildStatusTimestamps(status) {
-  const now = new Date();
-  const patch = {};
-
-  if (status === "ACKNOWLEDGED") patch.acknowledgedAt = now;
-  if (status === "ASSIGNED") patch.assignedAt = now;
-  if (status === "EN_ROUTE") patch.dispatchedAt = now;
-  if (status === "ON_SCENE") patch.onSceneAt = now;
-  if (status === "RESOLVED") patch.resolvedAt = now;
-  if (status === "CLOSED") patch.closedAt = now;
-
-  return patch;
-}
-
 const incidentInclude = {
-  patrol: {
+  createdBy: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+      isActive: true,
+    },
+  },
+  linkedPatrol: {
     select: {
       id: true,
       sector: true,
       status: true,
       startTime: true,
       endTime: true,
+      startKm: true,
+      endKm: true,
+      totalKm: true,
     },
   },
-  reportedByUser: {
+  patrolEvents: {
     select: {
       id: true,
-      fullName: true,
-      email: true,
-      role: true,
+      patrolId: true,
+      incidentId: true,
+      type: true,
+      incidentCode: true,
+      description: true,
+      assistance: true,
+      sceneActive: true,
+      createdAt: true,
     },
-  },
-  assignedToUser: {
-    select: {
-      id: true,
-      fullName: true,
-      email: true,
-      role: true,
+    orderBy: {
+      createdAt: "desc",
     },
   },
 };
@@ -114,94 +97,69 @@ const incidentInclude = {
 router.post("/report", requireAuth, async (req, res) => {
   try {
     const {
-      patrolId,
-      assignedToUserId,
+      incidentCode,
       title,
       description,
-      category,
-      subCategory,
-      priority,
+      sector,
+      severity,
       status,
       source,
-      sector,
-      locationText,
-      address,
-      latitude,
-      longitude,
-      liabilityAccepted,
-      metadata,
+      linkedPatrolId,
+      occurredAt,
     } = req.body;
 
     const normalizedTitle = toNullableString(title);
     const normalizedDescription = toNullableString(description);
-    const normalizedCategory = toNullableString(category);
-    const normalizedPriority = normalizePriority(priority);
-    const normalizedStatus = normalizeStatus(status || "REPORTED");
-    const normalizedSource = normalizeSource(source || "PATROLLER");
-    const parsedLatitude = toNullableDecimal(latitude);
-    const parsedLongitude = toNullableDecimal(longitude);
+    const normalizedSector = toNullableString(sector);
+    const normalizedSeverity = normalizeSeverity(severity);
+    const normalizedStatus = normalizeStatus(status || "OPEN");
+    const normalizedSource = normalizeSource(source || "PATROL");
+    const normalizedIncidentCode = toNullableString(incidentCode) || buildIncidentCode();
 
-    if (!normalizedTitle) return badRequest(res, "Title is required.");
-    if (!normalizedDescription) return badRequest(res, "Description is required.");
-    if (!normalizedCategory) return badRequest(res, "Category is required.");
-    if (!normalizedPriority) {
-      return badRequest(res, "Priority must be LOW, MEDIUM, HIGH, or CRITICAL.");
-    }
-    if (!normalizedStatus) return badRequest(res, "Status is invalid.");
-    if (!normalizedSource) return badRequest(res, "Source is invalid.");
-
-    if (
-      (latitude !== undefined || longitude !== undefined) &&
-      (parsedLatitude === null || parsedLongitude === null)
-    ) {
-      return badRequest(res, "Latitude and longitude must both be valid numbers when supplied.");
+    if (!normalizedTitle) {
+      return badRequest(res, "Title is required.");
     }
 
-    if (patrolId) {
-      const patrol = await prisma.patrol.findUnique({
-        where: { id: patrolId },
+    if (!normalizedSector) {
+      return badRequest(res, "Sector is required.");
+    }
+
+    if (!normalizedSeverity) {
+      return badRequest(res, "Severity must be LOW, MEDIUM, HIGH, or CRITICAL.");
+    }
+
+    if (!normalizedStatus) {
+      return badRequest(res, "Status must be OPEN, IN_PROGRESS, RESOLVED, or CLOSED.");
+    }
+
+    if (!normalizedSource) {
+      return badRequest(res, "Source is invalid.");
+    }
+
+    if (linkedPatrolId) {
+      const patrol = await prisma.patrolSession.findUnique({
+        where: { id: linkedPatrolId },
         select: { id: true },
       });
 
       if (!patrol) {
-        return badRequest(res, "Patrol not found for supplied patrolId.");
-      }
-    }
-
-    if (assignedToUserId) {
-      const assignee = await prisma.user.findUnique({
-        where: { id: assignedToUserId },
-        select: { id: true },
-      });
-
-      if (!assignee) {
-        return badRequest(res, "Assigned user not found.");
+        return badRequest(res, "Linked patrol not found.");
       }
     }
 
     const incident = await prisma.incident.create({
       data: {
-        incidentCode: buildIncidentCode(),
-        patrolId: patrolId || null,
-        reportedByUserId: req.user.id,
-        assignedToUserId: assignedToUserId || null,
+        incidentCode: normalizedIncidentCode,
         title: normalizedTitle,
         description: normalizedDescription,
-        category: normalizedCategory,
-        subCategory: toNullableString(subCategory),
-        priority: normalizedPriority,
+        sector: normalizedSector,
+        severity: normalizedSeverity,
         status: normalizedStatus,
         source: normalizedSource,
-        sector: toNullableString(sector),
-        locationText: toNullableString(locationText),
-        address: toNullableString(address),
-        latitude: parsedLatitude,
-        longitude: parsedLongitude,
-        liabilityAccepted: Boolean(liabilityAccepted),
-        liabilityAcceptedAt: liabilityAccepted ? new Date() : null,
+        linkedPatrolId: linkedPatrolId || null,
+        createdByUserId: req.user.id,
         reportedAt: new Date(),
-        metadata: metadata && typeof metadata === "object" ? metadata : null,
-        ...buildStatusTimestamps(normalizedStatus),
+        occurredAt: occurredAt ? new Date(occurredAt) : null,
       },
       include: incidentInclude,
     });
@@ -217,12 +175,11 @@ router.get("/mine", requireAuth, async (req, res) => {
   try {
     const incidents = await prisma.incident.findMany({
       where: {
-        OR: [
-          { reportedByUserId: req.user.id },
-          { assignedToUserId: req.user.id },
-        ],
+        createdByUserId: req.user.id,
       },
-      orderBy: { reportedAt: "desc" },
+      orderBy: {
+        reportedAt: "desc",
+      },
       include: incidentInclude,
     });
 
@@ -235,49 +192,47 @@ router.get("/mine", requireAuth, async (req, res) => {
 
 router.get("/", requireAuth, async (req, res) => {
   try {
-    const {
-      status,
-      priority,
-      category,
-      sector,
-      patrolId,
-      assignedToUserId,
-      reportedByUserId,
-      limit,
-    } = req.query;
+    const { status, severity, sector, linkedPatrolId, createdByUserId, limit } = req.query;
 
     const where = {};
 
     if (status) {
-      const normalized = normalizeStatus(status);
-      if (!normalized) return badRequest(res, "Invalid status filter.");
-      where.status = normalized;
+      const normalizedStatus = normalizeStatus(status);
+      if (!normalizedStatus) {
+        return badRequest(res, "Invalid status filter.");
+      }
+      where.status = normalizedStatus;
     }
 
-    if (priority) {
-      const normalized = normalizePriority(priority);
-      if (!normalized) return badRequest(res, "Invalid priority filter.");
-      where.priority = normalized;
+    if (severity) {
+      const normalizedSeverity = normalizeSeverity(severity);
+      if (!normalizedSeverity) {
+        return badRequest(res, "Invalid severity filter.");
+      }
+      where.severity = normalizedSeverity;
     }
 
-    if (category) where.category = String(category).trim();
-    if (sector) where.sector = String(sector).trim();
-    if (patrolId) where.patrolId = String(patrolId).trim();
-    if (assignedToUserId) where.assignedToUserId = String(assignedToUserId).trim();
-    if (reportedByUserId) where.reportedByUserId = String(reportedByUserId).trim();
+    if (sector) {
+      where.sector = String(sector).trim();
+    }
+
+    if (linkedPatrolId) {
+      where.linkedPatrolId = String(linkedPatrolId).trim();
+    }
 
     if (!isAdminLike(req.user.role)) {
-      where.OR = [
-        { reportedByUserId: req.user.id },
-        { assignedToUserId: req.user.id },
-      ];
+      where.createdByUserId = req.user.id;
+    } else if (createdByUserId) {
+      where.createdByUserId = String(createdByUserId).trim();
     }
 
     const take = Math.min(Math.max(Number(limit) || 50, 1), 200);
 
     const incidents = await prisma.incident.findMany({
       where,
-      orderBy: { reportedAt: "desc" },
+      orderBy: {
+        reportedAt: "desc",
+      },
       take,
       include: incidentInclude,
     });
@@ -296,12 +251,11 @@ router.get("/:id", requireAuth, async (req, res) => {
       include: incidentInclude,
     });
 
-    if (!incident) return notFound(res);
+    if (!incident) {
+      return notFound(res);
+    }
 
-    const canView =
-      isAdminLike(req.user.role) ||
-      incident.reportedByUserId === req.user.id ||
-      incident.assignedToUserId === req.user.id;
+    const canView = isAdminLike(req.user.role) || incident.createdByUserId === req.user.id;
 
     if (!canView) {
       return res.status(403).json({ error: "You do not have access to this incident." });
@@ -314,58 +268,13 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
-router.patch("/:id/assign", requireAuth, async (req, res) => {
-  try {
-    if (!isAdminLike(req.user.role)) {
-      return res.status(403).json({ error: "Only admin/control roles may assign incidents." });
-    }
-
-    const { assignedToUserId } = req.body;
-
-    if (!assignedToUserId) {
-      return badRequest(res, "assignedToUserId is required.");
-    }
-
-    const existing = await prisma.incident.findUnique({
-      where: { id: req.params.id },
-      select: { id: true },
-    });
-
-    if (!existing) return notFound(res);
-
-    const assignee = await prisma.user.findUnique({
-      where: { id: assignedToUserId },
-      select: { id: true },
-    });
-
-    if (!assignee) {
-      return badRequest(res, "Assigned user not found.");
-    }
-
-    const incident = await prisma.incident.update({
-      where: { id: req.params.id },
-      data: {
-        assignedToUserId,
-        status: "ASSIGNED",
-        assignedAt: new Date(),
-      },
-      include: incidentInclude,
-    });
-
-    return res.json(incident);
-  } catch (error) {
-    console.error("PATCH /incidents/:id/assign failed:", error);
-    return res.status(500).json({ error: "Failed to assign incident." });
-  }
-});
-
 router.patch("/:id/status", requireAuth, async (req, res) => {
   try {
     const { status } = req.body;
-    const normalizedStatus = normalizeStatus(status);
 
+    const normalizedStatus = normalizeStatus(status);
     if (!normalizedStatus) {
-      return badRequest(res, "Valid status is required.");
+      return badRequest(res, "Status must be OPEN, IN_PROGRESS, RESOLVED, or CLOSED.");
     }
 
     const existing = await prisma.incident.findUnique({
@@ -373,12 +282,11 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
       include: incidentInclude,
     });
 
-    if (!existing) return notFound(res);
+    if (!existing) {
+      return notFound(res);
+    }
 
-    const canUpdate =
-      isAdminLike(req.user.role) ||
-      existing.reportedByUserId === req.user.id ||
-      existing.assignedToUserId === req.user.id;
+    const canUpdate = isAdminLike(req.user.role) || existing.createdByUserId === req.user.id;
 
     if (!canUpdate) {
       return res.status(403).json({ error: "You do not have permission to update this incident." });
@@ -388,7 +296,6 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
       where: { id: req.params.id },
       data: {
         status: normalizedStatus,
-        ...buildStatusTimestamps(normalizedStatus),
       },
       include: incidentInclude,
     });
@@ -402,39 +309,26 @@ router.patch("/:id/status", requireAuth, async (req, res) => {
 
 router.patch("/:id/resolve", requireAuth, async (req, res) => {
   try {
-    const { resolutionNotes, status } = req.body;
-
     const existing = await prisma.incident.findUnique({
       where: { id: req.params.id },
       include: incidentInclude,
     });
 
-    if (!existing) return notFound(res);
+    if (!existing) {
+      return notFound(res);
+    }
 
-    const canResolve =
-      isAdminLike(req.user.role) ||
-      existing.assignedToUserId === req.user.id;
+    const canResolve = isAdminLike(req.user.role) || existing.createdByUserId === req.user.id;
 
     if (!canResolve) {
       return res.status(403).json({ error: "You do not have permission to resolve this incident." });
     }
 
-    const nextStatus = normalizeStatus(status || "RESOLVED");
-    if (!nextStatus || !["RESOLVED", "CLOSED"].includes(nextStatus)) {
-      return badRequest(res, "Resolve endpoint only accepts RESOLVED or CLOSED.");
-    }
-
-    const now = new Date();
-    const data = {
-      status: nextStatus,
-      resolutionNotes: toNullableString(resolutionNotes),
-      resolvedAt: existing.resolvedAt || now,
-      ...(nextStatus === "CLOSED" ? { closedAt: now } : {}),
-    };
-
     const incident = await prisma.incident.update({
       where: { id: req.params.id },
-      data,
+      data: {
+        status: "RESOLVED",
+      },
       include: incidentInclude,
     });
 

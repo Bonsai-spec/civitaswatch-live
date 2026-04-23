@@ -7,17 +7,18 @@ datasource db {
 }
 
 model User {
-  id                  String               @id @default(uuid())
-  fullName            String
-  email               String               @unique
-  passwordHash        String
-  role                String
-  isActive            Boolean              @default(true)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id           String   @id @default(uuid())
+  fullName     String
+  email        String   @unique
+  passwordHash String
+  role         String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   prePatrolChecklists PrePatrolChecklist[]
   patrolSessions      PatrolSession[]
+  incidentsCreated    Incident[]
 }
 
 model PrePatrolChecklist {
@@ -35,45 +36,46 @@ model PrePatrolChecklist {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  patrolSessions       PatrolSession[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patrolSessions PatrolSession[]
 
   @@index([userId, patrolDate])
 }
 
 model Vehicle {
-  id             String          @id @default(uuid())
-  make           String
-  type           String
-  registration   String          @unique
-  colour         String
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id           String   @id @default(uuid())
+  make         String
+  type         String
+  registration String   @unique
+  colour       String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   patrolSessions PatrolSession[]
 }
 
 model PatrolSession {
-  id           String               @id @default(uuid())
-  userId       String
-  vehicleId    String
-  sector       String
-  checklistId  String?
-  startTime    DateTime             @default(now())
-  endTime      DateTime?
-  startKm      Int
-  endKm        Int?
-  totalKm      Int?
-  summary      String?
-  status       String               @default("ACTIVE")
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
+  id          String    @id @default(uuid())
+  userId      String
+  vehicleId   String
+  sector      String
+  checklistId String?
+  startTime   DateTime  @default(now())
+  endTime     DateTime?
+  startKm     Int
+  endKm       Int?
+  totalKm     Int?
+  summary     String?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicle      Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
-  checklist    PrePatrolChecklist?  @relation(fields: [checklistId], references: [id], onDelete: SetNull)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle             @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  checklist    PrePatrolChecklist? @relation(fields: [checklistId], references: [id], onDelete: SetNull)
   patrolEvents PatrolEvent[]
+  incidents    Incident[]
 
   @@index([userId, startTime])
   @@index([vehicleId, startTime])
@@ -81,24 +83,24 @@ model PatrolSession {
 }
 
 model Incident {
-  id              String        @id @default(uuid())
-  incidentCode    String
+  id              String    @id @default(uuid())
+  incidentCode    String    @unique
   title           String
   description     String?
   sector          String
-  status          String        @default("OPEN")
-  severity        String        @default("MEDIUM")
-  source          String        @default("PATROL")
+  status          String    @default("OPEN")
+  severity        String    @default("MEDIUM")
+  source          String    @default("PATROL")
   linkedPatrolId  String?
   createdByUserId String
-  reportedAt      DateTime      @default(now())
+  reportedAt      DateTime  @default(now())
   occurredAt      DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  createdBy       User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
-  linkedPatrol    PatrolSession? @relation(fields: [linkedPatrolId], references: [id], onDelete: SetNull)
-  patrolEvents    PatrolEvent[]
+  createdBy    User           @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  linkedPatrol PatrolSession? @relation(fields: [linkedPatrolId], references: [id], onDelete: SetNull)
+  patrolEvents PatrolEvent[]
 
   @@index([incidentCode])
   @@index([sector])
@@ -106,22 +108,21 @@ model Incident {
   @@index([reportedAt])
 }
 
-
-
-
-
 model PatrolEvent {
-  id           String        @id @default(uuid())
+  id           String   @id @default(uuid())
   patrolId     String
+  incidentId   String?
   type         String
   incidentCode String?
   description  String?
   assistance   String?
   sceneActive  Boolean?
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime @default(now())
 
-  patrol       PatrolSession @relation(fields: [patrolId], references: [id], onDelete: Cascade)
+  patrol   PatrolSession @relation(fields: [patrolId], references: [id], onDelete: Cascade)
+  incident Incident?     @relation(fields: [incidentId], references: [id], onDelete: SetNull)
 
   @@index([patrolId, createdAt])
+  @@index([incidentId])
   @@index([type])
 }
