@@ -80,6 +80,36 @@ model PatrolSession {
   @@index([status])
 }
 
+model Incident {
+  id              String        @id @default(uuid())
+  incidentCode    String
+  title           String
+  description     String?
+  sector          String
+  status          String        @default("OPEN")
+  severity        String        @default("MEDIUM")
+  source          String        @default("PATROL")
+  linkedPatrolId  String?
+  createdByUserId String
+  reportedAt      DateTime      @default(now())
+  occurredAt      DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  createdBy       User          @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  linkedPatrol    PatrolSession? @relation(fields: [linkedPatrolId], references: [id], onDelete: SetNull)
+  patrolEvents    PatrolEvent[]
+
+  @@index([incidentCode])
+  @@index([sector])
+  @@index([status])
+  @@index([reportedAt])
+}
+
+
+
+
+
 model PatrolEvent {
   id           String        @id @default(uuid())
   patrolId     String
