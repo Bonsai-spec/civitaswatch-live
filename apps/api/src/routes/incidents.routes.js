@@ -285,6 +285,118 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 });
 
+router.patch("/:id", requireAuth, async (req, res) => {
+  try {
+    const existing = await prisma.incident.findUnique({
+      where: { id: req.params.id },
+      include: incidentInclude,
+    });
+
+    if (!existing) {
+      return notFound(res);
+    }
+
+    const canEdit = isAdminLike(req.user.role) || existing.createdByUserId === req.user.id;
+
+    if (!canEdit) {
+      return res.status(403).json({
+        error: "You do not have permission to edit this incident.",
+      });
+    }
+
+    const {
+      title,
+      description,
+      sector,
+      severity,
+      status,
+      source,
+      linkedPatrolId,
+      occurredAt,
+    } = req.body;
+
+    const data = {};
+
+    if (title !== undefined) {
+      const normalizedTitle = toNullableString(title);
+      if (!normalizedTitle) {
+        return badRequest(res, "Title cannot be empty.");
+      }
+      data.title = normalizedTitle;
+    }
+
+    if (description !== undefined) {
+      data.description = toNullableString(description);
+    }
+
+    if (sector !== undefined) {
+      const normalizedSector = toNullableString(sector);
+      if (!normalizedSector) {
+        return badRequest(res, "Sector cannot be empty.");
+      }
+      data.sector = normalizedSector;
+    }
+
+    if (severity !== undefined) {
+      const normalizedSeverity = normalizeSeverity(severity);
+      if (!normalizedSeverity) {
+        return badRequest(res, "Severity must be LOW, MEDIUM, HIGH, or CRITICAL.");
+      }
+      data.severity = normalizedSeverity;
+    }
+
+    if (status !== undefined) {
+      const normalizedStatus = normalizeStatus(status);
+      if (!normalizedStatus) {
+        return badRequest(res, "Status must be OPEN, IN_PROGRESS, RESOLVED, or CLOSED.");
+      }
+      data.status = normalizedStatus;
+    }
+
+    if (source !== undefined) {
+      const normalizedSource = normalizeSource(source);
+      if (!normalizedSource) {
+        return badRequest(res, "Source is invalid.");
+      }
+      data.source = normalizedSource;
+    }
+
+    if (linkedPatrolId !== undefined) {
+      const normalizedLinkedPatrolId = toNullableString(linkedPatrolId);
+
+      if (normalizedLinkedPatrolId) {
+        const patrol = await prisma.patrolSession.findUnique({
+          where: { id: normalizedLinkedPatrolId },
+          select: { id: true },
+        });
+
+        if (!patrol) {
+          return badRequest(res, "Linked patrol not found.");
+        }
+
+        data.linkedPatrolId = normalizedLinkedPatrolId;
+      } else {
+        data.linkedPatrolId = null;
+      }
+    }
+
+    if (occurredAt !== undefined) {
+      data.occurredAt = occurredAt ? new Date(occurredAt) : null;
+    }
+
+    const incident = await prisma.incident.update({
+      where: { id: req.params.id },
+      data,
+      include: incidentInclude,
+    });
+
+    return res.json(incident);
+  } catch (error) {
+    console.error("PATCH /incidents/:id failed:", error);
+    return res.status(500).json({ error: "Failed to update incident." });
+  }
+});
+
 router.patch("/:id/status", requireAuth, async (req, res) => {
   try {
     const { status } = req.body;
@@ -375,6 +487,40 @@ router.patch("/:id/resolve", requireAuth, async (req, res) => {
     console.error("PATCH /incidents/:id/resolve failed:", error);
     return res.status(500).json({
       error: "Failed to resolve incident.",
+    });
+  }
+});
+
+router.patch("/:id/close", requireAuth, async (req, res) => {
+  try {
+    const existing = await prisma.incident.findUnique({
+      where: { id: req.params.id },
+      include: incidentInclude,
+    });
+
+    if (!existing) {
+      return notFound(res);
+    }
+
+    if (!isAdminLike(req.user.role)) {
+      return res.status(403).json({
+        error: "Only admin users can close incidents.",
+      });
+    }
+
+    const incident = await prisma.incident.update({
+      where: { id: req.params.id },
+      data: {
+        status: "CLOSED",
+      },
+      include: incidentInclude,
+    });
+
+    return res.json(incident);
+  } catch (error) {
+    console.error("PATCH /incidents/:id/close failed:", error);
+    return res.status(500).json({
+      error: "Failed to close incident.",
     });
   }
 });

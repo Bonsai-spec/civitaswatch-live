@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+
 import usersRoutes from "./routes/users.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import intelligenceRoutes from "./routes/intelligence.routes.js";
@@ -7,6 +8,7 @@ import checklistsRoutes from "./routes/checklists.routes.js";
 import vehiclesRoutes from "./routes/vehicles.routes.js";
 import patrolsRoutes from "./routes/patrols.routes.js";
 import patrolEventsRoutes from "./routes/patrol-events.routes.js";
+import incidentsRoutes from "./routes/incidents.routes.js";
 
 const app = express();
 
@@ -29,5 +31,6 @@ app.use("/checklists", checklistsRoutes);
 app.use("/vehicles", vehiclesRoutes);
 app.use("/patrols", patrolsRoutes);
 app.use("/patrol-events", patrolEventsRoutes);
+app.use("/incidents", incidentsRoutes);
 
 export default app;

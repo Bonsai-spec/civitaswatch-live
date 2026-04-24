@@ -29,6 +29,18 @@ Authorization: Bearer {{token}}
 }
 
 ###
+PATCH {{baseUrl}}/incidents/{{incidentId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Updated Incident Title",
+  "description": "Updated by admin",
+  "sector": "Sector 2",
+  "severity": "CRITICAL"
+}
+
+###
 PATCH {{baseUrl}}/incidents/{{incidentId}}/status
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -40,4 +52,13 @@ Authorization: Bearer {{token}}
 ###
 PATCH {{baseUrl}}/incidents/{{incidentId}}/resolve
 Content-Type: application/json
+Authorization: Bearer {{token}}
+
+###
+PATCH {{baseUrl}}/incidents/{{incidentId}}/close
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+###
+GET {{baseUrl}}/incidents/{{incidentId}}
 Authorization: Bearer {{token}}
