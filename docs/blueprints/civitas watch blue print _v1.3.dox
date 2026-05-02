@@ -1,0 +1,438 @@
+CivitasWatch – Phase 2B Core Blueprint (Version 1)
+
+1. Users
+
+System login accounts
+
+Linked to roles
+
+2. Roles
+
+Admin
+
+Controller
+
+Patroller
+
+3. Permissions
+
+Actions per module:
+
+View
+
+Add
+
+Edit
+
+Delete
+
+Export
+
+Manage Permissions
+
+4. Role Permissions
+
+Tick-box matrix
+
+Links roles to permissions
+
+5. Permission Logic
+
+Controls:
+
+Menu visibility
+
+Button access
+
+Page access
+
+Enforced in backend
+
+6. Navigation Structure
+
+Dashboard
+
+Registers
+
+Residents
+
+Patrollers
+
+Reports
+
+Incident Reports
+
+Infrastructure Reports
+
+Emergency Numbers
+
+Users & Permissions
+
+7. Resident Register
+
+Fields:
+
+resident_id
+
+full_name
+
+gate_number
+
+street_name
+
+suburb
+
+mobile_number
+
+alternative_number
+
+email
+
+active_status
+
+registration_status
+
+notes
+
+created_at
+
+updated_at
+
+8. Patroller Register
+
+Fields:
+
+patroller_id
+
+full_name
+
+call_sign
+
+street_address
+
+suburb
+
+mobile_number
+
+alternative_number
+
+medical_aid_name
+
+medical_aid_number
+
+next_of_kin_name
+
+next_of_kin_mobile
+
+active_status
+
+notes
+
+created_at
+
+updated_at
+
+9. Incident Reports
+
+Fields:
+
+incident_id
+
+incident_type_id
+
+incident_sub_type_id
+
+incident_date
+
+approx_time_occurred
+
+incident_description
+
+incident_detail
+
+services_on_scene
+
+reference_numbers
+
+reported_by_user_id
+
+reported_by_patroller_id
+
+status
+
+follow_up_required
+
+admin_notes
+
+created_at
+
+updated_at
+
+10. Infrastructure Reports
+
+Fields:
+
+infrastructure_report_id
+
+infrastructure_type
+
+infrastructure_sub_type
+
+reported_date
+
+approx_time_observed
+
+location_description
+
+street_name
+
+suburb
+
+gps_location
+
+photo
+
+description
+
+priority
+
+reported_by_user_id
+
+reported_by_patroller_id
+
+status
+
+assigned_to
+
+admin_notes
+
+created_at
+
+updated_at
+
+11. Emergency Numbers
+
+Fields:
+
+emergency_id
+
+service_name
+
+contact_number
+
+alternative_number
+
+category
+
+description
+
+active_status
+
+created_at
+
+updated_at
+
+System Principles
+
+Registers = People
+
+Reports = Activity
+
+Users ≠ Residents
+
+Call Sign ≠ System ID
+
+Permissions control everything
+
+12. Crime Intelligence Module
+
+Purpose:
+
+Build historical intelligence over time
+
+Track Persons of Interest, Vehicles of Interest, and Places of Interest
+
+Link observations across sectors, incidents, patrols, and reports
+
+Support future spider-map / node-link visualisation
+
+Core intelligence entity types:
+
+POI = Person of Interest
+
+VOI = Vehicle of Interest
+
+LOI = Location / Place of Interest
+
+Group / Organisation
+
+Other
+
+Key principle:
+
+POI / VOI / LOI must not only live inside incident reports.
+
+They must be stored as reusable intelligence entities.
+
+If the same VOI is seen in Sector A and later in Sector B, the system must allow linking those observations together.
+
+Crime intelligence structure:
+
+Intelligence Entities
+
+Fields:
+
+intelligence_entity_id
+
+entity_type
+
+display_name
+
+description
+
+risk_level
+
+status
+
+created_at
+
+updated_at
+
+POI Person Details
+
+Fields:
+
+poi_detail_id
+
+intelligence_entity_id
+
+first_name
+
+last_name
+
+alias
+
+id_number
+
+mobile_number
+
+physical_description
+
+known_address
+
+notes
+
+VOI Vehicle Details
+
+Fields:
+
+voi_detail_id
+
+intelligence_entity_id
+
+registration_number
+
+make
+
+model
+
+colour
+
+vehicle_type
+
+distinguishing_marks
+
+notes
+
+LOI Place Details
+
+Fields:
+
+loi_detail_id
+
+intelligence_entity_id
+
+place_name
+
+street_address
+
+suburb
+
+gps_location
+
+place_type
+
+notes
+
+Intelligence Links / Spider Map
+
+Fields:
+
+intelligence_link_id
+
+from_entity_id
+
+to_entity_id
+
+link_type
+
+confidence_level
+
+notes
+
+created_at
+
+Example link types:
+
+ASSOCIATED_WITH
+
+SEEN_AT
+
+OWNS
+
+DRIVES
+
+LINKED_TO_INCIDENT
+
+FREQUENTS
+
+SUSPECTED_CONNECTION
+
+Incident Intelligence Links
+
+Fields:
+
+incident_intelligence_link_id
+
+incident_id
+
+intelligence_entity_id
+
+role_in_incident
+
+notes
+
+Example roles:
+
+Suspect
+
+Witness
+
+Vehicle used
+
+Location involved
+
+Mentioned
+
+Future view:
+
+Spider map showing nodes and links
+
+Example: VOI seen in Sector A → linked to POI → linked to Incident → later seen in Sector B
+
+Status
+
+✔ Core Blueprint v1 Complete
+✔ Crime Intelligence Extension Added as v1.1
+✔ Ready for Prisma Schema Alignment / Development
+

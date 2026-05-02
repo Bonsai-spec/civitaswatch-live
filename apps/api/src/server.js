@@ -1,13 +1,12 @@
 import app from "./app.js";
 
 const PORT = process.env.PORT || 4000;
+const HOST = "0.0.0.0";
 
-import incidentsRoutes from "./routes/incidents.routes.js";
-
-// other app.use(...) routes...
-
-app.use("/incidents", incidentsRoutes);
-
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log("=================================");
+  console.log("🚀 CIVITASWATCH API RUNNING");
+  console.log(`Local:   http://localhost:${PORT}`);
+  console.log(`Network: http://192.168.0.143:${PORT}`);
+  console.log("=================================");
 });

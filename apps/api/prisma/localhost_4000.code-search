@@ -1,0 +1,13 @@
+# Query: localhost:4000
+# ContextLines: 1
+
+2 results - 2 files
+
+apps/api/civitaswatch.api.http:
+  1: @baseUrl = http://http://192.168.0.143:4000";
+  2  @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjA1YjFiNjY4LWMwZGYtNDQzNS05MWI0LTkwYjI2ODVjYTNlNyIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3Njk0MzczNywiZXhwIjoxNzc3NTQ4NTM3fQ.2YWkS7wEet3LUnOg5u_JG8BYUbrvANzXfuJ5aBVxGJI
+
+apps/web/public/patroller.html:
+  369  <script>
+  370: const API = "http://http://192.168.0.143:4000";
+  371  let token = localStorage.getItem("cw_patrol_token") || "";

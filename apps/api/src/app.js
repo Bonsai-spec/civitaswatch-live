@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+
 import usersRoutes from "./routes/users.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import intelligenceRoutes from "./routes/intelligence.routes.js";
@@ -8,10 +9,21 @@ import vehiclesRoutes from "./routes/vehicles.routes.js";
 import patrolsRoutes from "./routes/patrols.routes.js";
 import patrolEventsRoutes from "./routes/patrol-events.routes.js";
 import incidentsRoutes from "./routes/incidents.routes.js";
+import organisationsRoutes from "./routes/organisations.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
+import { requireAuth } from "./middleware/auth.js";
+import membersRoutes from "./routes/members.routes.js";
+
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 
 app.use(express.json());
 
@@ -27,5 +39,10 @@ app.use("/vehicles", vehiclesRoutes);
 app.use("/patrols", patrolsRoutes);
 app.use("/patrol-events", patrolEventsRoutes);
 app.use("/incidents", incidentsRoutes);
+app.use("/organisations", organisationsRoutes);
+app.use("/admin", requireAuth, adminRoutes);
+app.use("/members", membersRoutes);
 
 export default app;
+
+

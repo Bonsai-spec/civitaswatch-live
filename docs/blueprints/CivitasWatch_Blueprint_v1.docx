@@ -1,0 +1,251 @@
+CivitasWatch – Phase 2B Core Blueprint (Version 1)
+
+1. Users
+
+System login accounts
+
+Linked to roles
+
+2. Roles
+
+Admin
+
+Controller
+
+Patroller
+
+3. Permissions
+
+Actions per module:
+
+View
+
+Add
+
+Edit
+
+Delete
+
+Export
+
+Manage Permissions
+
+4. Role Permissions
+
+Tick-box matrix
+
+Links roles to permissions
+
+5. Permission Logic
+
+Controls:
+
+Menu visibility
+
+Button access
+
+Page access
+
+Enforced in backend
+
+6. Navigation Structure
+
+Dashboard
+
+Registers
+
+Residents
+
+Patrollers
+
+Reports
+
+Incident Reports
+
+Infrastructure Reports
+
+Emergency Numbers
+
+Users & Permissions
+
+7. Resident Register
+
+Fields:
+
+resident_id
+
+full_name
+
+gate_number
+
+street_name
+
+suburb
+
+mobile_number
+
+alternative_number
+
+email
+
+active_status
+
+registration_status
+
+notes
+
+created_at
+
+updated_at
+
+8. Patroller Register
+
+Fields:
+
+patroller_id
+
+full_name
+
+call_sign
+
+street_address
+
+suburb
+
+mobile_number
+
+alternative_number
+
+medical_aid_name
+
+medical_aid_number
+
+next_of_kin_name
+
+next_of_kin_mobile
+
+active_status
+
+notes
+
+created_at
+
+updated_at
+
+9. Incident Reports
+
+Fields:
+
+incident_id
+
+incident_type_id
+
+incident_sub_type_id
+
+incident_date
+
+approx_time_occurred
+
+incident_description
+
+incident_detail
+
+services_on_scene
+
+reference_numbers
+
+reported_by_user_id
+
+reported_by_patroller_id
+
+status
+
+follow_up_required
+
+admin_notes
+
+created_at
+
+updated_at
+
+10. Infrastructure Reports
+
+Fields:
+
+infrastructure_report_id
+
+infrastructure_type
+
+infrastructure_sub_type
+
+reported_date
+
+approx_time_observed
+
+location_description
+
+street_name
+
+suburb
+
+gps_location
+
+photo
+
+description
+
+priority
+
+reported_by_user_id
+
+reported_by_patroller_id
+
+status
+
+assigned_to
+
+admin_notes
+
+created_at
+
+updated_at
+
+11. Emergency Numbers
+
+Fields:
+
+emergency_id
+
+service_name
+
+contact_number
+
+alternative_number
+
+category
+
+description
+
+active_status
+
+created_at
+
+updated_at
+
+System Principles
+
+Registers = People
+
+Reports = Activity
+
+Users ≠ Residents
+
+Call Sign ≠ System ID
+
+Permissions control everything
+
+Status
+
+✔ Core Blueprint Complete
+✔ Ready for Build / Development
+

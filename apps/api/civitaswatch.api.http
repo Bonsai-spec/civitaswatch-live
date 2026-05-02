@@ -1,4 +1,4 @@
-@baseUrl = http://localhost:4000
+@baseUrl = http://192.168.0.143:4000
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjA1YjFiNjY4LWMwZGYtNDQzNS05MWI0LTkwYjI2ODVjYTNlNyIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3Njk0MzczNywiZXhwIjoxNzc3NTQ4NTM3fQ.2YWkS7wEet3LUnOg5u_JG8BYUbrvANzXfuJ5aBVxGJI
 @incidentId = 46236d7a-5d2d-4a43-92d2-243e3558373a
 
@@ -18,6 +18,20 @@ GET {{baseUrl}}/incidents/{{incidentId}}
 Authorization: Bearer {{token}}
 
 ###
+GET {{baseUrl}}/organisations
+Authorization: Bearer {{token}}
+
+###
+POST {{baseUrl}}/organisations
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "CivitasWatch",
+  "code": "CW"
+}
+
+###
 POST {{baseUrl}}/incidents/report
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -26,6 +40,46 @@ Authorization: Bearer {{token}}
   "title": "Test Incident",
   "sector": "Sector 1",
   "severity": "HIGH"
+}
+
+###
+POST {{baseUrl}}/organisations/02deee24-dee9-4ee1-a641-d97c350609d4/sectors
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Sector 1",
+  "code": "S1"
+}
+
+###
+POST {{baseUrl}}/organisations/02deee24-dee9-4ee1-a641-d97c350609d4/sectors
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Sector 2",
+  "code": "S2"
+}
+
+###
+POST {{baseUrl}}/organisations/02deee24-dee9-4ee1-a641-d97c350609d4/sectors
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Sector 3",
+  "code": "S3"
+}
+
+###
+POST {{baseUrl}}/organisations/02deee24-dee9-4ee1-a641-d97c350609d4/sectors
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Sector 4",
+  "code": "S4"
 }
 
 ###
@@ -51,12 +105,10 @@ Authorization: Bearer {{token}}
 
 ###
 PATCH {{baseUrl}}/incidents/{{incidentId}}/resolve
-Content-Type: application/json
 Authorization: Bearer {{token}}
 
 ###
 PATCH {{baseUrl}}/incidents/{{incidentId}}/close
-Content-Type: application/json
 Authorization: Bearer {{token}}
 
 ###
