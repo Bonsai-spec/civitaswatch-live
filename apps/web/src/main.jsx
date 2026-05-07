@@ -12,7 +12,10 @@ import { PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import { canAccess } from "./auth/permissions.helpers";
 import { API } from "./core/api";
 import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
-import { getNavigationLabelsForRole } from "./navigation/navigation.helpers";
+import {
+  flattenNavigationSections,
+  getNavigationSectionsForRole,
+} from "./navigation/navigation.helpers";
 import { activeStatuses } from "./modules/incidents/incident.constants";
 import { getIncidentLinkedPatrolId, getIncidentPatrol } from "./modules/incidents/incident.utils";
 import { buildIntelGraph } from "./modules/intelligence/graph.utils";
@@ -582,9 +585,14 @@ function App() {
   const isAdmin = canViewRegisters || canViewPatrols || canViewReports || canViewOrganisations;
   const isPatrol = userRole === SYSTEM_ROLES.PATROL || userRole === SYSTEM_ROLES.PATROLLER;
 
-  const navItems = useMemo(() => {
-    return getNavigationLabelsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
+  const navSections = useMemo(() => {
+    return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
   }, [userRole]);
+
+  const navItems = useMemo(
+    () => flattenNavigationSections(navSections).map((item) => item.label),
+    [navSections]
+  );
 
   const filteredPatrolReports = useMemo(
     () => filterPatrolReports(patrolReports, reportFilters),
@@ -1935,14 +1943,19 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         <div className="subtitle">{isPatrol ? "Patrol Console" : "Admin Dashboard"}</div>
 
         <nav className="nav">
-          {navItems.map((item) => (
-            <button
-              key={item}
-              onClick={() => setActive(item)}
-              className={active === item ? "active" : ""}
-            >
-              {item}
-            </button>
+          {navSections.map((section) => (
+            <div className="nav-section" key={section.label}>
+              <div className="nav-section-label">{section.label}</div>
+              {section.items.map((item) => (
+                <button
+                  key={item.label}
+                  onClick={() => setActive(item.label)}
+                  className={active === item.label ? "active" : ""}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>
