@@ -16,8 +16,7 @@ import {
   flattenNavigationSections,
   getNavigationSectionsForRole,
 } from "./navigation/navigation.helpers";
-import { activeStatuses } from "./modules/incidents/incident.constants";
-import { getIncidentLinkedPatrolId, getIncidentPatrol } from "./modules/incidents/incident.utils";
+import { getIncidentLinkedPatrolId } from "./modules/incidents/incident.utils";
 import { buildIntelGraph } from "./modules/intelligence/graph.utils";
 import {
   INTEL_ENTITY_TYPES,
@@ -43,7 +42,6 @@ import {
 } from "./utils/date.utils";
 import {
   getDisplayName,
-  getIncidentVehicle,
   getVehicleLabel,
 } from "./modules/vehicles/vehicle.utils";
 import {
@@ -77,6 +75,13 @@ import {
   OPERATION_SEVERITY_OPTIONS,
   OPERATION_STATUS_FILTER_OPTIONS,
 } from "./modules/operations/operations.constants";
+import {
+  getActiveIncidentCount,
+  getActivePatrols,
+  getAssignedPatrolName,
+  getAssignedVehicleName,
+  getOpenIncidentCount,
+} from "./modules/operations/operations.utils";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1192,17 +1197,6 @@ useEffect(() => {
     }
   }
 
-  function getAssignedPatrolName(incident) {
-    const patrol = getIncidentPatrol(incident, data.patrols);
-    if (!patrol) return "Unassigned";
-
-    return getPatrolOptionLabel(patrol);
-  }
-
-  function getAssignedVehicleName(incident) {
-    return getVehicleLabel(getIncidentVehicle(incident));
-  }
-
 function viewIncident(incident) {
   alert(`Viewing: ${incident.title}`);
 }
@@ -1981,14 +1975,14 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             </div>
             <div className="card-value">{data.incidents.length}</div>
             <div className="card-detail">
-              {data.incidents.filter((i) => i.status === "OPEN").length} open
+              {getOpenIncidentCount(data.incidents)} open
             </div>
           </div>
 
           <div className="card">
             <div className="card-title">Active</div>
             <div className="card-value">
-              {data.incidents.filter((i) => activeStatuses.includes(i.status)).length}
+              {getActiveIncidentCount(data.incidents)}
             </div>
             <div className="card-detail">Open, assigned, or in progress</div>
           </div>
@@ -2217,7 +2211,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                     </p>
                     <p>
                       <strong>Assigned Patrol:</strong>{" "}
-                      {getAssignedPatrolName(selectedIncident)}
+                      {getAssignedPatrolName(selectedIncident, data.patrols)}
                     </p>
                     <p>
                       <strong>Assigned Vehicle:</strong>{" "}
@@ -2268,8 +2262,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                           }
                         >
                           <option value="">Assign Patrol</option>
-                          {data.patrols
-                            .filter((p) => p.status === "ACTIVE")
+                          {getActivePatrols(data.patrols)
                             .map((p) => (
                               <option key={p.id} value={p.id}>
                                 {getPatrolOptionLabel(p)}
@@ -2336,7 +2329,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                         {incident.sector} • {incident.incidentType || "No type"}
                       </div>
                       <div>
-                        Patrol: {getAssignedPatrolName(incident)} • Vehicle:{" "}
+                        Patrol: {getAssignedPatrolName(incident, data.patrols)} • Vehicle:{" "}
                         {getAssignedVehicleName(incident)}
                       </div>
                     </div>
@@ -2353,12 +2346,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           <div className="panel">
             <h2>Active Patrols</h2>
 
-            {data.patrols.filter((p) => p.status === "ACTIVE").length === 0 && (
+            {getActivePatrols(data.patrols).length === 0 && (
               <p>No active patrols found.</p>
             )}
 
-            {data.patrols
-              .filter((p) => p.status === "ACTIVE")
+            {getActivePatrols(data.patrols)
               .map((p) => (
                 <div key={p.id} className="item">
                   <div>
