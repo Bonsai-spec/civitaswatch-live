@@ -8,6 +8,7 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
+import { API } from "./core/api";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -16,8 +17,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
-
-const API = "http://localhost:4000";
 
 const MEMBER_ROLES = [
   "PATROLLER",
