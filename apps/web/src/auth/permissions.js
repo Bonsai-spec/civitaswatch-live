@@ -45,13 +45,3 @@ export const PERMISSIONS_BY_ROLE = {
   PATROL: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "UPDATE_INCIDENT"],
   INTELLIGENCE_ANALYST: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "VIEW_INTELLIGENCE"],
 };
-
-export const NAV_ITEMS = [
-  { label: "Dashboard", permission: "VIEW_DASHBOARD" },
-  { label: "Incidents", permission: "VIEW_INCIDENTS" },
-  { label: "Patrols", permission: "VIEW_PATROLS" },
-  { label: "Registers", permission: "VIEW_REGISTERS" },
-  { label: "Reports", permission: "VIEW_REPORTS" },
-  { label: "Organisations", permission: "VIEW_ORGANISATIONS" },
-  { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
-];
