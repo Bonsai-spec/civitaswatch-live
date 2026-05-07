@@ -14,6 +14,12 @@ import { API } from "./core/api";
 import { activeStatuses } from "./modules/incidents/incident.constants";
 import { buildIntelGraph } from "./modules/intelligence/graph.utils";
 import {
+  INTEL_ENTITY_TYPES,
+  INTEL_RELATIONSHIPS,
+  INTEL_RISK_LEVELS,
+  INTEL_STATUSES,
+} from "./modules/intelligence/intelligence.constants";
+import {
   buildAutoLinkSuggestions,
   getAutoLinkSuggestionKey,
   getEntityLatLng,
@@ -125,21 +131,6 @@ const emptyForm = {
   date: "",
   time: "",
 };
-
-const INTEL_ENTITY_TYPES = ["PERSON", "VEHICLE", "LOCATION", "ORGANISATION", "GROUP", "OTHER"];
-const INTEL_RISK_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
-const INTEL_STATUSES = ["ACTIVE", "WATCHLIST", "ARCHIVED", "CLEARED"];
-const INTEL_RELATIONSHIPS = [
-  "LINKED_TO",
-  "ASSOCIATED_WITH",
-  "SAME_VEHICLE",
-  "OWNS",
-  "DRIVES",
-  "SEEN_WITH",
-  "OPERATES_IN",
-  "INVOLVED_IN",
-  "OTHER",
-];
 
 function emptyIntelForm() {
   return {
