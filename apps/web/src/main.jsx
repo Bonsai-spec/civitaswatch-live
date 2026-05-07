@@ -46,6 +46,14 @@ import {
   getPatrolOptionLabel,
   getPatrolVehicleLabel,
 } from "./modules/patrols/patrol.utils";
+import {
+  filterRegisterIncidents,
+  filterRegisterMembers,
+  filterRegisterOrganisations,
+  filterRegisterPatrollers,
+  filterRegisterPatrols,
+  filterRegisterVehicles,
+} from "./modules/registers/register.utils";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -1911,112 +1919,14 @@ const filteredIntelligenceEntities = intelligenceEntities.filter((entity) =>
 
 const registerSearchText = registerSearch.toLowerCase();
 
-const filteredRegisterIncidents = data.incidents.filter((incident) =>
-  [
-    incident.incidentCode,
-    incident.title,
-    incident.incidentType,
-    incident.sector,
-    incident.status,
-    incident.severity,
-    incident.street,
-    incident.suburb,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(registerSearchText)
-);
-
-const filteredRegisterVehicles = data.vehicles.filter((vehicle) =>
-  [
-    vehicle.registration,
-    vehicle.make,
-    vehicle.type,
-    vehicle.colour,
-    vehicle.callsign,
-    vehicle.callSign,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(registerSearchText)
-);
-
-const filteredRegisterPatrols = data.patrols.filter((patrol) =>
-  [
-    patrol.user?.fullName,
-    patrol.user?.email,
-    patrol.sector,
-    patrol.status,
-    patrol.vehicle?.registration,
-    patrol.vehicle?.type,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(registerSearchText)
-);
-
-
-const filteredRegisterMembers = data.members.filter((member) =>
-  [
-    member.firstName,
-    member.surname,
-    member.cellNumber,
-    member.email,
-    member.address,
-    member.suburb,
-    member.sector,
-    member.callSign,
-    member.vettingStatus,
-    member.nextOfKinName,
-    member.nextOfKinPhone,
-    member.licenceCode,
-    getMemberRoles(member).join(" "),
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(registerSearchText)
-);
-
-const filteredRegisterPatrollers = data.members.filter((member) => {
-  const roles = getMemberRoles(member);
-  const isPatrollerRecord =
-    member.patrolApproved ||
-    ["PENDING", "APPROVED", "SUSPENDED"].includes(member.patrolStatus) ||
-    member.patrolTraining ||
-    roles.includes("PATROLLER") ||
-    roles.includes("PATROL") ||
-    member.user?.role === "PATROLLER" ||
-    member.user?.role === "PATROL";
-
-  if (!isPatrollerRecord) return false;
-
-  return [
-    member.firstName,
-    member.surname,
-    member.email,
-    member.cellNumber,
-    member.callSign,
-    member.sector,
-    member.patrolStatus,
-    member.user?.email,
-    member.user?.role,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(registerSearchText);
-});
-
-const filteredRegisterOrganisations = data.organisations.filter((org) =>
-  [org.name, org.code]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase()
-    .includes(registerSearchText)
+const filteredRegisterIncidents = filterRegisterIncidents(data.incidents, registerSearchText);
+const filteredRegisterVehicles = filterRegisterVehicles(data.vehicles, registerSearchText);
+const filteredRegisterPatrols = filterRegisterPatrols(data.patrols, registerSearchText);
+const filteredRegisterMembers = filterRegisterMembers(data.members, registerSearchText);
+const filteredRegisterPatrollers = filterRegisterPatrollers(data.members, registerSearchText);
+const filteredRegisterOrganisations = filterRegisterOrganisations(
+  data.organisations,
+  registerSearchText
 );
 
 
