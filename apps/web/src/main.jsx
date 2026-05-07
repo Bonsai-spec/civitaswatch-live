@@ -54,6 +54,12 @@ import {
   filterRegisterPatrols,
   filterRegisterVehicles,
 } from "./modules/registers/register.utils";
+import {
+  filterPatrolReports,
+  getPatrollerFilterOptions,
+  getReportStatusCount,
+  getReportTotalKm,
+} from "./modules/reports/report.utils";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -583,57 +589,15 @@ function App() {
     }).map((item) => item.label);
   }, [userRole]);
 
-  const filteredPatrolReports = useMemo(() => {
-    return patrolReports.filter((p) => {
-      const startDate = p.startTime ? new Date(p.startTime) : null;
+  const filteredPatrolReports = useMemo(
+    () => filterPatrolReports(patrolReports, reportFilters),
+    [patrolReports, reportFilters]
+  );
 
-      if (reportFilters.from) {
-        if (!startDate) return false;
-        if (startDate < new Date(reportFilters.from)) return false;
-      }
-
-      if (reportFilters.to) {
-        if (!startDate) return false;
-        const toDate = new Date(reportFilters.to);
-        toDate.setHours(23, 59, 59, 999);
-        if (startDate > toDate) return false;
-      }
-
-      if (reportFilters.sector !== "ALL" && p.sector !== reportFilters.sector) {
-        return false;
-      }
-
-      if (reportFilters.vehicleId !== "ALL" && p.vehicleId !== reportFilters.vehicleId) {
-        return false;
-      }
-
-      if (reportFilters.patrollerId !== "ALL" && p.userId !== reportFilters.patrollerId) {
-        return false;
-      }
-
-      if (reportFilters.status !== "ALL" && p.status !== reportFilters.status) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [patrolReports, reportFilters]);
-
-  const patrollerFilterOptions = useMemo(() => {
-    const usersById = new Map();
-
-    patrolReports.forEach((report) => {
-      if (report.user?.id) {
-        usersById.set(report.user.id, report.user);
-      }
-    });
-
-    return Array.from(usersById.values()).sort((a, b) => {
-      const nameA = a.fullName || a.email || "";
-      const nameB = b.fullName || b.email || "";
-      return nameA.localeCompare(nameB);
-    });
-  }, [patrolReports]);
+  const patrollerFilterOptions = useMemo(
+    () => getPatrollerFilterOptions(patrolReports),
+    [patrolReports]
+  );
 
   function getAuthHeaders(customToken = token) {
     return {
@@ -3798,19 +3762,14 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
               <div className="card">
                 <div className="card-title">Total KM</div>
-                <div className="card-value">
-                  {filteredPatrolReports.reduce(
-                    (sum, p) => sum + Number(p.totalKm || 0),
-                    0
-                  )}
-                </div>
+                <div className="card-value">{getReportTotalKm(filteredPatrolReports)}</div>
                 <div className="card-detail">Completed distance captured</div>
               </div>
 
               <div className="card">
                 <div className="card-title">Completed</div>
                 <div className="card-value">
-                  {filteredPatrolReports.filter((p) => p.status === "COMPLETED").length}
+                  {getReportStatusCount(filteredPatrolReports, "COMPLETED")}
                 </div>
                 <div className="card-detail">Closed patrol sessions</div>
               </div>
@@ -3818,7 +3777,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
               <div className="card">
                 <div className="card-title">Active</div>
                 <div className="card-value">
-                  {filteredPatrolReports.filter((p) => p.status === "ACTIVE").length}
+                  {getReportStatusCount(filteredPatrolReports, "ACTIVE")}
                 </div>
                 <div className="card-detail">Currently on patrol</div>
               </div>
