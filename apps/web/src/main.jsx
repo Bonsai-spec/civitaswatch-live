@@ -11,6 +11,10 @@ import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import { canAccess } from "./auth/permissions.helpers";
 import { API } from "./core/api";
+import {
+  getAuthHeaders as buildAuthHeaders,
+  getJsonAuthHeaders as buildJsonAuthHeaders,
+} from "./core/http.utils";
 import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
 import {
   flattenNavigationSections,
@@ -615,16 +619,11 @@ function App() {
   );
 
   function getAuthHeaders(customToken = token) {
-    return {
-      Authorization: `Bearer ${customToken}`,
-    };
+    return buildAuthHeaders(customToken);
   }
 
   function getJsonAuthHeaders(customToken = token) {
-    return {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${customToken}`,
-    };
+    return buildJsonAuthHeaders(customToken);
   }
 
   function logout() {
