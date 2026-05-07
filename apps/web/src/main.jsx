@@ -59,6 +59,12 @@ import {
   filterRegisterPatrols,
   filterRegisterVehicles,
 } from "./modules/registers/register.utils";
+import { REGISTER_TABS } from "./modules/registers/register.constants";
+import {
+  DEFAULT_REPORT_FILTERS,
+  REPORT_SECTOR_FILTER_OPTIONS,
+  REPORT_STATUS_FILTER_OPTIONS,
+} from "./modules/reports/report.constants";
 import {
   filterPatrolReports,
   getPatrollerFilterOptions,
@@ -553,14 +559,7 @@ function App() {
 
   const [workload, setWorkload] = useState([]);
   const [patrolReports, setPatrolReports] = useState([]);
-  const [reportFilters, setReportFilters] = useState({
-    from: "",
-    to: "",
-    sector: "ALL",
-    vehicleId: "ALL",
-    patrollerId: "ALL",
-    status: "ALL",
-  });
+  const [reportFilters, setReportFilters] = useState({ ...DEFAULT_REPORT_FILTERS });
   const [selectedPatrolReport, setSelectedPatrolReport] = useState(null);
   const [editPatrolForm, setEditPatrolForm] = useState(null);
   const [patrolAuditLogs, setPatrolAuditLogs] = useState([]);
@@ -826,14 +825,7 @@ function App() {
   }
 
   function clearReportFilters() {
-    setReportFilters({
-      from: "",
-      to: "",
-      sector: "ALL",
-      vehicleId: "ALL",
-      patrollerId: "ALL",
-      status: "ALL",
-    });
+    setReportFilters({ ...DEFAULT_REPORT_FILTERS });
   }
 
   function viewPatrolReport(patrol) {
@@ -2399,7 +2391,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 </div>
 
     <div className="action-row">
-      {["Incidents", "Vehicles", "Members", "Patrollers", "Patrols", "Organisations"].map((tab) => (
+      {REGISTER_TABS.map((tab) => (
         <button
           key={tab}
           onClick={() => setRegisterTab(tab)}
@@ -3714,11 +3706,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                   setReportFilters({ ...reportFilters, sector: e.target.value })
                 }
               >
-                <option value="ALL">All Sectors</option>
-                <option value="Sector 1">Sector 1</option>
-                <option value="Sector 2">Sector 2</option>
-                <option value="Sector 3">Sector 3</option>
-                <option value="Sector 4">Sector 4</option>
+                {REPORT_SECTOR_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
 
               <select
@@ -3755,9 +3747,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                   setReportFilters({ ...reportFilters, status: e.target.value })
                 }
               >
-                <option value="ALL">All Status</option>
-                <option value="ACTIVE">Active</option>
-                <option value="COMPLETED">Completed</option>
+                {REPORT_STATUS_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
               </select>
 
               <button onClick={clearReportFilters}>Clear</button>
