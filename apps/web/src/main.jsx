@@ -9,8 +9,25 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
+import { canAccess, hasPermission } from "./auth/permissions.helpers";
 import { API } from "./core/api";
 import { activeStatuses } from "./modules/incidents/incident.constants";
+import {
+  buildAutoLinkSuggestions,
+  getAutoLinkSuggestionKey,
+  getEntityLatLng,
+  getGraphNodeColor,
+  getIntelAgeOpacity,
+  getIntelRiskBadge,
+  getShortRelationshipLabel,
+} from "./modules/intelligence/intelligence.utils";
+import {
+  getIntelAgeDays,
+  getIntelAgeLabel,
+  getIntelTimeFilterLabel,
+  getRecordTimestamp,
+  parseIntelDate,
+} from "./utils/date.utils";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -146,30 +163,6 @@ function emptyIntelForm() {
   };
 }
 
-function getIntelRiskBadge(entity) {
-  return (entity?.riskLevel || "LOW") + " / " + (entity?.status || "ACTIVE");
-}
-
-function parseIntelDate(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getRecordTimestamp(record) {
-  if (!record) return null;
-
-  return (
-    record.observedAt ||
-    record.reportedAt ||
-    record.createdAt ||
-    record.updatedAt ||
-    record.timestamp ||
-    record.date ||
-    null
-  );
-}
-
 function getIntelTimeWindowStart(preset) {
   const now = new Date();
 
@@ -223,216 +216,6 @@ function isWithinIntelTimeFilter(record, timeFilter) {
 
   const start = getIntelTimeWindowStart(timeFilter.preset);
   return start ? recordDate >= start : true;
-}
-
-function getIntelAgeDays(record) {
-  const timestamp = getRecordTimestamp(record);
-  const date = parseIntelDate(timestamp);
-  if (!date) return null;
-
-  const diffMs = Date.now() - date.getTime();
-  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-}
-
-function getIntelAgeLabel(record) {
-  const days = getIntelAgeDays(record);
-
-  if (days === null) return "No date";
-  if (days === 0) return "Today";
-  if (days === 1) return "1 day ago";
-  if (days < 30) return `${days} days ago`;
-
-  const months = Math.floor(days / 30);
-  if (months === 1) return "1 month ago";
-  return `${months} months ago`;
-}
-
-function getIntelAgeOpacity(record) {
-  const days = getIntelAgeDays(record);
-
-  if (days === null) return 0.5;
-  if (days <= 7) return 1;
-  if (days <= 30) return 0.78;
-  if (days <= 90) return 0.55;
-  return 0.35;
-}
-
-function getIntelTimeFilterLabel(timeFilter) {
-  if (!timeFilter || timeFilter.preset === "ALL") return "All time";
-  if (timeFilter.preset === "24H") return "Last 24 hours";
-  if (timeFilter.preset === "7D") return "Last 7 days";
-  if (timeFilter.preset === "30D") return "Last 30 days";
-  if (timeFilter.preset === "90D") return "Last 90 days";
-
-  const from = timeFilter.from || "start";
-  const to = timeFilter.to || "today";
-  return `Custom: ${from} → ${to}`;
-}
-
-function getShortRelationshipLabel(label) {
-  const shortLabels = {
-    ASSOCIATED_WITH: "ASSOC",
-    LINKED_TO: "LINK",
-    SAME_VEHICLE: "SAME",
-    SEEN_WITH: "SEEN",
-    OPERATES_IN: "AREA",
-    INVOLVED_IN: "INVOLVED",
-    INCIDENT_LINK: "INCIDENT",
-    PATROL_OBSERVATION: "OBS",
-  };
-
-  return shortLabels[label] || label || "LINK";
-}
-
-
-
-function normalizeIntelMatchText(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .trim();
-}
-
-function normalizeVehicleRegistration(value) {
-  return String(value || "")
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .trim();
-}
-
-function getEntityVehicleRegistration(entity) {
-  return normalizeVehicleRegistration(
-    entity?.voivehicleDetails?.registrationNumber ||
-      entity?.vehicleRegistration ||
-      (entity?.entityType === "VEHICLE" ? entity?.displayName : "")
-  );
-}
-
-function getEntitySearchText(entity) {
-  return [
-    entity?.entityType,
-    entity?.displayName,
-    entity?.description,
-    entity?.address,
-    entity?.suburb,
-    entity?.sector,
-    entity?.voivehicleDetails?.registrationNumber,
-    entity?.voivehicleDetails?.make,
-    entity?.voivehicleDetails?.model,
-    entity?.voivehicleDetails?.colour,
-    entity?.voivehicleDetails?.vehicleType,
-    entity?.voivehicleDetails?.distinguishingMarks,
-    entity?.voivehicleDetails?.notes,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function hasExistingIntelRelationship(selectedEntity, targetEntity) {
-  if (!selectedEntity?.id || !targetEntity?.id) return true;
-
-  const targetId = targetEntity.id;
-
-  return [
-    ...(selectedEntity.outgoingLinks || []).map((link) => link.toEntityId || link.toEntity?.id),
-    ...(selectedEntity.incomingLinks || []).map((link) => link.fromEntityId || link.fromEntity?.id),
-  ].includes(targetId);
-}
-
-function getAutoLinkSuggestionKey(selectedEntity, targetEntity) {
-  return `${selectedEntity?.id || "source"}->${targetEntity?.id || "target"}`;
-}
-
-function getSuggestedRelationship(selectedEntity, targetEntity, reasons = []) {
-  if (reasons.some((reason) => reason.toLowerCase().includes("registration"))) {
-    return "SAME_VEHICLE";
-  }
-  if (selectedEntity?.entityType === "PERSON" && targetEntity?.entityType === "VEHICLE") return "SEEN_WITH";
-  if (selectedEntity?.entityType === "VEHICLE" && targetEntity?.entityType === "PERSON") return "SEEN_WITH";
-  if (selectedEntity?.entityType === "LOCATION" || targetEntity?.entityType === "LOCATION") return "OPERATES_IN";
-  return "ASSOCIATED_WITH";
-}
-
-function buildAutoLinkSuggestions(selectedEntity, entities = []) {
-  if (!selectedEntity?.id) return [];
-
-  const selectedName = normalizeIntelMatchText(selectedEntity.displayName);
-  const selectedReg = getEntityVehicleRegistration(selectedEntity);
-  const selectedText = normalizeIntelMatchText(getEntitySearchText(selectedEntity));
-  const suggestions = [];
-
-  (entities || []).forEach((targetEntity) => {
-    if (!targetEntity?.id || targetEntity.id === selectedEntity.id) return;
-    if (hasExistingIntelRelationship(selectedEntity, targetEntity)) return;
-
-    const targetName = normalizeIntelMatchText(targetEntity.displayName);
-    const targetReg = getEntityVehicleRegistration(targetEntity);
-    const targetText = normalizeIntelMatchText(getEntitySearchText(targetEntity));
-    const reasons = [];
-    let score = 0;
-
-    if (selectedReg && targetReg && selectedReg === targetReg) {
-      score += 100;
-      reasons.push(`Exact registration match: ${selectedReg}`);
-    } else if (selectedReg && targetText.includes(selectedReg.toLowerCase())) {
-      score += 82;
-      reasons.push(`Target notes mention registration: ${selectedReg}`);
-    } else if (targetReg && selectedText.includes(targetReg.toLowerCase())) {
-      score += 82;
-      reasons.push(`Current notes mention registration: ${targetReg}`);
-    }
-
-    if (selectedName && targetName && selectedName === targetName) {
-      score += 78;
-      reasons.push("Matching display name");
-    }
-
-    if (
-      selectedEntity.address &&
-      targetEntity.address &&
-      normalizeIntelMatchText(selectedEntity.address) === normalizeIntelMatchText(targetEntity.address)
-    ) {
-      score += 45;
-      reasons.push("Same street/address");
-    }
-
-    if (
-      selectedEntity.suburb &&
-      targetEntity.suburb &&
-      normalizeIntelMatchText(selectedEntity.suburb) === normalizeIntelMatchText(targetEntity.suburb)
-    ) {
-      score += 25;
-      reasons.push("Same suburb/area");
-    }
-
-    if (
-      selectedEntity.sector &&
-      targetEntity.sector &&
-      selectedEntity.sector === targetEntity.sector
-    ) {
-      score += 15;
-      reasons.push("Same sector");
-    }
-
-    if (score < 50) return;
-
-    const relationship = getSuggestedRelationship(selectedEntity, targetEntity, reasons);
-    const strength = Math.max(4, Math.min(10, Math.round(score / 10)));
-
-    suggestions.push({
-      key: getAutoLinkSuggestionKey(selectedEntity, targetEntity),
-      targetEntity,
-      relationship,
-      strength,
-      score,
-      reasons,
-      notes: `Auto suggestion: ${reasons.join("; ")}`,
-    });
-  });
-
-  return suggestions
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
 }
 
 function buildIntelGraph(entity, timeFilter = { preset: "ALL", from: "", to: "" }, contextEntities = []) {
@@ -562,18 +345,6 @@ function buildIntelGraph(entity, timeFilter = { preset: "ALL", from: "", to: "" 
     nodes: Array.from(nodesById.values()),
     links,
   };
-}
-
-function getGraphNodeColor(node) {
-  if (node.isCenter) return "#2563eb";
-  if (node.entityType === "PERSON") return "#7c3aed";
-  if (node.entityType === "VEHICLE") return "#ea580c";
-  if (node.entityType === "LOCATION") return "#16a34a";
-  if (node.entityType === "INCIDENT") return "#dc2626";
-  if (node.entityType === "PATROL_EVENT") return "#0891b2";
-  if (node.riskLevel === "CRITICAL") return "#b91c1c";
-  if (node.riskLevel === "HIGH") return "#f97316";
-  return "#64748b";
 }
 
 function IntelSpiderGraph({ entity, allEntities = [], onOpenEntity, timeFilter, onDeleteLink }) {
@@ -842,35 +613,6 @@ function IntelSpiderGraph({ entity, allEntities = [], onOpenEntity, timeFilter, 
   );
 }
 
-function getEntityLatLng(entity) {
-  if (!entity) return null;
-
-  const latValue =
-    entity.latitude ??
-    entity.lat ??
-    entity.locationLatitude ??
-    entity.geoLatitude ??
-    entity.coordinates?.latitude ??
-    entity.location?.latitude;
-
-  const lngValue =
-    entity.longitude ??
-    entity.lng ??
-    entity.lon ??
-    entity.locationLongitude ??
-    entity.geoLongitude ??
-    entity.coordinates?.longitude ??
-    entity.location?.longitude;
-
-  const lat = Number(latValue);
-  const lng = Number(lngValue);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
-
-  return [lat, lng];
-}
-
 function IntelGeoMap({ entities, selectedEntity, onOpenEntity, timeFilter }) {
   const validEntities = (entities || [])
     .filter((entity) => isWithinIntelTimeFilter(entity, timeFilter))
@@ -1030,8 +772,7 @@ function App() {
   const userRole = user?.role || "";
 
   function can(permission) {
-    const permissions = PERMISSIONS_BY_ROLE[userRole] || [];
-    return permissions.includes("*") || permissions.includes(permission);
+    return canAccess(PERMISSIONS_BY_ROLE, userRole, permission);
   }
 
   const canCreateIncidents = can("CREATE_INCIDENT");
@@ -1052,7 +793,7 @@ function App() {
 
     return NAV_ITEMS.filter((item) => {
       const permissions = PERMISSIONS_BY_ROLE[userRole] || [];
-      return permissions.includes("*") || permissions.includes(item.permission);
+      return hasPermission(permissions, item.permission);
     }).map((item) => item.label);
   }, [userRole]);
 
