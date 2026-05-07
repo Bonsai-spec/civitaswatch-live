@@ -12,6 +12,7 @@ import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions
 import { canAccess, hasPermission } from "./auth/permissions.helpers";
 import { API } from "./core/api";
 import { activeStatuses } from "./modules/incidents/incident.constants";
+import { getIncidentLinkedPatrolId, getIncidentPatrol } from "./modules/incidents/incident.utils";
 import { buildIntelGraph } from "./modules/intelligence/graph.utils";
 import {
   INTEL_ENTITY_TYPES,
@@ -51,17 +52,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-function getIncidentPatrol(incident, patrols = []) {
-  return (
-    incident?.assignedPatrol ||
-    incident?.patrol ||
-    incident?.linkedPatrol ||
-    patrols.find((p) => p.id === incident?.assignedPatrolId) ||
-    patrols.find((p) => p.id === incident?.patrolId) ||
-    patrols.find((p) => p.id === incident?.linkedPatrolId) ||
-    null
-  );
-}
 const emptyForm = {
   title: "",
   incidentType: "ASSAULT",
@@ -487,16 +477,6 @@ function IntelGeoMap({ entities, selectedEntity, onOpenEntity, timeFilter }) {
   );
 }
 
-
-function getIncidentLinkedPatrolId(incident) {
-  return (
-    incident?.assignedPatrolId ||
-    incident?.patrolId ||
-    incident?.linkedPatrolId ||
-    incident?.linkedPatrol?.id ||
-    ""
-  );
-}
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("token"));
