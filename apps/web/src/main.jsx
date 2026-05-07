@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -19,11 +20,13 @@ L.Icon.Default.mergeOptions({
 const API = "http://localhost:4000";
 
 const MEMBER_ROLES = [
+  "PATROLLER",
   "PATROL",
   "CONTROL_ROOM",
   "ADMIN",
   "REPORTS",
   "SUPERVISOR",
+  "INTELLIGENCE_ANALYST",
   "INTELLIGENCE",
 ];
 
@@ -108,64 +111,6 @@ function getIncidentVehicle(incident) {
     null
   );
 }
-const SYSTEM_ROLES = {
-  MASTER_ADMIN: "MASTER_ADMIN",
-  ADMIN: "ADMIN",
-  CONTROL_ROOM: "CONTROL_ROOM",
-  PATROLLER: "PATROLLER",
-  PATROL: "PATROL",
-  REPORTS: "REPORTS",
-  SUPERVISOR: "SUPERVISOR",
-  INTELLIGENCE_ANALYST: "INTELLIGENCE_ANALYST",
-};
-
-const PERMISSIONS_BY_ROLE = {
-  MASTER_ADMIN: ["*"],
-  ADMIN: [
-    "VIEW_DASHBOARD",
-    "VIEW_INCIDENTS",
-    "CREATE_INCIDENT",
-    "UPDATE_INCIDENT",
-    "ASSIGN_PATROL",
-    "VIEW_PATROLS",
-    "VIEW_REGISTERS",
-    "MANAGE_MEMBERS",
-    "VIEW_REPORTS",
-    "VIEW_ORGANISATIONS",
-    "VIEW_INTELLIGENCE",
-  ],
-  CONTROL_ROOM: [
-    "VIEW_DASHBOARD",
-    "VIEW_INCIDENTS",
-    "CREATE_INCIDENT",
-    "UPDATE_INCIDENT",
-    "ASSIGN_PATROL",
-    "VIEW_PATROLS",
-    "VIEW_REGISTERS",
-  ],
-  SUPERVISOR: [
-    "VIEW_DASHBOARD",
-    "VIEW_INCIDENTS",
-    "UPDATE_INCIDENT",
-    "VIEW_PATROLS",
-    "VIEW_REPORTS",
-  ],
-  REPORTS: ["VIEW_DASHBOARD", "VIEW_REPORTS"],
-  PATROLLER: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "UPDATE_INCIDENT"],
-  PATROL: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "UPDATE_INCIDENT"],
-  INTELLIGENCE_ANALYST: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "VIEW_INTELLIGENCE"],
-};
-
-const NAV_ITEMS = [
-  { label: "Dashboard", permission: "VIEW_DASHBOARD" },
-  { label: "Incidents", permission: "VIEW_INCIDENTS" },
-  { label: "Patrols", permission: "VIEW_PATROLS" },
-  { label: "Registers", permission: "VIEW_REGISTERS" },
-  { label: "Reports", permission: "VIEW_REPORTS" },
-  { label: "Organisations", permission: "VIEW_ORGANISATIONS" },
-  { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
-];
-
 const emptyForm = {
   title: "",
   incidentType: "ASSAULT",
@@ -882,10 +827,8 @@ function IntelSpiderGraph({ entity, allEntities = [], onOpenEntity, timeFilter, 
             ctx.restore();
           }}
           onNodeClick={(node) => {
+            // Node click is focus-only. Use the Open Linked Profile buttons to change profiles.
             setFocusedNodeId((current) => (current === node.id ? null : node.id));
-
-            if (["INCIDENT", "PATROL_EVENT"].includes(node.entityType)) return;
-            onOpenEntity(node.sourceObject || { id: node.id });
           }}
           onLinkClick={(link) => {
             const sourceObject = link?.sourceObject;
@@ -1065,6 +1008,15 @@ function App() {
     notes: "",
   });
   const [hiddenAutoLinkSuggestionKeys, setHiddenAutoLinkSuggestionKeys] = useState(new Set());
+
+  function scrollToIntelSpiderMap(delay = 250) {
+    window.setTimeout(() => {
+      document.getElementById("intel-spider-map")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, delay);
+  }
 
   const [data, setData] = useState({
   incidents: [],
@@ -1350,25 +1302,9 @@ function App() {
   async function loadWorkload() {
     if (!token || !canViewPatrols) return;
 
-    try {
-      const res = await fetch(`${API}/admin/patrols/workload`, {
-        headers: getAuthHeaders(),
-      });
-
-      const contentType = res.headers.get("content-type") || "";
-      const json = contentType.includes("application/json") ? await res.json() : null;
-
-      if (!res.ok) {
-        console.warn(json?.error || "Failed to load patrol workload");
-        setWorkload(buildLocalWorkload(data.patrols, data.incidents));
-        return;
-      }
-
-      setWorkload(Array.isArray(json) ? json : json?.workload || []);
-    } catch (err) {
-      console.error(err);
-      setWorkload(buildLocalWorkload(data.patrols, data.incidents));
-    }
+    // Local workload keeps the console clean while the API workload route is not enabled.
+    // Re-enable the fetch here only when /admin/patrols/workload exists on the API.
+    setWorkload(buildLocalWorkload(data.patrols, data.incidents));
   }
 
   async function loadPatrolReports() {
@@ -1841,6 +1777,10 @@ function emptyMemberForm() {
     radioTraining: false,
     patrolTraining: false,
     controlRoomTraining: false,
+    patrolApproved: false,
+    patrolStatus: "NOT_PATROLLER",
+    patrolNotes: "",
+    patrollerPassword: "",
     notes: "",
     roles: [],
   };
@@ -1914,10 +1854,16 @@ async function saveMember(e) {
       medication: memberForm.medication || null,
       bloodType: memberForm.bloodType || null,
       licenceCode: memberForm.licenceCode || null,
+      patrolApproved: Boolean(memberForm.patrolApproved),
+      patrolStatus: memberForm.patrolStatus || "NOT_PATROLLER",
+      patrolNotes: memberForm.patrolNotes || null,
       notes: saveRolesIntoNotes(memberForm.notes, memberForm.roles),
     };
 
     delete payload.roles;
+    delete payload.user;
+    delete payload.userId;
+    delete payload.patrollerPassword;
     delete payload.id;
     delete payload.createdAt;
     delete payload.updatedAt;
@@ -2010,6 +1956,81 @@ async function enableMember(member) {
     alert("Failed to enable member");
   }
 }
+async function createPatrollerLogin(member) {
+  if (!canManageMembers || !member?.id) return;
+
+  const suggestedPassword = "password123";
+  const password = prompt(
+    `Create patroller login for ${[member.firstName, member.surname].filter(Boolean).join(" ") || "member"}?
+
+Email: ${member.email || "NO EMAIL"}
+
+Enter temporary password:`,
+    suggestedPassword
+  );
+
+  if (password === null) return;
+
+  if (!password || password.length < 6) {
+    alert("Password must be at least 6 characters.");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API}/members/${member.id}/create-patroller-login`, {
+      method: "POST",
+      headers: getJsonAuthHeaders(),
+      body: JSON.stringify({ password }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      alert(json.error || "Failed to create patroller login");
+      return;
+    }
+
+    setSelectedMember(json);
+    await loadDashboard();
+    alert("Patroller login created / linked.");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to create patroller login");
+  }
+}
+
+async function updatePatrollerStatus(member, patrolStatus, patrolApproved = false) {
+  if (!canManageMembers || !member?.id) return;
+
+  try {
+    const res = await fetch(`${API}/members/${member.id}/patroller-status`, {
+      method: "PATCH",
+      headers: getJsonAuthHeaders(),
+      body: JSON.stringify({
+        patrolStatus,
+        patrolApproved,
+        patrolNotes: member.patrolNotes || null,
+      }),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      alert(json.error || "Failed to update patroller status");
+      return;
+    }
+
+    if (selectedMember?.id === member.id) {
+      setSelectedMember(json);
+    }
+
+    await loadDashboard();
+  } catch (err) {
+    console.error(err);
+    alert("Failed to update patroller status");
+  }
+}
+
 
 async function loadIntelligence() {
   if (!token || !canViewIntelligence) return;
@@ -2183,6 +2204,8 @@ async function viewIntelEntity(entity) {
       ...prev,
       fromEntityId: json.id,
     }));
+
+    scrollToIntelSpiderMap();
   } catch (err) {
     console.error(err);
     alert("Failed to load intelligence profile");
@@ -2343,6 +2366,7 @@ async function createSuggestedIntelLink(suggestion) {
 
     await loadIntelligence();
     await viewIntelEntity({ id: selectedIntelEntity.id });
+    scrollToIntelSpiderMap(450);
   } catch (err) {
     console.error(err);
     alert("Failed to create suggested link");
@@ -2470,6 +2494,36 @@ const filteredRegisterMembers = data.members.filter((member) =>
     .toLowerCase()
     .includes(registerSearchText)
 );
+
+const filteredRegisterPatrollers = data.members.filter((member) => {
+  const roles = getMemberRoles(member);
+  const isPatrollerRecord =
+    member.patrolApproved ||
+    ["PENDING", "APPROVED", "SUSPENDED"].includes(member.patrolStatus) ||
+    member.patrolTraining ||
+    roles.includes("PATROLLER") ||
+    roles.includes("PATROL") ||
+    member.user?.role === "PATROLLER" ||
+    member.user?.role === "PATROL";
+
+  if (!isPatrollerRecord) return false;
+
+  return [
+    member.firstName,
+    member.surname,
+    member.email,
+    member.cellNumber,
+    member.callSign,
+    member.sector,
+    member.patrolStatus,
+    member.user?.email,
+    member.user?.role,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .includes(registerSearchText);
+});
 
 const filteredRegisterOrganisations = data.organisations.filter((org) =>
   [org.name, org.code]
@@ -2975,7 +3029,7 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
 </div>
 
     <div className="action-row">
-      {["Incidents", "Vehicles", "Members", "Patrols", "Organisations"].map((tab) => (
+      {["Incidents", "Vehicles", "Members", "Patrollers", "Patrols", "Organisations"].map((tab) => (
         <button
           key={tab}
           onClick={() => setRegisterTab(tab)}
@@ -3003,6 +3057,12 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
         <div className="card-title">Member Register</div>
         <div className="card-value">{data.members.length}</div>
         <div className="card-detail">Vetted sector members</div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">Patroller Register</div>
+        <div className="card-value">{filteredRegisterPatrollers.length}</div>
+        <div className="card-detail">Approved / pending patrol members</div>
       </div>
 
       <div className="card">
@@ -3115,6 +3175,8 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
               <th>Driver</th>
               <th>Competence</th>
               <th>Roles</th>
+              <th>Patrol Status</th>
+              <th>Login</th>
               <th>Active</th>
               <th>Actions</th>
             </tr>
@@ -3144,12 +3206,18 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
                     .join(", ") || "-"}
                 </td>
                 <td>{getMemberRoles(member).join(", ") || "-"}</td>
+                <td>{member.patrolStatus || "NOT_PATROLLER"}{member.patrolApproved ? " / APPROVED" : ""}</td>
+                <td>{member.user ? `${member.user.email || member.user.fullName} (${member.user.role})` : "No login"}</td>
                 <td>{member.isActive ? "Yes" : "No"}</td>
                 <td>
                   <button onClick={() => { setMemberForm(null); setSelectedMember(member); }}>View Profile</button>
                   {canManageMembers && (
                     <>
                       <button onClick={() => startEditMember(member)}>Edit</button>
+                      <button onClick={() => updatePatrollerStatus(member, "APPROVED", true)}>Approve Patrol</button>
+                      {!member.user && member.email && (
+                        <button onClick={() => createPatrollerLogin(member)}>Create Login</button>
+                      )}
                       {member.isActive ? (
                         <button onClick={() => disableMember(member)}>Disable</button>
                       ) : (
@@ -3262,6 +3330,36 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
                   <option value="REJECTED">REJECTED</option>
                   <option value="SUSPENDED">SUSPENDED</option>
                 </select>
+              </label>
+
+              <label>
+                Patrol Status
+                <select
+                  value={memberForm.patrolStatus || "NOT_PATROLLER"}
+                  onChange={(e) => setMemberForm({ ...memberForm, patrolStatus: e.target.value })}
+                >
+                  <option value="NOT_PATROLLER">NOT_PATROLLER</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="APPROVED">APPROVED</option>
+                  <option value="SUSPENDED">SUSPENDED</option>
+                </select>
+              </label>
+
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(memberForm.patrolApproved)}
+                  onChange={(e) => setMemberForm({ ...memberForm, patrolApproved: e.target.checked, patrolStatus: e.target.checked ? "APPROVED" : memberForm.patrolStatus })}
+                />
+                Approved for Patrol Duty
+              </label>
+
+              <label>
+                Patrol Notes
+                <textarea
+                  value={memberForm.patrolNotes || ""}
+                  onChange={(e) => setMemberForm({ ...memberForm, patrolNotes: e.target.value })}
+                />
               </label>
 
               <label>
@@ -3454,6 +3552,8 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
             <p><strong>Address:</strong> {[selectedMember.address, selectedMember.suburb].filter(Boolean).join(", ") || "-"}</p>
             <p><strong>Sector:</strong> {selectedMember.sector || "-"}</p>
             <p><strong>Vetting:</strong> {selectedMember.vettingStatus || "-"}</p>
+            <p><strong>Patrol Status:</strong> {selectedMember.patrolStatus || "NOT_PATROLLER"}{selectedMember.patrolApproved ? " / APPROVED" : ""}</p>
+            <p><strong>Login:</strong> {selectedMember.user ? `${selectedMember.user.email || selectedMember.user.fullName} (${selectedMember.user.role})` : "No linked login"}</p>
             <p><strong>Roles:</strong> {getMemberRoles(selectedMember).join(", ") || "-"}</p>
             <p><strong>Next of Kin:</strong> {[selectedMember.nextOfKinName, selectedMember.nextOfKinPhone].filter(Boolean).join(" - ") || "-"}</p>
             <p><strong>Medical Notes:</strong> {selectedMember.medicalNotes || "-"}</p>
@@ -3475,9 +3575,64 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
                 .filter(Boolean)
                 .join(", ") || "-"}
             </p>
+            <p><strong>Patrol Notes:</strong> {selectedMember.patrolNotes || "-"}</p>
             <p><strong>Notes:</strong> {(selectedMember.notes || "").split("\n").filter((line) => !line.startsWith(ROLE_MARKER)).join("\n") || "-"}</p>
+            {canManageMembers && (
+              <div className="action-row">
+                <button onClick={() => startEditMember(selectedMember)}>Edit Member</button>
+                <button onClick={() => updatePatrollerStatus(selectedMember, "APPROVED", true)}>Approve Patrol</button>
+                <button onClick={() => updatePatrollerStatus(selectedMember, "SUSPENDED", false)}>Suspend Patrol</button>
+                {!selectedMember.user && selectedMember.email && (
+                  <button onClick={() => createPatrollerLogin(selectedMember)}>Create Patroller Login</button>
+                )}
+              </div>
+            )}
           </div>
         )}
+      </>
+    )}
+
+    {registerTab === "Patrollers" && (
+      <>
+        <div className="details-header">
+          <h3>Patroller Register</h3>
+          <p className="card-detail">Live-ready patroller records. Create the member first, then approve patrol duty and create/link login.</p>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email / Login</th>
+              <th>Callsign</th>
+              <th>Sector</th>
+              <th>Patrol Status</th>
+              <th>Training</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredRegisterPatrollers.map((member) => (
+              <tr key={member.id}>
+                <td>{[member.firstName, member.surname].filter(Boolean).join(" ") || "-"}</td>
+                <td>{member.user?.email || member.email || "No email"}</td>
+                <td>{member.callSign || "-"}</td>
+                <td>{member.sector || "-"}</td>
+                <td>{member.patrolStatus || "NOT_PATROLLER"}{member.patrolApproved ? " / APPROVED" : ""}</td>
+                <td>{member.patrolTraining ? "Patrol trained" : "Training not marked"}</td>
+                <td>
+                  <button onClick={() => { setMemberForm(null); setSelectedMember(member); }}>View</button>
+                  <button onClick={() => startEditMember(member)}>Edit</button>
+                  <button onClick={() => updatePatrollerStatus(member, "APPROVED", true)}>Approve</button>
+                  <button onClick={() => updatePatrollerStatus(member, "SUSPENDED", false)}>Suspend</button>
+                  {!member.user && member.email && (
+                    <button onClick={() => createPatrollerLogin(member)}>Create Login</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </>
     )}
 
@@ -3973,7 +4128,10 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
                   </div>
 
                   {autoLinkSuggestions.length === 0 ? (
-                    <p>No auto-link suggestions for this profile yet.</p>
+                    <div>
+                      <p>No new auto-link suggestions for this profile.</p>
+                      <p className="card-detail">All strong matches may already be linked, ignored, or rejected.</p>
+                    </div>
                   ) : (
                     autoLinkSuggestions.map((suggestion) => (
                       <div key={suggestion.targetEntity.id} className="item">
@@ -4117,13 +4275,15 @@ const filteredRegisterOrganisations = data.organisations.filter((org) =>
                   </div>
                 </div>
 
-                <IntelSpiderGraph
-                  entity={selectedIntelEntity}
-                  allEntities={intelligenceEntities}
-                  onOpenEntity={viewIntelEntity}
-                  onDeleteLink={deleteIntelLink}
-                  timeFilter={intelTimeFilter}
-                />
+                <div id="intel-spider-map">
+                  <IntelSpiderGraph
+                    entity={selectedIntelEntity}
+                    allEntities={intelligenceEntities}
+                    onOpenEntity={viewIntelEntity}
+                    onDeleteLink={deleteIntelLink}
+                    timeFilter={intelTimeFilter}
+                  />
+                </div>
 
                 <IntelGeoMap
                   entities={intelligenceEntities}
