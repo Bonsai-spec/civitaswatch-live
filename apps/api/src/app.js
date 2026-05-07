@@ -43,6 +43,6 @@ app.use("/incidents", incidentsRoutes);
 app.use("/organisations", organisationsRoutes);
 app.use("/admin", requireAuth, adminRoutes);
 app.use("/members", requireAuth, membersRoutes);
-app.use("/services", servicesRoutes);
+app.use("/services", requireAuth, servicesRoutes);
 
 export default app;
