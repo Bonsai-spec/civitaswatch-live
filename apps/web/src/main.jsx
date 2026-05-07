@@ -71,6 +71,12 @@ import {
   getReportStatusCount,
   getReportTotalKm,
 } from "./modules/reports/report.utils";
+import {
+  OPERATION_INCIDENT_TYPE_OPTIONS,
+  OPERATION_SECTOR_OPTIONS,
+  OPERATION_SEVERITY_OPTIONS,
+  OPERATION_STATUS_FILTER_OPTIONS,
+} from "./modules/operations/operations.constants";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -2016,13 +2022,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                     setSelectedIncident(null);
                   }}
                 >
-                  <option value="ALL">All</option>
-                  <option value="OPEN">Open</option>
-                  <option value="ASSIGNED">Assigned</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="RESOLVED">Resolved</option>
-                  <option value="CLOSED">Closed</option>
-                  <option value="ARCHIVED">Archived</option>
+                  {OPERATION_STATUS_FILTER_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -2073,15 +2077,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                           setForm({ ...form, incidentType: e.target.value })
                         }
                       >
-                        <option value="ASSAULT">Assault</option>
-                        <option value="ROBBERY">Robbery</option>
-                        <option value="DOMESTIC_VIOLENCE">Domestic Violence</option>
-                        <option value="THEFT">Theft</option>
-                        <option value="SUSPICIOUS_ACTIVITY">Suspicious Activity</option>
-                        <option value="NOISE_COMPLAINT">Noise Complaint</option>
-                        <option value="VANDALISM">Vandalism</option>
-                        <option value="MEDICAL">Medical</option>
-                        <option value="OTHER">Other</option>
+                        {OPERATION_INCIDENT_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
                     </label>
 
@@ -2128,10 +2128,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                           setForm({ ...form, sector: e.target.value })
                         }
                       >
-                        <option>Sector 1</option>
-                        <option>Sector 2</option>
-                        <option>Sector 3</option>
-                        <option>Sector 4</option>
+                        {OPERATION_SECTOR_OPTIONS.map((sector) => (
+                          <option key={sector}>{sector}</option>
+                        ))}
                       </select>
                     </label>
 
@@ -2143,10 +2142,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                           setForm({ ...form, severity: e.target.value })
                         }
                       >
-                        <option value="LOW">LOW</option>
-                        <option value="MEDIUM">MEDIUM</option>
-                        <option value="HIGH">HIGH</option>
-                        <option value="CRITICAL">CRITICAL</option>
+                        {OPERATION_SEVERITY_OPTIONS.map((severity) => (
+                          <option key={severity} value={severity}>
+                            {severity}
+                          </option>
+                        ))}
                       </select>
                     </label>
 
