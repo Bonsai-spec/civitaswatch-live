@@ -39,10 +39,13 @@ import {
 import {
   getDisplayName,
   getIncidentVehicle,
-  getPatrolOptionLabel,
-  getPatrolVehicleLabel,
   getVehicleLabel,
 } from "./modules/vehicles/vehicle.utils";
+import {
+  buildLocalWorkload,
+  getPatrolOptionLabel,
+  getPatrolVehicleLabel,
+} from "./modules/patrols/patrol.utils";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -999,25 +1002,6 @@ function App() {
       console.error(err);
       alert("Failed to close patrol");
     }
-  }
-
-  function buildLocalWorkload(patrols, incidents) {
-    return patrols.map((patrol) => {
-      const count = incidents.filter((incident) => {
-        const patrolId =
-          incident.assignedPatrolId || incident.patrolId || incident.linkedPatrolId;
-        return patrolId === patrol.id && activeStatuses.includes(incident.status);
-      }).length;
-
-      return {
-        id: patrol.id,
-        name: patrol.fullName || patrol.name,
-        email: patrol.email,
-        sector: patrol.sector,
-        status: patrol.status,
-        activeIncidentCount: count,
-      };
-    });
   }
 
   useEffect(() => {
