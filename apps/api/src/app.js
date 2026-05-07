@@ -32,7 +32,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-app.use("/users", usersRoutes);
+app.use("/users", requireAuth, usersRoutes);
 app.use("/auth", authRoutes);
 app.use("/intelligence", intelligenceRoutes);
 app.use("/checklists", checklistsRoutes);
