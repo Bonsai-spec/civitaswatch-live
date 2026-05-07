@@ -1,0 +1,43 @@
+import { API } from "./api";
+
+export const AUTH_ENDPOINTS = {
+  login: `${API}/auth/login`,
+  me: `${API}/auth/me`,
+};
+
+export const DASHBOARD_ENDPOINTS = {
+  dashboard: (status, mine = false) =>
+    `${API}/admin/dashboard?status=${status}${mine ? "&mine=true" : ""}`,
+};
+
+export const INCIDENT_ENDPOINTS = {
+  create: `${API}/admin/incidents`,
+  detail: (id) => `${API}/admin/incidents/${id}`,
+  updateStatus: (id) => `${API}/admin/incidents/${id}/status`,
+  archive: (id) => `${API}/admin/incidents/${id}/archive`,
+  assignPatrol: (id) => `${API}/admin/incidents/${id}/assign-patrol`,
+  unassignPatrol: (id) => `${API}/admin/incidents/${id}/unassign-patrol`,
+  autoAssign: (id) => `${API}/incidents/${id}/auto-assign`,
+};
+
+export const MEMBER_ENDPOINTS = {
+  list: `${API}/members`,
+  detail: (id) => `${API}/members/${id}`,
+  createPatrollerLogin: (id) => `${API}/members/${id}/create-patroller-login`,
+  patrollerStatus: (id) => `${API}/members/${id}/patroller-status`,
+};
+
+export const PATROL_ENDPOINTS = {
+  reports: (query = "") => `${API}/patrols/report/all${query ? `?${query}` : ""}`,
+  adminUpdate: (id) => `${API}/patrols/${id}/admin-update`,
+  audit: (id) => `${API}/patrols/${id}/audit`,
+  end: (id) => `${API}/patrols/${id}/end`,
+};
+
+export const INTELLIGENCE_ENDPOINTS = {
+  list: `${API}/intelligence`,
+  detail: (id) => `${API}/intelligence/${id}`,
+  connections: (id) => `${API}/intelligence/${id}/connections`,
+  links: `${API}/intelligence/links`,
+  linkDetail: (id) => `${API}/intelligence/links/${id}`,
+};

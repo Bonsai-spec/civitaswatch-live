@@ -10,7 +10,14 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import { canAccess } from "./auth/permissions.helpers";
-import { API } from "./core/api";
+import {
+  AUTH_ENDPOINTS,
+  DASHBOARD_ENDPOINTS,
+  INCIDENT_ENDPOINTS,
+  INTELLIGENCE_ENDPOINTS,
+  MEMBER_ENDPOINTS,
+  PATROL_ENDPOINTS,
+} from "./core/endpoints";
 import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
@@ -650,7 +657,7 @@ function App() {
     e.preventDefault();
 
     try {
-      const res = await fetch(`${API}/auth/login`, {
+      const res = await fetch(AUTH_ENDPOINTS.login, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -674,7 +681,7 @@ function App() {
 
   async function loadUser() {
     try {
-      const res = await fetch(`${API}/auth/me`, {
+      const res = await fetch(AUTH_ENDPOINTS.me, {
         headers: getAuthHeaders(),
       });
 
@@ -696,9 +703,7 @@ function App() {
     if (!token) return;
 
     try {
-      const dashboardUrl = isPatrol
-        ? `${API}/admin/dashboard?status=${filter}&mine=true`
-        : `${API}/admin/dashboard?status=${filter}`;
+      const dashboardUrl = DASHBOARD_ENDPOINTS.dashboard(filter, isPatrol);
 
       const res = await fetch(dashboardUrl, {
         headers: getAuthHeaders(),
@@ -728,7 +733,7 @@ function App() {
       let members = [];
 
       try {
-        const membersRes = await fetch(`${API}/members`, {
+        const membersRes = await fetch(MEMBER_ENDPOINTS.list, {
           headers: getAuthHeaders(),
         });
 
@@ -769,7 +774,7 @@ function App() {
     }
 
     try {
-      const res = await fetch(`${API}/incidents/${id}/auto-assign`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.autoAssign(id), {
         method: "PATCH",
         headers: getAuthHeaders(),
       });
@@ -811,9 +816,7 @@ function App() {
       });
 
       const query = params.toString();
-      const url = query
-        ? `${API}/patrols/report/all?${query}`
-        : `${API}/patrols/report/all`;
+      const url = PATROL_ENDPOINTS.reports(query);
 
       const res = await fetch(url, {
         headers: getAuthHeaders(),
@@ -890,7 +893,7 @@ function App() {
     }
 
     try {
-      const res = await fetch(`${API}/patrols/${patrolId}/admin-update`, {
+      const res = await fetch(PATROL_ENDPOINTS.adminUpdate(patrolId), {
         method: "PATCH",
         headers: getJsonAuthHeaders(),
         body: JSON.stringify({
@@ -931,7 +934,7 @@ function App() {
     setEditPatrolForm(null);
 
     try {
-      const res = await fetch(`${API}/patrols/${patrol.id}/audit`, {
+      const res = await fetch(PATROL_ENDPOINTS.audit(patrol.id), {
         headers: getAuthHeaders(),
       });
 
@@ -957,7 +960,7 @@ function App() {
     if (endKm === null) return;
 
     try {
-      const res = await fetch(`${API}/patrols/${patrol.id}/end`, {
+      const res = await fetch(PATROL_ENDPOINTS.end(patrol.id), {
         method: "POST",
         headers: getJsonAuthHeaders(),
         body: JSON.stringify({
@@ -1045,7 +1048,7 @@ useEffect(() => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API}/admin/incidents`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.create, {
         method: "POST",
         headers: getJsonAuthHeaders(),
         body: JSON.stringify(form),
@@ -1077,7 +1080,7 @@ useEffect(() => {
     }
 
     try {
-      const res = await fetch(`${API}/admin/incidents/${id}/status`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.updateStatus(id), {
         method: "PATCH",
         headers: getJsonAuthHeaders(),
         body: JSON.stringify({ status }),
@@ -1102,7 +1105,7 @@ useEffect(() => {
     if (!canCreateIncidents) return;
 
     try {
-      const res = await fetch(`${API}/admin/incidents/${id}/archive`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.archive(id), {
         method: "PATCH",
         headers: getAuthHeaders(),
       });
@@ -1127,7 +1130,7 @@ useEffect(() => {
     if (!confirm("Delete incident permanently?")) return;
 
     try {
-      const res = await fetch(`${API}/admin/incidents/${id}`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.detail(id), {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
@@ -1151,7 +1154,7 @@ useEffect(() => {
     if (!canAssignPatrol || (!patrolId && !vehicleId)) return;
 
     try {
-      const res = await fetch(`${API}/admin/incidents/${id}/assign-patrol`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.assignPatrol(id), {
         method: "PATCH",
         headers: getJsonAuthHeaders(),
         body: JSON.stringify({ patrolId, vehicleId }),
@@ -1176,7 +1179,7 @@ useEffect(() => {
     if (!canAssignPatrol) return;
 
     try {
-      const res = await fetch(`${API}/admin/incidents/${id}/unassign-patrol`, {
+      const res = await fetch(INCIDENT_ENDPOINTS.unassignPatrol(id), {
         method: "PATCH",
         headers: getAuthHeaders(),
       });
@@ -1286,8 +1289,8 @@ async function saveMember(e) {
 
   try {
     const url = isEditingMember
-      ? `${API}/members/${memberForm.id}`
-      : `${API}/members`;
+      ? MEMBER_ENDPOINTS.detail(memberForm.id)
+      : MEMBER_ENDPOINTS.list;
 
     const method = isEditingMember ? "PATCH" : "POST";
 
@@ -1356,7 +1359,7 @@ async function disableMember(member) {
   }
 
   try {
-    const res = await fetch(`${API}/members/${member.id}`, {
+    const res = await fetch(MEMBER_ENDPOINTS.detail(member.id), {
       method: "PATCH",
       headers: getJsonAuthHeaders(),
       body: JSON.stringify({ isActive: false }),
@@ -1387,7 +1390,7 @@ async function enableMember(member) {
   }
 
   try {
-    const res = await fetch(`${API}/members/${member.id}`, {
+    const res = await fetch(MEMBER_ENDPOINTS.detail(member.id), {
       method: "PATCH",
       headers: getJsonAuthHeaders(),
       body: JSON.stringify({ isActive: true }),
@@ -1431,7 +1434,7 @@ Enter temporary password:`,
   }
 
   try {
-    const res = await fetch(`${API}/members/${member.id}/create-patroller-login`, {
+    const res = await fetch(MEMBER_ENDPOINTS.createPatrollerLogin(member.id), {
       method: "POST",
       headers: getJsonAuthHeaders(),
       body: JSON.stringify({ password }),
@@ -1457,7 +1460,7 @@ async function updatePatrollerStatus(member, patrolStatus, patrolApproved = fals
   if (!canManageMembers || !member?.id) return;
 
   try {
-    const res = await fetch(`${API}/members/${member.id}/patroller-status`, {
+    const res = await fetch(MEMBER_ENDPOINTS.patrollerStatus(member.id), {
       method: "PATCH",
       headers: getJsonAuthHeaders(),
       body: JSON.stringify({
@@ -1490,7 +1493,7 @@ async function loadIntelligence() {
   if (!token || !canViewIntelligence) return;
 
   try {
-    const res = await fetch(`${API}/intelligence`, {
+    const res = await fetch(INTELLIGENCE_ENDPOINTS.list, {
       headers: getAuthHeaders(),
     });
 
@@ -1583,8 +1586,8 @@ async function saveIntelEntity(e) {
 
   try {
     const url = isEditingIntel
-      ? `${API}/intelligence/${intelForm.id}`
-      : `${API}/intelligence`;
+      ? INTELLIGENCE_ENDPOINTS.detail(intelForm.id)
+      : INTELLIGENCE_ENDPOINTS.list;
 
     const method = isEditingIntel ? "PATCH" : "POST";
 
@@ -1640,7 +1643,7 @@ async function viewIntelEntity(entity) {
   if (!entity?.id) return;
 
   try {
-    const res = await fetch(`${API}/intelligence/${entity.id}/connections`, {
+    const res = await fetch(INTELLIGENCE_ENDPOINTS.connections(entity.id), {
       headers: getAuthHeaders(),
     });
 
@@ -1671,7 +1674,7 @@ async function deleteIntelEntity(entity) {
   if (!confirm(`Archive intelligence entity: ${entity.displayName}?`)) return;
 
   try {
-    const res = await fetch(`${API}/intelligence/${entity.id}`, {
+    const res = await fetch(INTELLIGENCE_ENDPOINTS.detail(entity.id), {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -1713,7 +1716,7 @@ async function createIntelLink(e) {
   }
 
   try {
-    const res = await fetch(`${API}/intelligence/links`, {
+    const res = await fetch(INTELLIGENCE_ENDPOINTS.links, {
       method: "POST",
       headers: getJsonAuthHeaders(),
       body: JSON.stringify({
@@ -1760,7 +1763,7 @@ async function deleteIntelLink(link) {
   }
 
   try {
-    const res = await fetch(`${API}/intelligence/links/${link.id}`, {
+    const res = await fetch(INTELLIGENCE_ENDPOINTS.linkDetail(link.id), {
       method: "DELETE",
       headers: getAuthHeaders(),
     });
@@ -1793,7 +1796,7 @@ async function createSuggestedIntelLink(suggestion) {
   }
 
   try {
-    const res = await fetch(`${API}/intelligence/links`, {
+    const res = await fetch(INTELLIGENCE_ENDPOINTS.links, {
       method: "POST",
       headers: getJsonAuthHeaders(),
       body: JSON.stringify({
