@@ -1,0 +1,12 @@
+export const MEMBER_ROLES = [
+  "PATROLLER",
+  "PATROL",
+  "CONTROL_ROOM",
+  "ADMIN",
+  "REPORTS",
+  "SUPERVISOR",
+  "INTELLIGENCE_ANALYST",
+  "INTELLIGENCE",
+];
+
+export const ROLE_MARKER = "__MEMBER_ROLES__=";

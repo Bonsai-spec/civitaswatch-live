@@ -7,6 +7,7 @@ import "leaflet/dist/leaflet.css";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import { API } from "./core/api";
 import "./index.css";
@@ -17,19 +18,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
-
-const MEMBER_ROLES = [
-  "PATROLLER",
-  "PATROL",
-  "CONTROL_ROOM",
-  "ADMIN",
-  "REPORTS",
-  "SUPERVISOR",
-  "INTELLIGENCE_ANALYST",
-  "INTELLIGENCE",
-];
-
-const ROLE_MARKER = "__MEMBER_ROLES__=";
 
 function getMemberRoles(member) {
   if (!member) return [];
