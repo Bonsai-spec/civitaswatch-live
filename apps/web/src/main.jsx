@@ -10,6 +10,7 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import { API } from "./core/api";
+import { activeStatuses } from "./modules/incidents/incident.constants";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -56,8 +57,6 @@ function saveRolesIntoNotes(notes, roles = []) {
 
 
 
-
-const activeStatuses = ["OPEN", "ASSIGNED", "IN_PROGRESS"];
 
 function getDisplayName(person) {
   if (!person) return "N/A";
