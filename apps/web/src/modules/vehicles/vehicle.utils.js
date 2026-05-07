@@ -25,15 +25,3 @@ export function getIncidentVehicle(incident) {
     null
   );
 }
-
-export function getPatrolVehicleLabel(patrol) {
-  return getVehicleLabel(patrol?.vehicle);
-}
-
-export function getPatrolOptionLabel(patrol) {
-  const name = getDisplayName(patrol);
-  const vehicle = getPatrolVehicleLabel(patrol);
-  const sector = patrol?.sector || "No sector";
-
-  return `${name} — ${vehicle} — ${sector}`;
-}
