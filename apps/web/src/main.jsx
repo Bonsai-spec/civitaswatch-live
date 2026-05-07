@@ -8,9 +8,11 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
-import { NAV_ITEMS, PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
-import { canAccess, hasPermission } from "./auth/permissions.helpers";
+import { PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
+import { canAccess } from "./auth/permissions.helpers";
 import { API } from "./core/api";
+import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
+import { getNavigationLabelsForRole } from "./navigation/navigation.helpers";
 import { activeStatuses } from "./modules/incidents/incident.constants";
 import { getIncidentLinkedPatrolId, getIncidentPatrol } from "./modules/incidents/incident.utils";
 import { buildIntelGraph } from "./modules/intelligence/graph.utils";
@@ -581,12 +583,7 @@ function App() {
   const isPatrol = userRole === SYSTEM_ROLES.PATROL || userRole === SYSTEM_ROLES.PATROLLER;
 
   const navItems = useMemo(() => {
-    if (!userRole) return ["Dashboard"];
-
-    return NAV_ITEMS.filter((item) => {
-      const permissions = PERMISSIONS_BY_ROLE[userRole] || [];
-      return hasPermission(permissions, item.permission);
-    }).map((item) => item.label);
+    return getNavigationLabelsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
   }, [userRole]);
 
   const filteredPatrolReports = useMemo(
