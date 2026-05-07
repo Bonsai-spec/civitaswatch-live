@@ -35,6 +35,13 @@ import {
   getRecordTimestamp,
   parseIntelDate,
 } from "./utils/date.utils";
+import {
+  getDisplayName,
+  getIncidentVehicle,
+  getPatrolOptionLabel,
+  getPatrolVehicleLabel,
+  getVehicleLabel,
+} from "./modules/vehicles/vehicle.utils";
 import "./index.css";
 
 delete L.Icon.Default.prototype._getIconUrl;
@@ -44,24 +51,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-function getDisplayName(person) {
-  if (!person) return "N/A";
-
-  const user = person.user || person.patroller || person.assignedUser || person;
-
-  return user.fullName || user.name || user.email || "Unnamed user";
-}
-
-function getVehicleLabel(vehicle) {
-  if (!vehicle) return "No vehicle";
-
-  const callsign = vehicle.callsign || vehicle.callSign || vehicle.name || "Vehicle";
-  const plate = vehicle.plateNumber || vehicle.registration || vehicle.regNumber;
-  const type = vehicle.type || vehicle.vehicleType;
-
-  return [callsign, plate, type].filter(Boolean).join(" • ");
-}
-
 function getIncidentPatrol(incident, patrols = []) {
   return (
     incident?.assignedPatrol ||
@@ -70,16 +59,6 @@ function getIncidentPatrol(incident, patrols = []) {
     patrols.find((p) => p.id === incident?.assignedPatrolId) ||
     patrols.find((p) => p.id === incident?.patrolId) ||
     patrols.find((p) => p.id === incident?.linkedPatrolId) ||
-    null
-  );
-}
-
-function getIncidentVehicle(incident) {
-  return (
-    incident?.assignedVehicle ||
-    incident?.vehicle ||
-    incident?.linkedVehicle ||
-    incident?.linkedPatrol?.vehicle ||
     null
   );
 }
@@ -508,18 +487,6 @@ function IntelGeoMap({ entities, selectedEntity, onOpenEntity, timeFilter }) {
   );
 }
 
-
-function getPatrolVehicleLabel(patrol) {
-  return getVehicleLabel(patrol?.vehicle);
-}
-
-function getPatrolOptionLabel(patrol) {
-  const name = getDisplayName(patrol);
-  const vehicle = getPatrolVehicleLabel(patrol);
-  const sector = patrol?.sector || "No sector";
-
-  return `${name} — ${vehicle} — ${sector}`;
-}
 
 function getIncidentLinkedPatrolId(incident) {
   return (
