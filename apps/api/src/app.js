@@ -11,9 +11,10 @@ import patrolEventsRoutes from "./routes/patrol-events.routes.js";
 import incidentsRoutes from "./routes/incidents.routes.js";
 import organisationsRoutes from "./routes/organisations.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
-import { requireAuth } from "./middleware/auth.js";
 import membersRoutes from "./routes/members.routes.js";
+import servicesRoutes from "./routes/services.routes.js";
 
+import { requireAuth } from "./middleware/auth.js";
 
 const app = express();
 
@@ -41,8 +42,7 @@ app.use("/patrol-events", patrolEventsRoutes);
 app.use("/incidents", incidentsRoutes);
 app.use("/organisations", organisationsRoutes);
 app.use("/admin", requireAuth, adminRoutes);
-app.use("/members", membersRoutes);
+app.use("/members", requireAuth, membersRoutes);
+app.use("/services", servicesRoutes);
 
 export default app;
-
-
