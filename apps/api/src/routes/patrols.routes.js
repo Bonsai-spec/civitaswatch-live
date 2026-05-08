@@ -1,43 +1,151 @@
 // apps/api/src/routes/patrols.routes.js
-// CivitasWatch Phase 2A backend routes
-// Prisma 7 + PostgreSQL adapter version
-//
-// IMPORTANT:
-// app.js mounts this file with:
-// app.use("/patrols", patrolsRoutes);
-//
-// So route paths in this file must NOT start with /patrols.
-//
-// Final API paths:
-// GET   /patrols/report/all
-// PATCH /patrols/:id/admin-update
-// GET   /patrols/:id/audit
-//
-// Optional GET /patrols/report/all query filters supported:
-// ?from=2026-04-01
-// ?to=2026-04-28
-// ?sector=Sector%201
-// ?vehicleId=...
-// ?patrollerId=...
-// ?status=COMPLETED
 
-import "dotenv/config";
 import express from "express";
 import crypto from "crypto";
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { prisma } from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
-const adapter = new PrismaPg({
-  connectionString: process.env.DATABASE_URL,
+// =================================
+// ACTIVE PATROLS
+// GET /patrols/active
+// =================================
+router.get("/active", requireAuth, async (req, res) => {
+  try {
+    const patrols = await prisma.patrolSession.findMany({
+      where: {
+        status: {
+          in: ["ACTIVE", "EN_ROUTE", "ON_SCENE", "STAND_DOWN", "MOBILE"],
+        },
+      },
+      include: {
+        user: true,
+        vehicle: true,
+      },
+      orderBy: {
+        startTime: "desc",
+      },
+    });
+
+    res.json(patrols);
+  } catch (err) {
+    console.error("ACTIVE patrols error:", err);
+    res.status(500).json({ error: "Failed to load active patrols" });
+  }
 });
 
-const prisma = new PrismaClient({
-  adapter,
-  log: ["error"],
+// =================================
+// START PATROL
+// POST /patrols/start
+// =================================
+router.post("/start", requireAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    const { vehicleId, sector, startKm } = req.body;
+
+    if (!vehicleId || !sector || startKm === undefined) {
+      return res.status(400).json({
+        error: "vehicleId, sector, startKm required",
+      });
+    }
+
+    const existing = await prisma.patrolSession.findFirst({
+      where: {
+        userId: user.id,
+        status: {
+          in: ["ACTIVE", "EN_ROUTE", "ON_SCENE", "STAND_DOWN", "MOBILE"],
+        },
+      },
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        error: "User already has active patrol",
+      });
+    }
+
+    const patrol = await prisma.patrolSession.create({
+      data: {
+        userId: user.id,
+        vehicleId,
+        sector,
+        startKm: Number(startKm),
+        status: "ACTIVE",
+        startTime: new Date(),
+      },
+      include: {
+        user: true,
+        vehicle: true,
+      },
+    });
+
+    res.status(201).json(patrol);
+  } catch (err) {
+    console.error("START patrol error:", err);
+    res.status(500).json({ error: "Failed to start patrol" });
+  }
 });
+
+// =================================
+// END PATROL
+// POST /patrols/:id/end
+// =================================
+router.post("/:id/end", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { endKm, summary } = req.body;
+
+    const patrol = await prisma.patrolSession.findUnique({
+      where: { id },
+    });
+
+    if (!patrol) {
+      return res.status(404).json({ error: "Patrol not found" });
+    }
+
+    if (patrol.status === "COMPLETED") {
+      return res.status(400).json({ error: "Patrol already completed" });
+    }
+
+    const end = Number(endKm);
+    const start = Number(patrol.startKm);
+
+    if (Number.isNaN(end)) {
+      return res.status(400).json({ error: "Invalid end KM" });
+    }
+
+    if (end < start) {
+      return res.status(400).json({
+        error: "End KM cannot be less than start KM",
+      });
+    }
+
+    const updated = await prisma.patrolSession.update({
+      where: { id },
+      data: {
+        endKm: end,
+        totalKm: end - start,
+        summary: summary || null,
+        status: "COMPLETED",
+        endTime: new Date(),
+      },
+      include: {
+        user: true,
+        vehicle: true,
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error("END patrol error:", err);
+    res.status(500).json({ error: "Failed to end patrol" });
+  }
+});
+
+// =================================
+// EXISTING REPORT + AUDIT CODE
+// =================================
 
 function auditValue(value) {
   if (value === null || value === undefined) return "";
@@ -70,9 +178,7 @@ function buildPatrolReportWhere(query = {}) {
   if (query.from || query.to) {
     where.startTime = {};
 
-    if (query.from) {
-      where.startTime.gte = new Date(query.from);
-    }
+    if (query.from) where.startTime.gte = new Date(query.from);
 
     if (query.to) {
       const toDate = new Date(query.to);
@@ -85,19 +191,15 @@ function buildPatrolReportWhere(query = {}) {
 }
 
 // =================================
-// REPORTS LIST
-// Final path: GET /patrols/report/all
+// REPORTS
+// GET /patrols/report/all
 // =================================
 router.get("/report/all", requireAuth, async (req, res) => {
   try {
     const user = req.user;
 
-    if (!user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
     if (!isAllowedOperationalRole(user)) {
-      return res.status(403).json({ error: "Not allowed to view patrol reports" });
+      return res.status(403).json({ error: "Not allowed" });
     }
 
     const reports = await prisma.patrolSession.findMany({
@@ -106,223 +208,15 @@ router.get("/report/all", requireAuth, async (req, res) => {
         startTime: "desc",
       },
       include: {
-        user: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            role: true,
-          },
-        },
+        user: true,
         vehicle: true,
       },
     });
 
-    return res.json(reports);
+    res.json(reports);
   } catch (err) {
     console.error("GET /patrols/report/all failed:", err);
-    return res.status(500).json({
-      error: "Failed to load patrol reports",
-    });
-  }
-});
-
-// =================================
-// ADMIN / CONTROL ROOM REPORT EDIT
-// Final path: PATCH /patrols/:id/admin-update
-// =================================
-router.patch("/:id/admin-update", requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { updates = {}, editReason } = req.body;
-    const user = req.user;
-
-    if (!user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if (!isAllowedOperationalRole(user)) {
-      return res.status(403).json({ error: "Not allowed to edit patrol reports" });
-    }
-
-    if (!editReason || editReason.trim().length < 5) {
-      return res.status(400).json({
-        error: "Edit reason is required, minimum 5 characters",
-      });
-    }
-
-    const patrol = await prisma.patrolSession.findUnique({
-      where: { id },
-    });
-
-    if (!patrol) {
-      return res.status(404).json({ error: "Patrol report not found" });
-    }
-
-    if (patrol.isLocked) {
-      return res.status(403).json({ error: "This patrol report is locked" });
-    }
-
-    const editableFields = ["sector", "startKm", "endKm", "summary"];
-    const cleanUpdates = {};
-    const auditRows = [];
-
-    for (const field of editableFields) {
-      if (Object.prototype.hasOwnProperty.call(updates, field)) {
-        const oldValue = patrol[field];
-        const newValue = updates[field];
-
-        if (auditValue(oldValue) !== auditValue(newValue)) {
-          cleanUpdates[field] = newValue;
-
-          auditRows.push({
-            id: crypto.randomUUID(),
-            patrolId: id,
-            editedBy: user.id,
-            editedByRole: user.role,
-            fieldName: field,
-            oldValue: auditValue(oldValue),
-            newValue: auditValue(newValue),
-            editReason: editReason.trim(),
-          });
-        }
-      }
-    }
-
-    if (auditRows.length === 0) {
-      return res.status(400).json({ error: "No changes detected" });
-    }
-
-    const finalStartKm =
-      Object.prototype.hasOwnProperty.call(cleanUpdates, "startKm")
-        ? cleanUpdates.startKm
-        : patrol.startKm;
-
-    const finalEndKm =
-      Object.prototype.hasOwnProperty.call(cleanUpdates, "endKm")
-        ? cleanUpdates.endKm
-        : patrol.endKm;
-
-    if (
-      finalStartKm !== null &&
-      finalStartKm !== undefined &&
-      finalEndKm !== null &&
-      finalEndKm !== undefined
-    ) {
-      const start = Number(finalStartKm);
-      const end = Number(finalEndKm);
-
-      if (Number.isNaN(start) || Number.isNaN(end)) {
-        return res.status(400).json({
-          error: "Start KM and End KM must be numbers",
-        });
-      }
-
-      if (end < start) {
-        return res.status(400).json({
-          error: "End KM cannot be less than Start KM",
-        });
-      }
-
-      cleanUpdates.totalKm = end - start;
-    }
-
-    const updatedPatrol = await prisma.$transaction(async (tx) => {
-      const updated = await tx.patrolSession.update({
-        where: { id },
-        data: {
-          ...cleanUpdates,
-          editedAt: new Date(),
-          editedBy: user.id,
-          editCount: {
-            increment: auditRows.length,
-          },
-        },
-        include: {
-          user: true,
-          vehicle: true,
-        },
-      });
-
-      await tx.patrolReportAuditLog.createMany({
-        data: auditRows,
-      });
-
-      return updated;
-    });
-
-    return res.json({ patrol: updatedPatrol });
-  } catch (err) {
-    console.error("PATCH /patrols/:id/admin-update failed:", err);
-    return res.status(500).json({
-      error: "Failed to update patrol report",
-    });
-  }
-});
-
-// =================================
-// AUDIT HISTORY
-// Final path: GET /patrols/:id/audit
-// =================================
-router.get("/:id/audit", requireAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const user = req.user;
-
-    if (!user) {
-      return res.status(401).json({ error: "Not authenticated" });
-    }
-
-    if (!isAllowedOperationalRole(user)) {
-      return res.status(403).json({ error: "Not allowed to view audit logs" });
-    }
-
-    const logs = await prisma.patrolReportAuditLog.findMany({
-      where: { patrolId: id },
-      orderBy: { createdAt: "desc" },
-    });
-
-    const userIds = [...new Set(logs.map((log) => log.editedBy).filter(Boolean))];
-
-    const users = userIds.length
-      ? await prisma.user.findMany({
-          where: {
-            id: {
-              in: userIds,
-            },
-          },
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        })
-      : [];
-
-    const usersById = new Map(users.map((u) => [u.id, u]));
-
-    return res.json({
-      auditLogs: logs.map((log) => {
-        const editor = usersById.get(log.editedBy);
-
-        return {
-          id: log.id,
-          field_name: log.fieldName,
-          old_value: log.oldValue,
-          new_value: log.newValue,
-          edit_reason: log.editReason,
-          edited_by: log.editedBy,
-          edited_by_name: editor?.fullName || editor?.email || "Unknown",
-          edited_by_role: log.editedByRole,
-          created_at: log.createdAt,
-        };
-      }),
-    });
-  } catch (err) {
-    console.error("GET /patrols/:id/audit failed:", err);
-    return res.status(500).json({
-      error: "Failed to load audit logs",
-    });
+    res.status(500).json({ error: "Failed to load patrol reports" });
   }
 });
 
