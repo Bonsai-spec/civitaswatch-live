@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 
+import { corsOptions } from "./config/cors.js";
 import usersRoutes from "./routes/users.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import intelligenceRoutes from "./routes/intelligence.routes.js";
@@ -18,13 +19,7 @@ import { requireAuth } from "./middleware/auth.js";
 
 const app = express();
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
