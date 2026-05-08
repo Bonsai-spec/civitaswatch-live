@@ -16,12 +16,14 @@ import membersRoutes from "./routes/members.routes.js";
 import servicesRoutes from "./routes/services.routes.js";
 
 import { requireAuth } from "./middleware/auth.js";
+import { requestLogger } from "./middleware/requestLogger.js";
 
 const app = express();
 
 app.use(cors(corsOptions));
 
 app.use(express.json());
+app.use(requestLogger);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
