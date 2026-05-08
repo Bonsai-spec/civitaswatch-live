@@ -6,13 +6,22 @@ const PORT = process.env.PORT || 4000;
 const HOST = "0.0.0.0";
 
 function logProcessError(event, error) {
+  const errorDetails =
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        }
+      : {
+          name: "NonError",
+          message: String(error),
+          stack: undefined,
+        };
+
   console.error({
     event,
-    error: {
-      name: error?.name,
-      message: error?.message,
-      stack: error?.stack,
-    },
+    error: errorDetails,
   });
 }
 
@@ -32,7 +41,15 @@ const server = app.listen(PORT, HOST, () => {
   console.log("=================================");
 });
 
+let shutdownInProgress = false;
+
 function shutdown(signal) {
+  if (shutdownInProgress) {
+    console.info({ event: "shutdown_already_in_progress", signal });
+    return;
+  }
+
+  shutdownInProgress = true;
   console.info({ event: "shutdown_signal", signal });
 
   server.close(async () => {
