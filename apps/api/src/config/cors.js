@@ -3,6 +3,10 @@ const allowedOrigins = String(process.env.CORS_ORIGINS || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+if (process.env.NODE_ENV === "production" && allowedOrigins.length === 0) {
+  throw new Error("CORS_ORIGINS is required in production");
+}
+
 function validateOrigin(origin, callback) {
   if (!origin) {
     callback(null, true);
