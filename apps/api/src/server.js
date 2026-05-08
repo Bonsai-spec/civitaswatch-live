@@ -1,4 +1,5 @@
 import "./config/env.js";
+import { prisma } from "./config/db.js";
 import app from "./app.js";
 
 const PORT = process.env.PORT || 4000;
@@ -34,8 +35,15 @@ const server = app.listen(PORT, HOST, () => {
 function shutdown(signal) {
   console.info({ event: "shutdown_signal", signal });
 
-  server.close(() => {
+  server.close(async () => {
     console.info({ event: "http_server_closed", signal });
+
+    try {
+      await prisma.$disconnect();
+      console.info({ event: "prisma_disconnected", signal });
+    } catch (error) {
+      logProcessError("prisma_disconnect_failed", error);
+    }
   });
 }
 
