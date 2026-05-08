@@ -15,6 +15,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import membersRoutes from "./routes/members.routes.js";
 import servicesRoutes from "./routes/services.routes.js";
 
+import { errorHandler } from "./middleware/errorHandler.js";
 import { requireAuth } from "./middleware/auth.js";
 import { requestLogger } from "./middleware/requestLogger.js";
 
@@ -41,5 +42,7 @@ app.use("/organisations", requireAuth, organisationsRoutes);
 app.use("/admin", requireAuth, adminRoutes);
 app.use("/members", requireAuth, membersRoutes);
 app.use("/services", requireAuth, servicesRoutes);
+
+app.use(errorHandler);
 
 export default app;
