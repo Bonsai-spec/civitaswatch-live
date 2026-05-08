@@ -30,6 +30,14 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+app.get("/health/live", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/health/ready", (req, res) => {
+  res.json({ status: "ready" });
+});
+
 app.use("/users", requireAuth, usersRoutes);
 app.use("/auth", authRoutes);
 app.use("/intelligence", requireAuth, intelligenceRoutes);
