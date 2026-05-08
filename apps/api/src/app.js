@@ -34,7 +34,7 @@ app.get("/health", (req, res) => {
 
 app.use("/users", requireAuth, usersRoutes);
 app.use("/auth", authRoutes);
-app.use("/intelligence", intelligenceRoutes);
+app.use("/intelligence", requireAuth, intelligenceRoutes);
 app.use("/checklists", requireAuth, checklistsRoutes);
 app.use("/vehicles", requireAuth, vehiclesRoutes);
 app.use("/patrols", requireAuth, patrolsRoutes);
