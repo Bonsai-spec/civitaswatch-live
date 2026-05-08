@@ -49,6 +49,16 @@ function normalizeRole(role) {
   return ALLOWED_ROLES.includes(cleanRole) ? cleanRole : null;
 }
 
+function logAuthRouteEvent(event, req, extra = {}) {
+  console.warn({
+    event,
+    method: req.method,
+    originalUrl: req.originalUrl,
+    ip: req.ip,
+    ...extra,
+  });
+}
+
 router.post(
   "/register",
   requireAuth,
@@ -141,6 +151,7 @@ router.post("/login", loginRateLimiter, async (req, res) => {
     });
 
     if (!user || !user.isActive) {
+      logAuthRouteEvent("failed_login_attempt", req, { email: cleanEmail });
       return res.status(401).json({
         error: "Invalid credentials",
       });
@@ -149,6 +160,7 @@ router.post("/login", loginRateLimiter, async (req, res) => {
     const passwordMatch = await bcrypt.compare(cleanPassword, user.passwordHash);
 
     if (!passwordMatch) {
+      logAuthRouteEvent("failed_login_attempt", req, { email: cleanEmail });
       return res.status(401).json({
         error: "Invalid credentials",
       });
