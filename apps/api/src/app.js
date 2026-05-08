@@ -38,7 +38,7 @@ app.use("/intelligence", intelligenceRoutes);
 app.use("/checklists", checklistsRoutes);
 app.use("/vehicles", requireAuth, vehiclesRoutes);
 app.use("/patrols", requireAuth, patrolsRoutes);
-app.use("/patrol-events", patrolEventsRoutes);
+app.use("/patrol-events", requireAuth, patrolEventsRoutes);
 app.use("/incidents", requireAuth, incidentsRoutes);
 app.use("/organisations", organisationsRoutes);
 app.use("/admin", requireAuth, adminRoutes);
