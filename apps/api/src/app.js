@@ -39,7 +39,7 @@ app.use("/checklists", checklistsRoutes);
 app.use("/vehicles", requireAuth, vehiclesRoutes);
 app.use("/patrols", requireAuth, patrolsRoutes);
 app.use("/patrol-events", patrolEventsRoutes);
-app.use("/incidents", incidentsRoutes);
+app.use("/incidents", requireAuth, incidentsRoutes);
 app.use("/organisations", organisationsRoutes);
 app.use("/admin", requireAuth, adminRoutes);
 app.use("/members", requireAuth, membersRoutes);
