@@ -23,10 +23,26 @@ process.on("uncaughtException", (error) => {
   logProcessError("uncaughtException", error);
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log("=================================");
   console.log("🚀 CIVITASWATCH API RUNNING");
   console.log(`Local:   http://localhost:${PORT}`);
   console.log(`Network: http://192.168.0.143:${PORT}`);
   console.log("=================================");
+});
+
+function shutdown(signal) {
+  console.info({ event: "shutdown_signal", signal });
+
+  server.close(() => {
+    console.info({ event: "http_server_closed", signal });
+  });
+}
+
+process.on("SIGINT", () => {
+  shutdown("SIGINT");
+});
+
+process.on("SIGTERM", () => {
+  shutdown("SIGTERM");
 });
