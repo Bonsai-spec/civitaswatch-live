@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CivitasWatch Control Room</title>
+
+  <style>
+    :root {
+      --bg: #eaf2fb;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #64748b;
+      --primary: #165dff;
+      --primary-dark: #0f44ba;
+      --danger: #d94156;
+      --success: #169b62;
+      --warning: #f0b400;
+      --info: #16b6d8;
+      --border: #d9e4f2;
+      --shadow: 0 18px 40px rgba(18, 39, 74, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      padding: 22px 28px;
+    }
+
+    header h1 { margin: 0; font-size: 30px; }
+    header p { margin: 6px 0 0; color: rgba(255, 255, 255, 0.9); }
+
+    main { max-width: 1320px; margin: 0 auto; padding: 24px; }
+    .hidden { display: none !important; }
+
+    .login-wrap {
+      min-height: calc(100vh - 110px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 480px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 26px;
+      box-shadow: var(--shadow);
+    }
+
+    .login-card h2 { margin: 0 0 6px; font-size: 30px; }
+    .login-card p { margin: 0 0 20px; color: var(--muted); }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .topbar h2 { margin: 0; font-size: 26px; }
+    .topbar-actions { display: flex; gap: 10px; align-items: center; }
+
+    .alert {
+      padding: 14px 16px;
+      border-radius: 16px;
+      font-weight: 800;
+      margin: 12px 0 18px;
+    }
+
+    .alert-info { background: #ddf7fb; color: #0b6173; }
+    .alert-danger { background: #ffe1e7; color: #8b1022; }
+    .alert-success { background: #dcf5e8; color: #14653f; }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    .card h3 { margin: 0 0 14px; font-size: 22px; }
+    .muted { color: var(--muted); font-size: 14px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .stat-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card .label { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+    .stat-card .number { font-size: 32px; font-weight: 900; }
+
+    label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      font-weight: 900;
+      margin: 8px 0 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      font-size: 14px;
+      background: white;
+    }
+
+    textarea { min-height: 80px; resize: vertical; }
+
+    button {
+      border: none;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-secondary { background: #e8eef7; color: #24364f; }
+    .btn-warning { background: var(--warning); color: #2e2500; }
+    .btn-info { background: var(--info); color: #0d2430; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr 1fr 160px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .service-log-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr 180px;
+      gap: 12px;
+      align-items: end;
+    }
+
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 16px; }
+
+    th {
+      background: #f4f7fb;
+      color: #334155;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      padding: 12px;
+      text-align: left;
+    }
+
+    td {
+      border-top: 1px solid var(--border);
+      padding: 12px;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: #f8fbff; }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 900;
+      font-size: 12px;
+      background: #e3edff;
+      color: #165dff;
+    }
+
+    .pill-open, .pill-requested, .pill-on-scene { background: #fff3d3; color: #725400; }
+    .pill-resolved, .pill-cleared, .pill-completed { background: #dcf5e8; color: #14653f; }
+    .pill-danger { background: #ffe1e7; color: #8b1022; }
+
+    .selected-box {
+      background: #f8fbff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 1000px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .form-grid, .service-log-grid { grid-template-columns: 1fr; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>CivitasWatch Control Room</h1>
+    <p>Live patrols, incidents, services, stand-down events, and patrol reports.</p>
+  </header>
+
+  <main>
+    <section id="login-view" class="login-wrap">
+      <div class="login-card">
+        <h2>Control Room Login</h2>
+        <p>Use an ADMIN or CONTROL_ROOM account.</p>
+
+        <div id="login-alert" class="alert alert-info">Enter login details.</div>
+
+        <label>Email</label>
+        <input id="loginEmail" type="email" placeholder="admin@test.com" />
+
+        <label>Password</label>
+        <input id="loginPassword" type="password" placeholder="password" />
+
+        <button class="btn-primary" style="width:100%;margin-top:16px;" onclick="login()">Login</button>
+      </div>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <div class="topbar">
+        <div>
+          <h2>Live Overview</h2>
+          <div class="muted">Auto-refresh every 15 seconds.</div>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn-secondary" onclick="loadAll()">Refresh</button>
+          <button class="btn-danger" onclick="logout()">Logout</button>
+        </div>
+      </div>
+
+      <div id="main-alert" class="alert alert-info">Control room ready.</div>
+
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Active Patrols</div>
+          <div id="statActivePatrols" class="number">0</div>
+          <div class="muted">ACTIVE / EN_ROUTE / ON_SCENE / STAND_DOWN</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="label">Open Incidents</div>
+          <div id="statOpenIncidents" class="number">0</div>
+          <div class="muted">OPEN incidents</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="label">In Progress</div>
+          <div id="statInProgress" class="number">0</div>
+          <div class="muted">ON_SCENE / IN_PROGRESS</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="label">Resolved</div>
+          <div id="statResolved" class="number">0</div>
+          <div class="muted">RESOLVED / CLOSED</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Active Patrols</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Patroller</th>
+              <th>Vehicle</th>
+              <th>Sector</th>
+              <th>Start KM</th>
+              <th>Started</th>
+              <th>Patrol ID</th>
+            </tr>
+          </thead>
+          <tbody id="activePatrolRows"><tr><td colspan="7">Loading...</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <h3>Incidents</h3>
+        <div class="muted" style="margin-bottom:10px;">Click an incident to load linked services.</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Code</th>
+              <th>Title</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Sector</th>
+              <th>Linked Patrol</th>
+              <th>Reported</th>
+            </tr>
+          </thead>
+          <tbody id="incidentRows"><tr><td colspan="8">Loading...</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <div class="topbar" style="margin-bottom:6px;">
+          <h3>Selected Incident Services</h3>
+          <div class="muted">Service logs, reference numbers, and response timestamps.</div>
+        </div>
+
+        <div id="selectedIncidentBox" class="selected-box">No incident selected.</div>
+
+        <div class="service-log-grid">
+          <div>
+            <label>Service</label>
+            <select id="serviceSelect"></select>
+          </div>
+
+          <div>
+            <label>Status</label>
+            <select id="serviceStatus">
+              <option value="REQUESTED">REQUESTED</option>
+              <option value="EN_ROUTE">EN_ROUTE</option>
+              <option value="ON_SCENE">ON_SCENE</option>
+              <option value="CLEARED">CLEARED</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Reference Number</label>
+            <input id="serviceRef" placeholder="CAS / EMS / FIRE ref" />
+          </div>
+
+          <button class="btn-success" onclick="addServiceLog()">Add / Update Service Log</button>
+        </div>
+
+        <label>Notes</label>
+        <textarea id="serviceNotes" placeholder="Service notes, dispatch info, scene update..."></textarea>
+
+        <div id="serviceLogTable" style="margin-top:18px;"><p class="muted">Select an incident row above.</p></div>
+      </section>
+
+      <section class="card">
+        <h3>Service Register</h3>
+
+        <div class="form-grid">
+          <div>
+            <label>Service Name</label>
+            <input id="newServiceName" placeholder="SAPS / FIRE / AMBO" />
+          </div>
+
+          <div>
+            <label>Type</label>
+            <select id="newServiceType">
+              <option value="POLICE">POLICE</option>
+              <option value="AMBULANCE">AMBULANCE</option>
+              <option value="FIRE">FIRE</option>
+              <option value="METRO">METRO</option>
+              <option value="TRAFFIC">TRAFFIC</option>
+              <option value="TOWING">TOWING</option>
+              <option value="SECURITY_BACKUP">SECURITY_BACKUP</option>
+              <option value="CONTROL_ROOM">CONTROL_ROOM</option>
+              <option value="MEDICAL_AID">MEDICAL_AID</option>
+              <option value="OTHER">OTHER</option>
+            </select>
+          </div>
+
+          <div>
+            <label>Phone</label>
+            <input id="newServicePhone" placeholder="Optional" />
+          </div>
+
+          <div>
+            <label>Sector</label>
+            <input id="newServiceSector" placeholder="Optional" />
+          </div>
+
+          <button class="btn-primary" onclick="createService()">Add Service</button>
+        </div>
+
+        <div id="serviceRegisterTable" style="margin-top:18px;"></div>
+      </section>
+
+      <section class="card">
+        <h3>Patrol Reports</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Patroller</th>
+              <th>Vehicle</th>
+              <th>Sector</th>
+              <th>Start KM</th>
+              <th>End KM</th>
+              <th>Total KM</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+            </tr>
+          </thead>
+          <tbody id="patrolReportRows"><tr><td colspan="9">Loading...</td></tr></tbody>
+        </table>
+      </section>
+
+      <section class="card">
+        <div class="topbar" style="margin-bottom:6px;">
+          <h3>Selected Patrol Timeline</h3>
+          <div class="muted">Click a patrol report row to load its events.</div>
+        </div>
+        <div id="patrolTimeline"><p class="muted">No patrol selected.</p></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const API = window.CIVITASWATCH_API_URL || "http://localhost:4000";
+
+    let token = localStorage.getItem("cw_control_token") || "";
+    let user = JSON.parse(localStorage.getItem("cw_control_user") || "null");
+    let activePatrols = [];
+    let incidents = [];
+    let services = [];
+    let patrolReports = [];
+    let selectedIncident = null;
+
+    function showAlert(id, message, type = "info") {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = "alert alert-" + type;
+      el.innerText = message;
+    }
+
+    function pill(text) {
+      const clean = String(text || "-").toUpperCase();
+      let cls = "pill";
+      if (["OPEN", "REQUESTED", "ON_SCENE", "STAND_DOWN", "EN_ROUTE"].includes(clean)) cls += " pill-open";
+      if (["RESOLVED", "CLOSED", "CLEARED", "COMPLETED"].includes(clean)) cls += " pill-resolved";
+      if (["CRITICAL", "CANCELLED"].includes(clean)) cls += " pill-danger";
+      return `<span class="${cls}">${clean}</span>`;
+    }
+
+    function fmtDate(value) {
+      if (!value) return "-";
+      try { return new Date(value).toLocaleString(); } catch { return "-"; }
+    }
+
+    function getPatrollerName(patrol) {
+      return patrol?.user?.fullName || patrol?.patroller?.fullName || patrol?.createdByUser?.fullName || patrol?.user?.email || "Patrol Test";
+    }
+
+    function getVehicleName(patrol) {
+      return patrol?.vehicle?.registration || patrol?.vehicleRegistration || patrol?.registration || "-";
+    }
+
+    function authHeaders() {
+      return { "Content-Type": "application/json", Authorization: "Bearer " + token };
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch(API + path, { ...options, headers: { ...authHeaders(), ...(options.headers || {}) } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.message || "Request failed: " + path);
+      return data;
+    }
+
+    async function login() {
+      try {
+        showAlert("login-alert", "Logging in...", "info");
+        const email = document.getElementById("loginEmail").value.trim();
+        const password = document.getElementById("loginPassword").value.trim();
+
+        const res = await fetch(API + "/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || data.message || "Login failed");
+        if (!["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"].includes(data.user?.role)) throw new Error("User is not allowed to access Control Room");
+
+        token = data.token;
+        user = data.user;
+        localStorage.setItem("cw_control_token", token);
+        localStorage.setItem("cw_control_user", JSON.stringify(user));
+        document.getElementById("login-view").classList.add("hidden");
+        document.getElementById("app-view").classList.remove("hidden");
+        await loadAll();
+      } catch (error) {
+        showAlert("login-alert", error.message, "danger");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("cw_control_token");
+      localStorage.removeItem("cw_control_user");
+      token = "";
+      user = null;
+      selectedIncident = null;
+      document.getElementById("app-view").classList.add("hidden");
+      document.getElementById("login-view").classList.remove("hidden");
+    }
+
+    async function loadAll() {
+      try {
+        showAlert("main-alert", "Loading control room data...", "info");
+        await Promise.all([loadServices(), loadActivePatrols(), loadIncidents(), loadPatrolReports()]);
+        showAlert("main-alert", "Control room data updated.", "success");
+      } catch (error) {
+        console.error(error);
+        showAlert("main-alert", error.message || "Failed to fetch", "danger");
+      }
+    }
+
+    async function loadServices() {
+      services = await api("/services");
+      const serviceSelect = document.getElementById("serviceSelect");
+      serviceSelect.innerHTML = "";
+      if (!Array.isArray(services) || services.length === 0) {
+        serviceSelect.innerHTML = `<option value="">No services registered</option>`;
+      } else {
+        services.forEach((service) => {
+          const option = document.createElement("option");
+          option.value = service.id;
+          option.textContent = `${service.name} (${service.type || "OTHER"})`;
+          serviceSelect.appendChild(option);
+        });
+      }
+      renderServiceRegister();
+    }
+
+    function renderServiceRegister() {
+      const box = document.getElementById("serviceRegisterTable");
+      if (!Array.isArray(services) || services.length === 0) {
+        box.innerHTML = `<p class="muted">No services registered yet.</p>`;
+        return;
+      }
+
+      box.innerHTML = `
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Phone</th><th>Radio</th><th>Sector</th><th>Active</th></tr></thead>
+          <tbody>
+            ${services.map((s) => `
+              <tr>
+                <td>${s.name || "-"}</td>
+                <td>${s.type || "-"}</td>
+                <td>${s.phone || "-"}</td>
+                <td>${s.radio || "-"}</td>
+                <td>${s.sector || "-"}</td>
+                <td>${s.isActive ? "Yes" : "No"}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function createService() {
+      try {
+        const name = document.getElementById("newServiceName").value.trim();
+        const type = document.getElementById("newServiceType").value;
+        const phone = document.getElementById("newServicePhone").value.trim();
+        const sector = document.getElementById("newServiceSector").value.trim();
+        if (!name) throw new Error("Service name is required");
+
+        await api("/services", { method: "POST", body: JSON.stringify({ name, type, phone, sector, isActive: true }) });
+        document.getElementById("newServiceName").value = "";
+        document.getElementById("newServicePhone").value = "";
+        document.getElementById("newServiceSector").value = "";
+        await loadServices();
+        showAlert("main-alert", "Service registered.", "success");
+      } catch (error) {
+        showAlert("main-alert", error.message, "danger");
+      }
+    }
+
+    async function loadActivePatrols() {
+      activePatrols = await api("/patrols/active");
+      if (!Array.isArray(activePatrols)) activePatrols = activePatrols ? [activePatrols] : [];
+      document.getElementById("statActivePatrols").innerText = activePatrols.length;
+
+      const rows = document.getElementById("activePatrolRows");
+      if (activePatrols.length === 0) {
+        rows.innerHTML = `<tr><td colspan="7">No active patrols found.</td></tr>`;
+        return;
+      }
+
+      rows.innerHTML = activePatrols.map((p) => `
+        <tr>
+          <td>${pill(p.status || "ACTIVE")}</td>
+          <td>${getPatrollerName(p)}</td>
+          <td>${getVehicleName(p)}</td>
+          <td>${p.sector || "-"}</td>
+          <td>${p.startKm ?? "-"}</td>
+          <td>${fmtDate(p.startTime || p.createdAt)}</td>
+          <td>${p.id || "-"}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function loadIncidents() {
+      incidents = await api("/incidents?limit=100");
+      if (!Array.isArray(incidents)) incidents = [];
+
+      const open = incidents.filter((i) => i.status === "OPEN").length;
+      const progress = incidents.filter((i) => ["IN_PROGRESS", "ON_SCENE"].includes(i.status)).length;
+      const resolved = incidents.filter((i) => ["RESOLVED", "CLOSED"].includes(i.status)).length;
+
+      document.getElementById("statOpenIncidents").innerText = open;
+      document.getElementById("statInProgress").innerText = progress;
+      document.getElementById("statResolved").innerText = resolved;
+
+      const rows = document.getElementById("incidentRows");
+      if (incidents.length === 0) {
+        rows.innerHTML = `<tr><td colspan="8">No incidents found.</td></tr>`;
+        return;
+      }
+
+      rows.innerHTML = incidents.map((i) => `
+        <tr class="clickable" onclick="selectIncident('${i.id}')">
+          <td>${pill(i.status)}</td>
+          <td>${i.incidentCode || "-"}</td>
+          <td>${i.title || "-"}</td>
+          <td>${i.incidentType || "-"}</td>
+          <td>${i.severity || "-"}</td>
+          <td>${i.sector || "-"}</td>
+          <td>${i.linkedPatrolId || "-"}</td>
+          <td>${fmtDate(i.reportedAt || i.createdAt)}</td>
+        </tr>
+      `).join("");
+    }
+
+    async function selectIncident(id) {
+      selectedIncident = incidents.find((i) => i.id === id) || null;
+      if (!selectedIncident) {
+        document.getElementById("selectedIncidentBox").innerText = "No incident selected.";
+        return;
+      }
+
+      document.getElementById("selectedIncidentBox").innerHTML = `
+        <strong>Services for ${selectedIncident.incidentCode || selectedIncident.id}</strong>
+        <div class="muted">${selectedIncident.title || "-"}</div>
+      `;
+
+      await loadIncidentServices();
+    }
+
+    async function loadIncidentServices() {
+      if (!selectedIncident?.id) return;
+
+      try {
+        const logs = await api("/services/incident/" + selectedIncident.id);
+        if (!Array.isArray(logs) || logs.length === 0) {
+          document.getElementById("serviceLogTable").innerHTML = `<p class="muted">No services logged for this incident yet.</p>`;
+          return;
+        }
+
+        document.getElementById("serviceLogTable").innerHTML = `
+          <table>
+            <thead><tr><th>Service</th><th>Type</th><th>Status</th><th>Ref Number</th><th>Requested</th><th>Arrived</th><th>Cleared</th><th>Notes</th></tr></thead>
+            <tbody>
+              ${logs.map((log) => `
+                <tr>
+                  <td>${log.service?.name || "-"}</td>
+                  <td>${log.service?.type || "-"}</td>
+                  <td>${pill(log.status)}</td>
+                  <td>${log.refNumber || "-"}</td>
+                  <td>${fmtDate(log.requestedAt)}</td>
+                  <td>${fmtDate(log.arrivedAt)}</td>
+                  <td>${fmtDate(log.clearedAt)}</td>
+                  <td>${log.notes || "-"}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        document.getElementById("serviceLogTable").innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+      }
+    }
+
+    async function addServiceLog() {
+      try {
+        if (!selectedIncident?.id) throw new Error("Select an incident first");
+        const serviceId = document.getElementById("serviceSelect").value;
+        if (!serviceId) throw new Error("Select a service first");
+
+        await api("/services/incident/" + selectedIncident.id + "/logs", {
+          method: "POST",
+          body: JSON.stringify({
+            serviceId,
+            status: document.getElementById("serviceStatus").value,
+            refNumber: document.getElementById("serviceRef").value,
+            notes: document.getElementById("serviceNotes").value,
+          }),
+        });
+
+        document.getElementById("serviceRef").value = "";
+        document.getElementById("serviceNotes").value = "";
+        await loadIncidentServices();
+        showAlert("main-alert", "Service log saved.", "success");
+      } catch (error) {
+        showAlert("main-alert", error.message, "danger");
+      }
+    }
+
+    async function loadPatrolReports() {
+      patrolReports = await api("/patrols/report/all");
+      if (!Array.isArray(patrolReports)) patrolReports = [];
+      const rows = document.getElementById("patrolReportRows");
+
+      if (patrolReports.length === 0) {
+        rows.innerHTML = `<tr><td colspan="9">No patrol reports found.</td></tr>`;
+        return;
+      }
+
+      rows.innerHTML = patrolReports.map((p) => {
+        const startKm = Number(p.startKm || 0);
+        const endKm = p.endKm === null || p.endKm === undefined ? null : Number(p.endKm);
+        const totalKm = p.totalKm ?? (endKm !== null ? endKm - startKm : null);
+
+        return `
+          <tr class="clickable" onclick="loadPatrolTimeline('${p.id}')">
+            <td>${pill(p.status)}</td>
+            <td>${getPatrollerName(p)}</td>
+            <td>${getVehicleName(p)}</td>
+            <td>${p.sector || "-"}</td>
+            <td>${p.startKm ?? "-"}</td>
+            <td>${p.endKm ?? "-"}</td>
+            <td>${totalKm ?? "-"}</td>
+            <td>${fmtDate(p.startTime || p.createdAt)}</td>
+            <td>${fmtDate(p.endTime)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    async function loadPatrolTimeline(patrolId) {
+      try {
+        const events = await api("/patrol-events/" + patrolId);
+        if (!Array.isArray(events) || events.length === 0) {
+          document.getElementById("patrolTimeline").innerHTML = `<p class="muted">No timeline events found.</p>`;
+          return;
+        }
+
+        document.getElementById("patrolTimeline").innerHTML = `
+          <table>
+            <thead><tr><th>Type</th><th>Description</th><th>Assistance</th><th>Scene Active</th><th>Created</th></tr></thead>
+            <tbody>
+              ${events.map((e) => `
+                <tr>
+                  <td>${pill(e.type)}</td>
+                  <td>${e.description || "-"}</td>
+                  <td>${e.assistance || "-"}</td>
+                  <td>${e.sceneActive ? "Yes" : "No"}</td>
+                  <td>${fmtDate(e.createdAt)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        document.getElementById("patrolTimeline").innerHTML = `<div class="alert alert-danger">${error.message}</div>`;
+      }
+    }
+
+    window.addEventListener("load", async () => {
+      if (token && user && ["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"].includes(user.role)) {
+        document.getElementById("login-view").classList.add("hidden");
+        document.getElementById("app-view").classList.remove("hidden");
+        await loadAll();
+      } else {
+        logout();
+      }
+    });
+
+    setInterval(() => {
+      if (token && !document.getElementById("app-view").classList.contains("hidden")) {
+        loadAll();
+      }
+    }, 15000);
+  </script>
+</body>
+</html>

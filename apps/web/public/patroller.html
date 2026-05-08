@@ -16,30 +16,54 @@
     .hero{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;padding:22px 20px 18px}
     .brand{display:flex;align-items:center;gap:12px;margin-bottom:10px}
     .brand-mark{width:44px;height:44px;border-radius:14px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900}
-    .brand-meta h1{margin:0;font-size:24px}.brand-meta p{margin:2px 0 0;font-size:12px;color:rgba(255,255,255,.88)}
+    .brand-meta h1{margin:0;font-size:24px}
+    .brand-meta p{margin:2px 0 0;font-size:12px;color:rgba(255,255,255,.88)}
     .hero-text{margin:8px 0 0;line-height:1.45;color:rgba(255,255,255,.95);font-size:14px}
-    .body{padding:18px}.card{background:#fff;border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.06);margin-bottom:14px}
-    .card h3{margin:0 0 10px;font-size:18px}.muted{color:var(--muted)}.label{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-    .value{font-size:15px;font-weight:700}.stack{display:grid;gap:12px}.field{background:#f8fbff;border:1px solid var(--border);border-radius:18px;padding:12px 14px}
+    .body{padding:18px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:22px;padding:16px;box-shadow:0 10px 24px rgba(0,0,0,.06);margin-bottom:14px}
+    .card h3{margin:0 0 10px;font-size:18px}
+    .muted{color:var(--muted)}
+    .label{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+    .value{font-size:15px;font-weight:700;word-break:break-word}
+    .stack{display:grid;gap:12px}
+    .field{background:#f8fbff;border:1px solid var(--border);border-radius:18px;padding:12px 14px}
     .input,.select,.textarea{width:100%;border:1px solid var(--border);border-radius:16px;padding:14px;font-size:15px;margin-top:8px;background:#fff}
-    .textarea{min-height:88px;resize:vertical}.btn{display:block;width:100%;border:none;border-radius:16px;padding:14px 16px;font-weight:800;font-size:15px;text-align:center;cursor:pointer;margin-top:10px;box-shadow:0 10px 20px rgba(0,0,0,.08)}
-    .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white}.btn-success{background:linear-gradient(135deg,#1bbc78,#128353);color:white}
-    .btn-warning{background:linear-gradient(135deg,#ffd75e,var(--warning));color:#2e2500}.btn-danger{background:linear-gradient(135deg,#f05d74,var(--danger));color:white}
-    .btn-info{background:linear-gradient(135deg,#55d8f2,var(--info));color:#0d2430}.btn-secondary{background:#6c7a90;color:white}
-    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;margin-top:8px}.pill-ok{background:#dcf5e8;color:#14653f}.pill-live{background:#e3edff;color:#1b54d1}
-    .alert{padding:13px 14px;border-radius:18px;font-size:14px;font-weight:700;margin-bottom:14px}.alert-info{background:#e3f8fc;color:#0c6074}.alert-danger{background:#ffe1e7;color:#8b1022}.alert-warning{background:#fff3d3;color:#725400}
-    .quick-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.bottom-nav{position:sticky;bottom:0;background:rgba(255,255,255,.92);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
-    .nav-btn{border:none;border-radius:14px;background:#f4f7fb;padding:12px 8px;font-size:12px;font-weight:800;color:#334155;cursor:pointer}.nav-btn.active{background:#e4edff;color:#165dff}
-    .hidden{display:none}.small{font-size:13px}
+    .textarea{min-height:88px;resize:vertical}
+    .btn{display:block;width:100%;border:none;border-radius:16px;padding:14px 16px;font-weight:800;font-size:15px;text-align:center;cursor:pointer;margin-top:10px;box-shadow:0 10px 20px rgba(0,0,0,.08)}
+    .btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white}
+    .btn-success{background:linear-gradient(135deg,#1bbc78,#128353);color:white}
+    .btn-warning{background:linear-gradient(135deg,#ffd75e,var(--warning));color:#2e2500}
+    .btn-danger{background:linear-gradient(135deg,#f05d74,var(--danger));color:white}
+    .btn-info{background:linear-gradient(135deg,#55d8f2,var(--info));color:#0d2430}
+    .btn-secondary{background:#6c7a90;color:white}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;margin-top:8px}
+    .pill-ok{background:#dcf5e8;color:#14653f}
+    .pill-live{background:#e3edff;color:#1b54d1}
+    .alert{padding:13px 14px;border-radius:18px;font-size:14px;font-weight:700;margin-bottom:14px}
+    .alert-info{background:#e3f8fc;color:#0c6074}
+    .alert-danger{background:#ffe1e7;color:#8b1022}
+    .alert-warning{background:#fff3d3;color:#725400}
+    .quick-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .bottom-nav{position:sticky;bottom:0;background:rgba(255,255,255,.92);border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
+    .nav-btn{border:none;border-radius:14px;background:#f4f7fb;padding:12px 8px;font-size:12px;font-weight:800;color:#334155;cursor:pointer}
+    .nav-btn.active{background:#e4edff;color:#165dff}
+    .hidden{display:none}
+    .small{font-size:13px}
   </style>
 </head>
 <body>
 <div class="wrap"><div class="shell">
 
 <div id="login-screen" class="screen active">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Patroller Mobile</p></div></div><p class="hero-text">Live patroller login connected to backend.</p></div>
-  <div class="body"><div id="login-alert" class="alert alert-info">Enter patroller email and password.</div>
-    <div class="card"><h3>Secure Sign In</h3>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Patroller Mobile</p></div></div>
+    <p class="hero-text">Live patroller login connected to backend.</p>
+  </div>
+  <div class="body">
+    <div id="login-alert" class="alert alert-info">Enter patroller email and password.</div>
+    <div class="card">
+      <h3>Secure Sign In</h3>
       <label class="label">Email</label><input id="email" class="input" type="email" placeholder="patroller email">
       <label class="label" style="margin-top:12px;">Password</label><input id="password" class="input" type="password" placeholder="password">
       <button class="btn btn-primary" onclick="loginLive()">Sign In</button>
@@ -48,102 +72,296 @@
 </div>
 
 <div id="profile-screen" class="screen">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Profile</p></div></div><p class="hero-text">Confirm patrol profile before duty.</p></div>
-  <div class="body"><div class="alert alert-info">Logged in.</div>
-    <div class="card"><h3>Patroller</h3><div class="stack">
-      <div class="field"><div class="label">Name</div><div id="profile-name" class="value">-</div></div>
-      <div class="field"><div class="label">Email</div><div id="profile-email" class="value">-</div></div>
-      <div class="field"><div class="label">Role</div><div id="profile-role" class="value">-</div></div>
-    </div><span class="pill pill-ok">Ready</span></div>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Profile</p></div></div>
+    <p class="hero-text">Confirm patrol profile before duty.</p>
+  </div>
+  <div class="body">
+    <div id="profile-alert" class="alert alert-info">Logged in.</div>
+    <div class="card">
+      <h3>Patroller</h3>
+      <div class="stack">
+        <div class="field"><div class="label">Name</div><div id="profile-name" class="value">-</div></div>
+        <div class="field"><div class="label">Email</div><div id="profile-email" class="value">-</div></div>
+        <div class="field"><div class="label">Role</div><div id="profile-role" class="value">-</div></div>
+      </div>
+      <span class="pill pill-ok">Ready</span>
+    </div>
     <button class="btn btn-primary" onclick="goTo('start-screen')">Next: Start Patrol</button>
     <button class="btn btn-secondary" onclick="logoutLive()">Logout</button>
   </div>
-  <div class="bottom-nav"><button class="nav-btn active">Profile</button><button class="nav-btn" onclick="goTo('start-screen')">Start</button><button class="nav-btn" onclick="goTo('actions-screen')">Actions</button></div>
+  <div class="bottom-nav">
+    <button class="nav-btn active">Profile</button>
+    <button class="nav-btn" onclick="goTo('start-screen')">Start</button>
+    <button class="nav-btn" onclick="goTo('actions-screen')">Actions</button>
+  </div>
 </div>
 
 <div id="start-screen" class="screen">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Start Patrol</p></div></div><p class="hero-text">Start patrol and feed control room dashboard.</p></div>
-  <div class="body"><div id="start-alert" class="alert alert-info">Select vehicle, sector, and start KM.</div>
-    <div id="active-card" class="card hidden"><h3>Active Patrol</h3><div class="stack">
-      <div class="field"><div class="label">Vehicle</div><div id="active-vehicle" class="value">-</div></div>
-      <div class="field"><div class="label">Sector</div><div id="active-sector" class="value">-</div></div>
-      <div class="field"><div class="label">Start KM</div><div id="active-start-km" class="value">-</div></div>
-      <div class="field"><div class="label">Started</div><div id="active-start-time" class="value">-</div></div>
-    </div><span class="pill pill-live">ON PATROL</span><button class="btn btn-primary" onclick="goTo('actions-screen')">Continue Patrol</button></div>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Start Patrol</p></div></div>
+    <p class="hero-text">Start patrol and feed control room dashboard.</p>
+  </div>
+  <div class="body">
+    <div id="start-alert" class="alert alert-info">Select vehicle, sector, and start KM.</div>
 
-    <div id="start-card" class="card"><h3>Patrol Start</h3>
+    <div id="active-card" class="card hidden">
+      <h3>Active Patrol</h3>
+      <div class="stack">
+        <div class="field"><div class="label">Vehicle</div><div id="active-vehicle" class="value">-</div></div>
+        <div class="field"><div class="label">Sector</div><div id="active-sector" class="value">-</div></div>
+        <div class="field"><div class="label">Start KM</div><div id="active-start-km" class="value">-</div></div>
+        <div class="field"><div class="label">Started</div><div id="active-start-time" class="value">-</div></div>
+      </div>
+      <span class="pill pill-live">ON PATROL</span>
+      <button class="btn btn-primary" onclick="goTo('actions-screen')">Continue Patrol</button>
+    </div>
+
+    <div id="start-card" class="card">
+      <h3>Patrol Start</h3>
       <label class="label">Vehicle</label><select id="vehicleId" class="select"></select>
-      <label class="label" style="margin-top:12px;">Sector</label><select id="sector" class="select"><option>Sector 1</option><option>Sector 2</option><option>Sector 3</option></select>
+      <label class="label" style="margin-top:12px;">Sector</label>
+      <select id="sector" class="select">
+        <option>Sector 1</option>
+        <option>Sector 2</option>
+        <option>Sector 3</option>
+      </select>
       <label class="label" style="margin-top:12px;">Start KM</label><input id="startKm" class="input" type="number" placeholder="Example: 120900">
       <button class="btn btn-success" onclick="startPatrolLive()">Start Patrol</button>
     </div>
   </div>
-  <div class="bottom-nav"><button class="nav-btn" onclick="goTo('profile-screen')">Profile</button><button class="nav-btn active">Start</button><button class="nav-btn" onclick="goTo('actions-screen')">Actions</button></div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="goTo('profile-screen')">Profile</button>
+    <button class="nav-btn active">Start</button>
+    <button class="nav-btn" onclick="goTo('actions-screen')">Actions</button>
+  </div>
 </div>
 
 <div id="actions-screen" class="screen">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Patrol Actions</p></div></div><p class="hero-text">Capture activity while on patrol.</p></div>
-  <div class="body"><div id="actions-alert" class="alert alert-info">Choose an action.</div>
-    <div class="card"><h3>What would you like to do?</h3><div class="quick-row">
-      <button class="btn btn-danger" onclick="goTo('incident-screen')">Emergency / Incident</button>
-      <button class="btn btn-info" onclick="goTo('incident-screen')">Add Observation</button>
-      <button class="btn btn-warning" onclick="goTo('infra-screen')">Infrastructure</button>
-      <button class="btn btn-secondary" onclick="goTo('end-screen')">End Patrol</button>
-    </div></div>
-    <div class="card"><h3>Control Room Feed</h3><div class="muted small">Admin Dashboard → Refresh shows this patrol as ACTIVE.</div></div>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Patrol Actions</p></div></div>
+    <p class="hero-text">Capture patrol activity and update control room.</p>
   </div>
-  <div class="bottom-nav"><button class="nav-btn" onclick="goTo('profile-screen')">Profile</button><button class="nav-btn" onclick="goTo('start-screen')">Start</button><button class="nav-btn active">Actions</button></div>
+  <div class="body">
+    <div id="actions-alert" class="alert alert-info">Choose an action.</div>
+
+    <div class="card">
+      <h3>Field Reporting</h3>
+      <div class="quick-row">
+        <button class="btn btn-danger" onclick="goTo('incident-screen')">Report Incident</button>
+        <button class="btn btn-info" onclick="goTo('observation-screen')">Add Observation</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Patrol Status</h3>
+      <button class="btn btn-info" onclick="patrolEventLive('EN_ROUTE')">En Route</button>
+      <button class="btn btn-warning" onclick="patrolEventLive('ON_SCENE')">Arrive On Scene</button>
+      <button class="btn btn-danger" onclick="patrolEventLive('STAND_DOWN')">Stand Down at Scene</button>
+      <button class="btn btn-success" onclick="patrolEventLive('RESUME_PATROL')">Resume Patrol</button>
+    </div>
+
+    <div class="card">
+      <h3>Infrastructure</h3>
+      <button class="btn btn-warning" onclick="goTo('infra-screen')">Report Infrastructure Issue</button>
+    </div>
+
+    <div class="card">
+      <h3>Finish Patrol</h3>
+      <button class="btn btn-secondary" onclick="goTo('end-screen')">End Patrol</button>
+    </div>
+
+    <div class="card"><h3>Control Room Feed</h3><div class="muted small">Control room will reflect patrol status and activity.</div></div>
+  </div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="goTo('profile-screen')">Profile</button>
+    <button class="nav-btn" onclick="goTo('start-screen')">Start</button>
+    <button class="nav-btn active">Actions</button>
+  </div>
 </div>
 
 <div id="incident-screen" class="screen">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Report Incident</p></div></div><p class="hero-text">Create live incident linked to active patrol.</p></div>
-  <div class="body"><div id="incident-alert" class="alert alert-info">Complete incident details.</div>
-    <div class="card"><h3>Incident Details</h3>
-      <label class="label">Title</label><input id="incidentTitle" class="input" placeholder="Suspicious activity">
-      <label class="label" style="margin-top:12px;">Description</label><textarea id="incidentDescription" class="textarea"></textarea>
-      <label class="label" style="margin-top:12px;">Sector</label><select id="incidentSector" class="select"><option>Sector 1</option><option>Sector 2</option><option>Sector 3</option></select>
-      <label class="label" style="margin-top:12px;">Severity</label><select id="incidentSeverity" class="select"><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Report Incident</p></div></div>
+    <p class="hero-text">Create live incident linked to active patrol.</p>
+  </div>
+  <div class="body">
+    <div id="incident-alert" class="alert alert-info">Submit incident. Use Patrol Status from Actions for En Route / On Scene / Stand Down.</div>
+    <div class="card">
+      <h3>Incident Details</h3>
+      <label class="label">Title</label><input id="incidentTitle" class="input" placeholder="Example: Suspicious vehicle / MVA / Fire">
+
+      <label class="label" style="margin-top:12px;">Incident Type</label>
+      <select id="incidentType" class="select">
+        <option>Suspicious Activity</option>
+        <option>Crime</option>
+        <option>Medical</option>
+        <option>MVA</option>
+        <option>Fire</option>
+        <option>Public Disorder</option>
+        <option>Infrastructure</option>
+        <option>Other</option>
+      </select>
+
+      <label class="label" style="margin-top:12px;">Subtype / Code</label>
+      <select id="incidentSubtype" class="select">
+        <option>Suspicious Person</option>
+        <option>Suspicious Vehicle</option>
+        <option>Theft</option>
+        <option>House Breaking</option>
+        <option>Trespassing</option>
+        <option>Assault</option>
+        <option>Medical Emergency</option>
+        <option>Vehicle Accident</option>
+        <option>Fire / Smoke</option>
+        <option>Other</option>
+      </select>
+
+      <label class="label" style="margin-top:12px;">Street / Place</label><input id="incidentStreet" class="input" placeholder="Street, gate, landmark">
+      <label class="label" style="margin-top:12px;">Suburb</label><input id="incidentSuburb" class="input" placeholder="Suburb / area">
+      <label class="label" style="margin-top:12px;">Vehicle Registration Involved</label><input id="incidentVehicleReg" class="input" placeholder="Optional">
+      <label class="label" style="margin-top:12px;">Persons Involved / Description</label><textarea id="incidentPersons" class="textarea" placeholder="Example: WM/BF, clothing, behaviour, direction, occupants..."></textarea>
+      <label class="label" style="margin-top:12px;">Description</label><textarea id="incidentDescription" class="textarea" placeholder="What happened / what is happening?"></textarea>
+
+      <label class="label" style="margin-top:12px;">Sector</label>
+      <select id="incidentSector" class="select">
+        <option>Sector 1</option>
+        <option>Sector 2</option>
+        <option>Sector 3</option>
+      </select>
+
+      <label class="label" style="margin-top:12px;">Severity</label>
+      <select id="incidentSeverity" class="select">
+        <option>LOW</option>
+        <option>MEDIUM</option>
+        <option>HIGH</option>
+        <option>CRITICAL</option>
+      </select>
+
+      <label class="label" style="margin-top:12px;">Intel Relevant?</label>
+      <select id="incidentIntelFlag" class="select">
+        <option value="false">NO</option>
+        <option value="true">YES</option>
+      </select>
+      <label class="label" style="margin-top:12px;">Intel Notes</label><textarea id="incidentIntelNotes" class="textarea" placeholder="Why should this be reviewed by intelligence?"></textarea>
+
       <button class="btn btn-danger" onclick="createIncidentLive()">Submit Incident</button>
-    </div><button class="btn btn-secondary" onclick="goTo('actions-screen')">Back</button>
+    </div>
+    <button class="btn btn-secondary" onclick="goTo('actions-screen')">Back</button>
+  </div>
+</div>
+
+<div id="observation-screen" class="screen">
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Add Observation</p></div></div>
+    <p class="hero-text">Capture suspicious person, vehicle, place, or general patrol observation.</p>
+  </div>
+  <div class="body">
+    <div id="observation-alert" class="alert alert-info">Observation is logged against the active patrol for control room / intel review.</div>
+    <div class="card">
+      <h3>Observation Details</h3>
+
+      <label class="label">Observation Type</label>
+      <select id="observationType" class="select">
+        <option>PERSON</option>
+        <option>VEHICLE</option>
+        <option>LOCATION</option>
+        <option>GENERAL</option>
+      </select>
+
+      <label class="label" style="margin-top:12px;">Street / Place</label><input id="observationStreet" class="input" placeholder="Street, gate, landmark">
+      <label class="label" style="margin-top:12px;">Suburb</label><input id="observationSuburb" class="input" placeholder="Suburb / area">
+      <label class="label" style="margin-top:12px;">Vehicle Registration</label><input id="observationVehicleReg" class="input" placeholder="Optional">
+      <label class="label" style="margin-top:12px;">Person / Clothing / Behaviour</label><textarea id="observationPerson" class="textarea" placeholder="Example: WM/BF, clothing, direction, behaviour, seen with vehicle..."></textarea>
+      <label class="label" style="margin-top:12px;">Notes</label><textarea id="observationNotes" class="textarea" placeholder="Full observation details"></textarea>
+
+      <label class="label" style="margin-top:12px;">Sector</label>
+      <select id="observationSector" class="select">
+        <option>Sector 1</option>
+        <option>Sector 2</option>
+        <option>Sector 3</option>
+      </select>
+
+      <label class="label" style="margin-top:12px;">Intel Relevant?</label>
+      <select id="observationIntelFlag" class="select">
+        <option value="true">YES</option>
+        <option value="false">NO</option>
+      </select>
+
+      <button class="btn btn-info" onclick="createObservationLive()">Submit Observation</button>
+    </div>
+    <button class="btn btn-secondary" onclick="goTo('actions-screen')">Back</button>
   </div>
 </div>
 
 <div id="infra-screen" class="screen">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Infrastructure</p></div></div><p class="hero-text">Report infrastructure issue as an incident record.</p></div>
-  <div class="body"><div id="infra-alert" class="alert alert-info">Capture infrastructure issue.</div>
-    <div class="card"><h3>Issue Details</h3>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>Infrastructure</p></div></div>
+    <p class="hero-text">Report infrastructure issue as an incident record.</p>
+  </div>
+  <div class="body">
+    <div id="infra-alert" class="alert alert-info">Capture infrastructure issue.</div>
+    <div class="card">
+      <h3>Issue Details</h3>
       <label class="label">Location</label><input id="infraLocation" class="input" placeholder="Street / location">
       <label class="label" style="margin-top:12px;">Asset / Pole Number</label><input id="infraAsset" class="input" placeholder="Pole number">
-      <label class="label" style="margin-top:12px;">Issue Type</label><select id="infraType" class="select"><option>Street Light Out</option><option>Water Leak</option><option>Road Damage</option><option>Fence Damage</option><option>Other</option></select>
+      <label class="label" style="margin-top:12px;">Issue Type</label>
+      <select id="infraType" class="select">
+        <option>Street Light Out</option>
+        <option>Water Leak</option>
+        <option>Road Damage</option>
+        <option>Fence Damage</option>
+        <option>Other</option>
+      </select>
       <label class="label" style="margin-top:12px;">Description</label><textarea id="infraDescription" class="textarea"></textarea>
       <button class="btn btn-warning" onclick="createInfrastructureLive()">Submit Infrastructure Report</button>
-    </div><button class="btn btn-secondary" onclick="goTo('actions-screen')">Back</button>
+    </div>
+    <button class="btn btn-secondary" onclick="goTo('actions-screen')">Back</button>
   </div>
 </div>
 
 <div id="end-screen" class="screen">
-  <div class="notch"></div><div class="hero"><div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>End Patrol</p></div></div><p class="hero-text">End patrol and update KM report.</p></div>
-  <div class="body"><div id="end-alert" class="alert alert-info">Enter end KM and summary.</div>
-    <div class="card"><h3>Patrol Summary</h3><div class="stack">
-      <div class="field"><div class="label">Start KM</div><div id="end-start-km" class="value">-</div></div>
-      <div class="field"><div class="label">Current Patrol</div><div id="end-patrol-id" class="value">-</div></div>
+  <div class="notch"></div>
+  <div class="hero">
+    <div class="brand"><div class="brand-mark">⌖</div><div class="brand-meta"><h1>CivitasWatch</h1><p>End Patrol</p></div></div>
+    <p class="hero-text">End patrol and update KM report.</p>
+  </div>
+  <div class="body">
+    <div id="end-alert" class="alert alert-info">Enter end KM and summary.</div>
+    <div class="card">
+      <h3>Patrol Summary</h3>
+      <div class="stack">
+        <div class="field"><div class="label">Start KM</div><div id="end-start-km" class="value">-</div></div>
+        <div class="field"><div class="label">Current Patrol</div><div id="end-patrol-id" class="value">-</div></div>
+      </div>
+      <label class="label" style="margin-top:12px;">End KM</label><input id="endKm" class="input" type="number" placeholder="Example: 121000">
+      <label class="label" style="margin-top:12px;">Summary</label><textarea id="summary" class="textarea" placeholder="Routine patrol completed."></textarea>
+      <button class="btn btn-danger" onclick="endPatrolLive()">End Patrol</button>
     </div>
-    <label class="label" style="margin-top:12px;">End KM</label><input id="endKm" class="input" type="number" placeholder="Example: 121000">
-    <label class="label" style="margin-top:12px;">Summary</label><textarea id="summary" class="textarea" placeholder="Routine patrol completed."></textarea>
-    <button class="btn btn-danger" onclick="endPatrolLive()">End Patrol</button></div>
     <button class="btn btn-secondary" onclick="goTo('actions-screen')">Back</button>
   </div>
-  <div class="bottom-nav"><button class="nav-btn" onclick="goTo('profile-screen')">Profile</button><button class="nav-btn" onclick="goTo('start-screen')">Start</button><button class="nav-btn active">End</button></div>
+  <div class="bottom-nav">
+    <button class="nav-btn" onclick="goTo('profile-screen')">Profile</button>
+    <button class="nav-btn" onclick="goTo('start-screen')">Start</button>
+    <button class="nav-btn active">End</button>
+  </div>
 </div>
 
 </div></div>
 
 <script>
-const API = "http://192.168.0.143:4000";
+const API = window.CIVITASWATCH_API_URL || "http://localhost:4000";
 
 let token = localStorage.getItem("cw_patrol_token") || "";
 let user = JSON.parse(localStorage.getItem("cw_patrol_user") || "null");
-let activePatrol = null;
+let activePatrol = JSON.parse(localStorage.getItem("cw_active_patrol") || "null");
+let activeIncident = JSON.parse(localStorage.getItem("cw_active_incident") || "null");
 let vehicles = [];
 
 function alertBox(id, msg, type = "info"){
@@ -151,6 +369,32 @@ function alertBox(id, msg, type = "info"){
   if (!el) return;
   el.className = "alert alert-" + type;
   el.innerText = msg;
+}
+
+function saveActivePatrol(patrol){
+  activePatrol = patrol || null;
+
+  if (activePatrol && activePatrol.id) {
+    localStorage.setItem("cw_active_patrol", JSON.stringify(activePatrol));
+    localStorage.setItem("activePatrolId", activePatrol.id);
+  } else {
+    localStorage.removeItem("cw_active_patrol");
+    localStorage.removeItem("activePatrolId");
+  }
+}
+
+function saveActiveIncident(incident){
+  activeIncident = incident || null;
+
+  if (activeIncident && activeIncident.id) {
+    localStorage.setItem("cw_active_incident", JSON.stringify(activeIncident));
+  } else {
+    localStorage.removeItem("cw_active_incident");
+  }
+}
+
+function getActivePatrolId(){
+  return activePatrol?.id || localStorage.getItem("activePatrolId") || null;
 }
 
 async function api(path, options = {}) {
@@ -162,26 +406,26 @@ async function api(path, options = {}) {
       ...(options.headers || {})
     }
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || data.message || "Request failed: " + path);
-  return data;
-}
 
-async function tryApi(paths, options = {}) {
-  let lastError;
-  for (const path of paths) {
-    try { return await api(path, options); }
-    catch (err) { lastError = err; }
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(data.error || data.message || "Request failed: " + path);
   }
-  throw lastError;
+
+  return data;
 }
 
 async function loginLive(){
   try {
     alertBox("login-alert", "Logging in...", "info");
+
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
-    if (!email || !password) throw new Error("Email and password are required");
+
+    if (!email || !password) {
+      throw new Error("Email and password are required");
+    }
 
     const res = await fetch(API + "/auth/login", {
       method: "POST",
@@ -190,16 +434,21 @@ async function loginLive(){
     });
 
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || "Invalid login");
+
+    if (!res.ok) {
+      throw new Error(data.error || "Invalid login");
+    }
 
     token = data.token;
     user = data.user;
+
     localStorage.setItem("cw_patrol_token", token);
     localStorage.setItem("cw_patrol_user", JSON.stringify(user));
 
     setProfile();
     await loadVehicles();
     await loadActivePatrol();
+
     goTo(activePatrol ? "actions-screen" : "profile-screen");
   } catch (err) {
     alertBox("login-alert", err.message, "danger");
@@ -239,11 +488,23 @@ async function loadVehicles(){
 
 async function loadActivePatrol(){
   try {
-    activePatrol = await api("/patrols/active");
-    showActivePatrol();
+    const patrols = await api("/patrols/active");
+    const patrol = Array.isArray(patrols) ? patrols[0] || null : patrols;
+
+    saveActivePatrol(patrol);
+
+    if (activePatrol) {
+      showActivePatrol();
+    } else {
+      showNoActivePatrol();
+    }
   } catch {
-    activePatrol = null;
-    showNoActivePatrol();
+    if (activePatrol && activePatrol.id) {
+      showActivePatrol();
+    } else {
+      saveActivePatrol(null);
+      showNoActivePatrol();
+    }
   }
 }
 
@@ -273,15 +534,28 @@ async function startPatrolLive(){
     const sector = document.getElementById("sector").value;
     const startKm = Number(document.getElementById("startKm").value);
 
-    if (!vehicleId) throw new Error("Select a vehicle first.");
-    if (!startKm) throw new Error("Start KM is required.");
+    if (!vehicleId) {
+      throw new Error("Select a vehicle first.");
+    }
 
-    activePatrol = await api("/patrols/start", {
+    if (!startKm) {
+      throw new Error("Start KM is required.");
+    }
+
+    const patrol = await api("/patrols/start", {
       method: "POST",
-      body: JSON.stringify({ vehicleId, sector, startKm })
+      body: JSON.stringify({
+        vehicleId,
+        sector,
+        startKm
+      })
     });
 
+    saveActivePatrol(patrol);
+    saveActiveIncident(null);
+
     await loadActivePatrol();
+
     alertBox("actions-alert", "Patrol ACTIVE. Refresh admin dashboard now.", "info");
     goTo("actions-screen");
   } catch (err) {
@@ -292,61 +566,235 @@ async function startPatrolLive(){
 async function createIncidentLive(){
   try {
     alertBox("incident-alert", "Submitting incident...", "info");
-    if (!activePatrol) await loadActivePatrol();
+
+    if (!activePatrol) {
+      await loadActivePatrol();
+    }
+
+    const patrolId = getActivePatrolId();
+
+    if (!patrolId) {
+      throw new Error("No active patrol found.");
+    }
 
     const title = document.getElementById("incidentTitle").value.trim();
-    const description = document.getElementById("incidentDescription").value.trim();
+    const incidentType = document.getElementById("incidentType").value;
+    const incidentSubtype = document.getElementById("incidentSubtype").value;
+    const street = document.getElementById("incidentStreet").value.trim();
+    const suburb = document.getElementById("incidentSuburb").value.trim();
+    const vehicleRegistration = document.getElementById("incidentVehicleReg").value.trim().toUpperCase();
+    const personsInvolved = document.getElementById("incidentPersons").value.trim();
+    const descriptionRaw = document.getElementById("incidentDescription").value.trim();
     const sector = document.getElementById("incidentSector").value;
     const severity = document.getElementById("incidentSeverity").value;
+    const intelFlag = document.getElementById("incidentIntelFlag").value === "true";
+    const intelNotes = document.getElementById("incidentIntelNotes").value.trim();
 
-    if (!title) throw new Error("Title is required.");
+    if (!title) {
+      throw new Error("Title is required.");
+    }
 
-    await tryApi(["/incidents/report", "/intelligence"], {
+    const descriptionParts = [
+      descriptionRaw,
+      incidentSubtype ? `Subtype: ${incidentSubtype}` : "",
+      vehicleRegistration ? `Vehicle registration: ${vehicleRegistration}` : "",
+      personsInvolved ? `Persons involved: ${personsInvolved}` : "",
+      intelFlag ? `Intel relevant: YES` : "",
+      intelNotes ? `Intel notes: ${intelNotes}` : "",
+    ].filter(Boolean);
+
+    const incident = await api("/incidents/report", {
       method: "POST",
       body: JSON.stringify({
         title,
-        description,
+        description: descriptionParts.join(" | "),
         sector,
         severity,
         source: "PATROL",
-        linkedPatrolId: activePatrol?.id || null
+        linkedPatrolId: patrolId,
+        incidentType,
+        street,
+        suburb,
+        vehicleRegistration,
+        personsInvolved,
+        intelFlag,
+        intelNotes
       })
     });
 
+    saveActiveIncident(incident);
+
     document.getElementById("incidentTitle").value = "";
+    document.getElementById("incidentStreet").value = "";
+    document.getElementById("incidentSuburb").value = "";
+    document.getElementById("incidentVehicleReg").value = "";
+    document.getElementById("incidentPersons").value = "";
     document.getElementById("incidentDescription").value = "";
-    alertBox("incident-alert", "Incident submitted. Refresh admin incidents/report.", "info");
+    document.getElementById("incidentIntelNotes").value = "";
+
+    alertBox("incident-alert", "Incident submitted. Use Patrol Status from Actions for En Route / On Scene / Stand Down at Scene.", "info");
   } catch (err) {
     alertBox("incident-alert", err.message, "danger");
+  }
+}
+
+async function patrolEventLive(type){
+  try {
+    alertBox("incident-alert", type + " sending...", "info");
+
+    if (!activePatrol) {
+      await loadActivePatrol();
+    }
+
+    const patrolId = getActivePatrolId();
+
+    if (!patrolId) {
+      throw new Error("No active patrol found.");
+    }
+
+    if (["EN_ROUTE", "ON_SCENE", "STAND_DOWN"].includes(type) && !activeIncident?.id) {
+      throw new Error("Submit an incident first.");
+    }
+
+    await api("/patrol-events", {
+      method: "POST",
+      body: JSON.stringify({
+        patrolId,
+        incidentId: activeIncident?.id || null,
+        type,
+        description: type,
+        sceneActive: type !== "STAND_DOWN" && type !== "RESUME_PATROL"
+      })
+    });
+
+    if (type === "EN_ROUTE") {
+      activePatrol.status = "EN_ROUTE";
+      saveActivePatrol(activePatrol);
+      alertBox("incident-alert", "En Route saved.", "info");
+    }
+
+    if (type === "ON_SCENE") {
+      activePatrol.status = "ON_SCENE";
+      saveActivePatrol(activePatrol);
+      alertBox("incident-alert", "On Scene saved. Incident marked IN_PROGRESS.", "info");
+    }
+
+    if (type === "STAND_DOWN") {
+      activePatrol.status = "STAND_DOWN";
+      saveActivePatrol(activePatrol);
+      alertBox("incident-alert", "Stand Down saved. Incident marked RESOLVED.", "info");
+    }
+
+    if (type === "RESUME_PATROL") {
+      activePatrol.status = "ACTIVE";
+      saveActivePatrol(activePatrol);
+      saveActiveIncident(null);
+      alertBox("actions-alert", "Patrol resumed.", "info");
+      goTo("actions-screen");
+    }
+  } catch (err) {
+    alertBox("incident-alert", err.message, "danger");
+  }
+}
+
+
+async function createObservationLive(){
+  try {
+    alertBox("observation-alert", "Submitting observation...", "info");
+
+    if (!activePatrol) {
+      await loadActivePatrol();
+    }
+
+    const patrolId = getActivePatrolId();
+
+    if (!patrolId) {
+      throw new Error("No active patrol found.");
+    }
+
+    const observationType = document.getElementById("observationType").value;
+    const street = document.getElementById("observationStreet").value.trim();
+    const suburb = document.getElementById("observationSuburb").value.trim();
+    const vehicleRegistration = document.getElementById("observationVehicleReg").value.trim().toUpperCase();
+    const personDetails = document.getElementById("observationPerson").value.trim();
+    const notes = document.getElementById("observationNotes").value.trim();
+    const sector = document.getElementById("observationSector").value;
+    const intelFlag = document.getElementById("observationIntelFlag").value === "true";
+
+    if (!notes && !vehicleRegistration && !personDetails && !street) {
+      throw new Error("Add observation details first.");
+    }
+
+    const description = [
+      `Observation Type: ${observationType}`,
+      street ? `Place: ${street}` : "",
+      suburb ? `Suburb: ${suburb}` : "",
+      vehicleRegistration ? `Vehicle registration: ${vehicleRegistration}` : "",
+      personDetails ? `Person/details: ${personDetails}` : "",
+      notes ? `Notes: ${notes}` : "",
+      `Sector: ${sector}`,
+      intelFlag ? "Intel relevant: YES" : "Intel relevant: NO"
+    ].filter(Boolean).join(" | ");
+
+    await api("/patrol-events", {
+      method: "POST",
+      body: JSON.stringify({
+        patrolId,
+        type: "MOBILE",
+        description,
+        sceneActive: false
+      })
+    });
+
+    document.getElementById("observationStreet").value = "";
+    document.getElementById("observationSuburb").value = "";
+    document.getElementById("observationVehicleReg").value = "";
+    document.getElementById("observationPerson").value = "";
+    document.getElementById("observationNotes").value = "";
+
+    alertBox("actions-alert", "Observation submitted.", "info");
+    goTo("actions-screen");
+  } catch (err) {
+    alertBox("observation-alert", err.message, "danger");
   }
 }
 
 async function createInfrastructureLive(){
   try {
     alertBox("infra-alert", "Submitting infrastructure report...", "info");
-    if (!activePatrol) await loadActivePatrol();
+
+    if (!activePatrol) {
+      await loadActivePatrol();
+    }
+
+    const patrolId = getActivePatrolId();
+
+    if (!patrolId) {
+      throw new Error("No active patrol found.");
+    }
 
     const location = document.getElementById("infraLocation").value.trim();
     const asset = document.getElementById("infraAsset").value.trim();
     const type = document.getElementById("infraType").value;
     const description = document.getElementById("infraDescription").value.trim();
 
-    await tryApi(["/incidents/report", "/intelligence"], {
+    await api("/incidents/report", {
       method: "POST",
       body: JSON.stringify({
         title: "Infrastructure: " + type,
         description: `Location: ${location || "-"} | Asset: ${asset || "-"} | Details: ${description || "-"}`,
         sector: activePatrol?.sector || "Sector 1",
         severity: "MEDIUM",
-        source: "PATROL_INFRASTRUCTURE",
-        linkedPatrolId: activePatrol?.id || null
+        source: "PATROL",
+        linkedPatrolId: patrolId
       })
     });
 
     document.getElementById("infraLocation").value = "";
     document.getElementById("infraAsset").value = "";
     document.getElementById("infraDescription").value = "";
-    alertBox("infra-alert", "Infrastructure report submitted. Refresh admin reports.", "info");
+
+    alertBox("infra-alert", "Infrastructure report submitted.", "info");
   } catch (err) {
     alertBox("infra-alert", err.message, "danger");
   }
@@ -356,24 +804,42 @@ async function endPatrolLive(){
   try {
     alertBox("end-alert", "Ending patrol...", "info");
 
-    if (!activePatrol) await loadActivePatrol();
-    if (!activePatrol) throw new Error("No active patrol found.");
+    if (!activePatrol) {
+      await loadActivePatrol();
+    }
+
+    const patrolId = getActivePatrolId();
+
+    if (!patrolId) {
+      throw new Error("No active patrol found.");
+    }
 
     const endKm = Number(document.getElementById("endKm").value);
     const summary = document.getElementById("summary").value.trim() || "Routine patrol completed.";
 
-    if (!endKm) throw new Error("End KM is required.");
-    if (endKm < Number(activePatrol.startKm || 0)) throw new Error("End KM cannot be less than start KM.");
+    if (!endKm) {
+      throw new Error("End KM is required.");
+    }
 
-    await api(`/patrols/${activePatrol.id}/end`, {
+    if (endKm < Number(activePatrol?.startKm || 0)) {
+      throw new Error("End KM cannot be less than start KM.");
+    }
+
+    await api(`/patrols/${patrolId}/end`, {
       method: "POST",
-      body: JSON.stringify({ endKm, summary })
+      body: JSON.stringify({
+        endKm,
+        summary
+      })
     });
 
-    activePatrol = null;
-    showNoActivePatrol();
+    saveActivePatrol(null);
+    saveActiveIncident(null);
+
     document.getElementById("endKm").value = "";
     document.getElementById("summary").value = "";
+
+    showNoActivePatrol();
 
     alertBox("profile-alert", "Patrol completed. Refresh admin Patrol KM Report.", "info");
     goTo("profile-screen");
@@ -385,19 +851,44 @@ async function endPatrolLive(){
 function logoutLive(){
   localStorage.removeItem("cw_patrol_token");
   localStorage.removeItem("cw_patrol_user");
+  localStorage.removeItem("cw_active_patrol");
+  localStorage.removeItem("cw_active_incident");
+  localStorage.removeItem("activePatrolId");
+
   token = "";
   user = null;
   activePatrol = null;
+  activeIncident = null;
+
   goTo("login-screen");
 }
 
 function goTo(id){
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById(id).classList.add("active");
+
   window.scrollTo({top:0, behavior:"smooth"});
-  if (id === "profile-screen" && user) setProfile();
-  if (id === "start-screen") { loadVehicles(); loadActivePatrol(); }
-  if (id === "end-screen") loadActivePatrol();
+
+  if (id === "profile-screen" && user) {
+    setProfile();
+  }
+
+  if (id === "start-screen") {
+    loadVehicles();
+    loadActivePatrol();
+  }
+
+  if (id === "incident-screen") {
+    loadActivePatrol();
+  }
+
+  if (id === "observation-screen") {
+    loadActivePatrol();
+  }
+
+  if (id === "end-screen") {
+    loadActivePatrol();
+  }
 }
 
 window.addEventListener("load", async () => {
