@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import { prisma } from "../config/db.js";
+import { logSecurityInfo, logSecurityWarn } from "../utils/auditLogger.js";
 import { signToken } from "../utils/jwt.js";
 import { requireAuth } from "../middleware/auth.js";
 import { loginRateLimiter } from "../middleware/rateLimit.js";
@@ -47,16 +48,6 @@ function safeUserSelect() {
 function normalizeRole(role) {
   const cleanRole = String(role || "").trim().toUpperCase();
   return ALLOWED_ROLES.includes(cleanRole) ? cleanRole : null;
-}
-
-function logAuthRouteEvent(event, req, extra = {}) {
-  console.warn({
-    event,
-    method: req.method,
-    originalUrl: req.originalUrl,
-    ip: req.ip,
-    ...extra,
-  });
 }
 
 router.post(
@@ -151,7 +142,9 @@ router.post("/login", loginRateLimiter, async (req, res) => {
     });
 
     if (!user || !user.isActive) {
-      logAuthRouteEvent("failed_login_attempt", req, { email: cleanEmail });
+      logSecurityWarn("failed_login_attempt", req, {
+        userId: user?.id,
+      });
       return res.status(401).json({
         error: "Invalid credentials",
       });
@@ -160,7 +153,9 @@ router.post("/login", loginRateLimiter, async (req, res) => {
     const passwordMatch = await bcrypt.compare(cleanPassword, user.passwordHash);
 
     if (!passwordMatch) {
-      logAuthRouteEvent("failed_login_attempt", req, { email: cleanEmail });
+      logSecurityWarn("failed_login_attempt", req, {
+        userId: user.id,
+      });
       return res.status(401).json({
         error: "Invalid credentials",
       });
@@ -171,6 +166,10 @@ router.post("/login", loginRateLimiter, async (req, res) => {
       email: user.email,
       role: user.role,
       fullName: user.fullName,
+    });
+
+    logSecurityInfo("successful_login", req, {
+      userId: user.id,
     });
 
     return res.json({
