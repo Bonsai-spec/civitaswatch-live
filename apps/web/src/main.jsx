@@ -6,8 +6,7 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
-import { PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
-import { canAccess } from "./auth/permissions.helpers";
+import { PERMISSIONS_BY_ROLE } from "./auth/permissions";
 import {
   AUTH_ENDPOINTS,
   DASHBOARD_ENDPOINTS,
@@ -20,6 +19,7 @@ import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
 } from "./core/http.utils";
+import { usePermissions } from "./hooks/usePermissions";
 import AppShell from "./layout/AppShell";
 import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
 import {
@@ -254,24 +254,20 @@ function App() {
   const [patrolAuditLogs, setPatrolAuditLogs] = useState([]);
   const [form, setForm] = useState(emptyForm);
 
-  const userRole = user?.role || "";
-
-  function can(permission) {
-    return canAccess(PERMISSIONS_BY_ROLE, userRole, permission);
-  }
-
-  const canCreateIncidents = can("CREATE_INCIDENT");
-  const canUpdateIncidents = can("UPDATE_INCIDENT");
-  const canAssignPatrol = can("ASSIGN_PATROL");
-  const canViewPatrols = can("VIEW_PATROLS");
-  const canViewRegisters = can("VIEW_REGISTERS");
-  const canManageMembers = can("MANAGE_MEMBERS");
-  const canViewReports = can("VIEW_REPORTS");
-  const canViewOrganisations = can("VIEW_ORGANISATIONS");
-  const canViewIntelligence = can("VIEW_INTELLIGENCE");
-
-  const isAdmin = canViewRegisters || canViewPatrols || canViewReports || canViewOrganisations;
-  const isPatrol = userRole === SYSTEM_ROLES.PATROL || userRole === SYSTEM_ROLES.PATROLLER;
+  const {
+    userRole,
+    canCreateIncidents,
+    canUpdateIncidents,
+    canAssignPatrol,
+    canViewPatrols,
+    canViewRegisters,
+    canManageMembers,
+    canViewReports,
+    canViewOrganisations,
+    canViewIntelligence,
+    isAdmin,
+    isPatrol,
+  } = usePermissions(user);
 
   const navSections = useMemo(() => {
     return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
