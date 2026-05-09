@@ -27,6 +27,7 @@ import {
   flattenNavigationSections,
   getNavigationSectionsForRole,
 } from "./navigation/navigation.helpers";
+import IncidentsSection from "./modules/incidents/IncidentsSection";
 import { getIncidentLinkedPatrolId } from "./modules/incidents/incident.utils";
 import { buildIntelGraph } from "./modules/intelligence/graph.utils";
 import {
@@ -2014,26 +2015,59 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         </div>
 
         {(active === "Dashboard" || active === "Incidents") && (
-          <>
-            <div className="filter-bar">
-              <label>
-                Filter status
-                <select
-                  value={filter}
-                  onChange={(e) => {
-                    setFilter(e.target.value);
-                    setSelectedIncident(null);
-                  }}
-                >
-                  {OPERATION_STATUS_FILTER_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
+          <IncidentsSection
+            data={data}
+            filter={filter}
+            onFilterChange={(value) => {
+              setFilter(value);
+              setSelectedIncident(null);
+            }}
+            statusFilterOptions={OPERATION_STATUS_FILTER_OPTIONS}
+            canCreateIncidents={canCreateIncidents}
+            form={form}
+            onIncidentFormFieldChange={(field, value) =>
+              setForm({ ...form, [field]: value })
+            }
+            incidentTypeOptions={OPERATION_INCIDENT_TYPE_OPTIONS}
+            sectorOptions={OPERATION_SECTOR_OPTIONS}
+            severityOptions={OPERATION_SEVERITY_OPTIONS}
+            onCreateIncident={createIncident}
+            loading={loading}
+            isPatrol={isPatrol}
+            selectedIncident={selectedIncident}
+            onCloseSelectedIncident={() => setSelectedIncident(null)}
+            getAssignedPatrolName={getAssignedPatrolName}
+            getAssignedVehicleName={getAssignedVehicleName}
+            onUpdateStatus={updateStatus}
+            canAssignPatrol={canAssignPatrol}
+            onAutoAssignIncident={autoAssignIncident}
+            getIncidentLinkedPatrolId={getIncidentLinkedPatrolId}
+            onAssignSelectedIncidentPatrol={(patrolId) =>
+              assignPatrol(
+                selectedIncident.id,
+                patrolId,
+                selectedIncident.assignedVehicleId ||
+                  selectedIncident.vehicleId ||
+                  selectedIncident.linkedVehicleId
+              )
+            }
+            onAssignSelectedIncidentVehicle={(vehicleId) =>
+              assignPatrol(
+                selectedIncident.id,
+                selectedIncident.assignedPatrolId ||
+                  selectedIncident.patrolId ||
+                  selectedIncident.linkedPatrolId,
+                vehicleId
+              )
+            }
+            activePatrols={getActivePatrols(data.patrols)}
+            getPatrolOptionLabel={getPatrolOptionLabel}
+            getVehicleLabel={getVehicleLabel}
+            onUnassignPatrol={unassignPatrol}
+            onArchiveIncident={archiveIncident}
+            onDeleteIncident={deleteIncident}
+            onSelectIncident={setSelectedIncident}
+          >
             {canViewPatrols && active === "Dashboard" && (
               <div className="panel">
                 <h2>Patrol Workload</h2>
@@ -2053,302 +2087,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                 ))}
               </div>
             )}
-
-            <div className="grid">
-              {canCreateIncidents && (
-                <div className="panel">
-                  <h2>Create Incident</h2>
-
-                  <form className="form" onSubmit={createIncident}>
-                    <label>
-                      Title
-                      <input
-                        value={form.title}
-                        onChange={(e) =>
-                          setForm({ ...form, title: e.target.value })
-                        }
-                        placeholder="Example: Suspicious activity"
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Incident Type
-                      <select
-                        value={form.incidentType}
-                        onChange={(e) =>
-                          setForm({ ...form, incidentType: e.target.value })
-                        }
-                      >
-                        {OPERATION_INCIDENT_TYPE_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      Street
-                      <input
-                        value={form.street}
-                        onChange={(e) =>
-                          setForm({ ...form, street: e.target.value })
-                        }
-                        placeholder="Street name"
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Suburb
-                      <input
-                        value={form.suburb}
-                        onChange={(e) =>
-                          setForm({ ...form, suburb: e.target.value })
-                        }
-                        placeholder="Suburb"
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Description
-                      <textarea
-                        value={form.description}
-                        onChange={(e) =>
-                          setForm({ ...form, description: e.target.value })
-                        }
-                        placeholder="Optional details"
-                      />
-                    </label>
-
-                    <label>
-                      Sector
-                      <select
-                        value={form.sector}
-                        onChange={(e) =>
-                          setForm({ ...form, sector: e.target.value })
-                        }
-                      >
-                        {OPERATION_SECTOR_OPTIONS.map((sector) => (
-                          <option key={sector}>{sector}</option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      Severity
-                      <select
-                        value={form.severity}
-                        onChange={(e) =>
-                          setForm({ ...form, severity: e.target.value })
-                        }
-                      >
-                        {OPERATION_SEVERITY_OPTIONS.map((severity) => (
-                          <option key={severity} value={severity}>
-                            {severity}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label>
-                      Date
-                      <input
-                        type="date"
-                        value={form.date}
-                        onChange={(e) =>
-                          setForm({ ...form, date: e.target.value })
-                        }
-                        required
-                      />
-                    </label>
-
-                    <label>
-                      Time
-                      <input
-                        type="time"
-                        value={form.time}
-                        onChange={(e) =>
-                          setForm({ ...form, time: e.target.value })
-                        }
-                        required
-                      />
-                    </label>
-
-                    <button className="primary-btn" disabled={loading}>
-                      {loading ? "Creating..." : "Create Incident"}
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              <div className="panel">
-                <h2>{isPatrol ? "My Assigned Incidents" : "Incidents"}</h2>
-
-                {selectedIncident && (
-                  <div className="incident-details">
-                    <div className="details-header">
-                      <h3>{selectedIncident.title}</h3>
-                      <button
-                        className="secondary-btn"
-                        onClick={() => setSelectedIncident(null)}
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <p>
-                      <strong>Code:</strong> {selectedIncident.incidentCode || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Type:</strong> {selectedIncident.incidentType || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Address:</strong> {selectedIncident.street || "N/A"},{" "}
-                      {selectedIncident.suburb || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Sector:</strong> {selectedIncident.sector || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Status:</strong> {selectedIncident.status || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Severity:</strong> {selectedIncident.severity || "N/A"}
-                    </p>
-                    <p>
-                      <strong>Assigned Patrol:</strong>{" "}
-                      {getAssignedPatrolName(selectedIncident, data.patrols)}
-                    </p>
-                    <p>
-                      <strong>Assigned Vehicle:</strong>{" "}
-                      {getAssignedVehicleName(selectedIncident)}
-                    </p>
-                    <p>
-                      <strong>Description:</strong>{" "}
-                      {selectedIncident.description || "No description"}
-                    </p>
-
-                    <div className="action-row">
-                      <button onClick={() => updateStatus(selectedIncident.id, "OPEN")}>
-                        Open
-                      </button>
-                      <button
-                        onClick={() => updateStatus(selectedIncident.id, "IN_PROGRESS")}
-                      >
-                        In Progress
-                      </button>
-                      <button
-                        onClick={() => updateStatus(selectedIncident.id, "RESOLVED")}
-                      >
-                        Resolved
-                      </button>
-                      <button onClick={() => updateStatus(selectedIncident.id, "CLOSED")}>
-                        Closed
-                      </button>
-                    </div>
-
-{canAssignPatrol && (
-  <button onClick={() => autoAssignIncident(selectedIncident.id)}>
-    Auto Assign
-  </button>
-)}
-
-                    {canAssignPatrol && (
-                      <div className="action-row">
-                        <select
-                          value={getIncidentLinkedPatrolId(selectedIncident)}
-                          onChange={(e) =>
-                            assignPatrol(
-                              selectedIncident.id,
-                              e.target.value,
-                              selectedIncident.assignedVehicleId ||
-                                selectedIncident.vehicleId ||
-                                selectedIncident.linkedVehicleId
-                            )
-                          }
-                        >
-                          <option value="">Assign Patrol</option>
-                          {getActivePatrols(data.patrols)
-                            .map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {getPatrolOptionLabel(p)}
-                              </option>
-                            ))}
-                        </select>
-
-                        {data.vehicles.length > 0 && (
-                          <select
-                            value={
-                              selectedIncident.assignedVehicleId ||
-                              selectedIncident.vehicleId ||
-                              selectedIncident.linkedVehicleId ||
-                              ""
-                            }
-                            onChange={(e) =>
-                              assignPatrol(
-                                selectedIncident.id,
-                                selectedIncident.assignedPatrolId ||
-                                  selectedIncident.patrolId ||
-                                  selectedIncident.linkedPatrolId,
-                                e.target.value
-                              )
-                            }
-                          >
-                            <option value="">Assign Vehicle</option>
-                            {data.vehicles.map((vehicle) => (
-                              <option key={vehicle.id} value={vehicle.id}>
-                                {getVehicleLabel(vehicle)}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-
-                        <button onClick={() => unassignPatrol(selectedIncident.id)}>
-                          Unassign Patrol
-                        </button>
-
-                        <button onClick={() => archiveIncident(selectedIncident.id)}>
-                          Archive
-                        </button>
-
-                        <button onClick={() => deleteIncident(selectedIncident.id)}>
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {data.incidents.length === 0 && (
-                  <p>{isPatrol ? "No incidents assigned to you." : "No incidents found."}</p>
-                )}
-
-                {data.incidents.map((incident) => (
-                  <div
-                    key={incident.id}
-                    className="item"
-                    onClick={() => setSelectedIncident(incident)}
-                  >
-                    <div>
-                      <strong>{incident.title}</strong>
-                      <div>
-                        {incident.sector} • {incident.incidentType || "No type"}
-                      </div>
-                      <div>
-                        Patrol: {getAssignedPatrolName(incident, data.patrols)} • Vehicle:{" "}
-                        {getAssignedVehicleName(incident)}
-                      </div>
-                    </div>
-
-                    <span className="badge">{incident.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
+          </IncidentsSection>
         )}
 
         {active === "Patrols" && canViewPatrols && (
