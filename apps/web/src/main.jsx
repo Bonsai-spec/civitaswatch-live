@@ -8,7 +8,6 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { PERMISSIONS_BY_ROLE } from "./auth/permissions";
 import {
-  AUTH_ENDPOINTS,
   DASHBOARD_ENDPOINTS,
   INCIDENT_ENDPOINTS,
   INTELLIGENCE_ENDPOINTS,
@@ -19,6 +18,7 @@ import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
 } from "./core/http.utils";
+import { useAuth } from "./hooks/useAuth";
 import { usePermissions } from "./hooks/usePermissions";
 import AppShell from "./layout/AppShell";
 import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
@@ -196,10 +196,16 @@ function isWithinIntelTimeFilter(record, timeFilter) {
 }
 
 function App() {
-  const [token, setToken] = useState(localStorage.getItem("token"));
-  const [user, setUser] = useState(null);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const {
+    token,
+    user,
+    email,
+    password,
+    setEmail,
+    setPassword,
+    login,
+    logout,
+  } = useAuth();
 
   const [active, setActive] = useState("Dashboard");
   const [registerTab, setRegisterTab] = useState("Incidents");
@@ -299,10 +305,8 @@ function App() {
     return buildJsonAuthHeaders(customToken);
   }
 
-  function logout() {
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
+  function handleLogout() {
+    logout();
     setSelectedIncident(null);
     setWorkload([]);
     setActive("Dashboard");
@@ -319,52 +323,6 @@ function App() {
     setHiddenAutoLinkSuggestionKeys(new Set());
   }
 
-  async function login(e) {
-    e.preventDefault();
-
-    try {
-      const res = await fetch(AUTH_ENDPOINTS.login, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Login failed");
-        return;
-      }
-
-      localStorage.setItem("token", json.token);
-      setToken(json.token);
-      setUser(json.user);
-    } catch (err) {
-      console.error(err);
-      alert("Login failed");
-    }
-  }
-
-  async function loadUser() {
-    try {
-      const res = await fetch(AUTH_ENDPOINTS.me, {
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        logout();
-        return;
-      }
-
-      setUser(json);
-    } catch (err) {
-      console.error(err);
-      logout();
-    }
-  }
-
   async function loadDashboard() {
     if (!token) return;
 
@@ -378,7 +336,7 @@ function App() {
       const json = await res.json();
 
       if (!res.ok) {
-        if (res.status === 401) logout();
+        if (res.status === 401) handleLogout();
         else alert(json.error || "Failed to load dashboard");
         return;
       }
@@ -651,12 +609,6 @@ function App() {
       alert("Failed to close patrol");
     }
   }
-
-  useEffect(() => {
-    if (token) {
-      loadUser();
-    }
-  }, [token]);
 
 useEffect(() => {
   if (active === "Registers") {
@@ -1602,7 +1554,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       active={active}
       navSections={navSections}
       onNavigate={setActive}
-      onLogout={logout}
+      onLogout={handleLogout}
     >
         <div className="cards">
           <div className="card">
