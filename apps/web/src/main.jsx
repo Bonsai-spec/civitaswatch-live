@@ -55,6 +55,7 @@ import {
   getDisplayName,
   getVehicleLabel,
 } from "./modules/vehicles/vehicle.utils";
+import OrganisationsSection from "./modules/organisations/OrganisationsSection";
 import {
   buildLocalWorkload,
   getPatrolOptionLabel,
@@ -3051,29 +3052,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         )}
 
         {active === "Organisations" && canViewOrganisations && (
-          <div className="panel">
-            <h2>Organisations</h2>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Code</th>
-                  <th>Sectors</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {data.organisations.map((org) => (
-                  <tr key={org.id}>
-                    <td>{org.name}</td>
-                    <td>{org.code}</td>
-                    <td>{org.sectors?.map((s) => s.name).join(", ")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <OrganisationsSection organisations={data.organisations} />
         )}
       </div>
     </div>
