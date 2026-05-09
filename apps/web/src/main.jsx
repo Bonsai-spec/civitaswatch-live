@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -8,7 +8,6 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { PERMISSIONS_BY_ROLE } from "./auth/permissions";
 import {
-  INCIDENT_ENDPOINTS,
   INTELLIGENCE_ENDPOINTS,
 } from "./core/endpoints";
 import {
@@ -17,6 +16,7 @@ import {
 } from "./core/http.utils";
 import { useAdminData } from "./hooks/useAdminData";
 import { useAuth } from "./hooks/useAuth";
+import { useIncidents } from "./hooks/useIncidents";
 import { useMembers } from "./hooks/useMembers";
 import { usePermissions } from "./hooks/usePermissions";
 import { useReports } from "./hooks/useReports";
@@ -97,18 +97,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
-
-const emptyForm = {
-  title: "",
-  incidentType: "ASSAULT",
-  street: "",
-  suburb: "",
-  description: "",
-  sector: "Sector 1",
-  severity: "MEDIUM",
-  date: "",
-  time: "",
-};
 
 function emptyIntelForm() {
   return {
@@ -202,9 +190,6 @@ function App() {
   const [active, setActive] = useState("Dashboard");
   const [registerTab, setRegisterTab] = useState("Incidents");
   const [registerSearch, setRegisterSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [selectedIncident, setSelectedIncident] = useState(null);
-  const [filter, setFilter] = useState("ALL");
   const [intelligenceEntities, setIntelligenceEntities] = useState([]);
   const [selectedIntelEntity, setSelectedIntelEntity] = useState(null);
   const [intelForm, setIntelForm] = useState(null);
@@ -233,8 +218,6 @@ function App() {
     }, delay);
   }
 
-  const [form, setForm] = useState(emptyForm);
-
   const {
     userRole,
     canCreateIncidents,
@@ -249,6 +232,41 @@ function App() {
     isAdmin,
     isPatrol,
   } = usePermissions(user);
+
+  const adminDataActionsRef = useRef({
+    loadDashboard: async () => {},
+    loadWorkload: async () => {},
+  });
+
+  const {
+    loading,
+    setLoading,
+    selectedIncident,
+    setSelectedIncident,
+    filter,
+    setFilter,
+    form,
+    setForm,
+    resetIncidents,
+    autoAssignIncident,
+    createIncident,
+    updateStatus,
+    archiveIncident,
+    deleteIncident,
+    assignPatrol,
+    unassignPatrol,
+    viewIncident,
+    editIncident,
+  } = useIncidents({
+    canCreateIncidents,
+    canUpdateIncidents,
+    canAssignPatrol,
+    getAuthHeaders,
+    getJsonAuthHeaders,
+    loadDashboard: (...args) => adminDataActionsRef.current.loadDashboard(...args),
+    loadWorkload: (...args) => adminDataActionsRef.current.loadWorkload(...args),
+    setActive,
+  });
 
   const {
     data,
@@ -267,6 +285,9 @@ function App() {
     setSelectedIncident,
     onUnauthorized: handleLogout,
   });
+
+  adminDataActionsRef.current.loadDashboard = loadDashboard;
+  adminDataActionsRef.current.loadWorkload = loadWorkload;
 
   const navSections = useMemo(() => {
     return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
@@ -337,41 +358,13 @@ function App() {
 
   function handleLogout() {
     logout();
-    setSelectedIncident(null);
+    resetIncidents();
     setActive("Dashboard");
     resetAdminData();
     setIntelligenceEntities([]);
     setSelectedIntelEntity(null);
     setIntelForm(null);
     setHiddenAutoLinkSuggestionKeys(new Set());
-  }
-
-  async function autoAssignIncident(id) {
-    if (!canAssignPatrol) {
-      alert("You do not have permission to auto assign incidents.");
-      return;
-    }
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.autoAssign(id), {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Auto assign failed");
-        return;
-      }
-
-      setSelectedIncident(json.incident);
-      await loadDashboard();
-      await loadWorkload();
-    } catch (err) {
-      console.error(err);
-      alert("Auto assign failed");
-    }
   }
 
 useEffect(() => {
@@ -391,176 +384,6 @@ useEffect(() => {
       setActive("Dashboard");
     }
   }, [navItems, active]);
-
-  async function createIncident(e) {
-    e.preventDefault();
-
-    if (!canCreateIncidents) {
-      alert("You do not have permission to create incidents.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.create, {
-        method: "POST",
-        headers: getJsonAuthHeaders(),
-        body: JSON.stringify(form),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Failed to create incident");
-        return;
-      }
-
-      setForm(emptyForm);
-      setSelectedIncident(json);
-      setActive("Incidents");
-      await loadDashboard();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to create incident");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function updateStatus(id, status) {
-    if (!canUpdateIncidents) {
-      alert("You do not have permission to update incident status.");
-      return;
-    }
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.updateStatus(id), {
-        method: "PATCH",
-        headers: getJsonAuthHeaders(),
-        body: JSON.stringify({ status }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Failed to update status");
-        return;
-      }
-
-      setSelectedIncident(json);
-      await loadDashboard();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to update status");
-    }
-  }
-
-  async function archiveIncident(id) {
-    if (!canCreateIncidents) return;
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.archive(id), {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Failed to archive incident");
-        return;
-      }
-
-      setSelectedIncident(null);
-      await loadDashboard();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to archive incident");
-    }
-  }
-
-  async function deleteIncident(id) {
-    if (!canCreateIncidents) return;
-    if (!confirm("Delete incident permanently?")) return;
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.detail(id), {
-        method: "DELETE",
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Failed to delete incident");
-        return;
-      }
-
-      setSelectedIncident(null);
-      await loadDashboard();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to delete incident");
-    }
-  }
-
-  async function assignPatrol(id, patrolId, vehicleId) {
-    if (!canAssignPatrol || (!patrolId && !vehicleId)) return;
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.assignPatrol(id), {
-        method: "PATCH",
-        headers: getJsonAuthHeaders(),
-        body: JSON.stringify({ patrolId, vehicleId }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Failed to assign patrol");
-        return;
-      }
-
-      setSelectedIncident(json);
-      await loadDashboard();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to assign patrol");
-    }
-  }
-
-  async function unassignPatrol(id) {
-    if (!canAssignPatrol) return;
-
-    try {
-      const res = await fetch(INCIDENT_ENDPOINTS.unassignPatrol(id), {
-        method: "PATCH",
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        alert(json.error || "Failed to unassign patrol");
-        return;
-      }
-
-      setSelectedIncident(json);
-      await loadDashboard();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to unassign patrol");
-    }
-  }
-
-function viewIncident(incident) {
-  alert(`Viewing: ${incident.title}`);
-}
-
-function editIncident(incident) {
-  alert(`Edit: ${incident.title}`);
-}
 
 async function loadIntelligence() {
   if (!token || !canViewIntelligence) return;
