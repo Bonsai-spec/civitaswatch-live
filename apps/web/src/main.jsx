@@ -20,6 +20,7 @@ import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
 } from "./core/http.utils";
+import AppShell from "./layout/AppShell";
 import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
 import {
   flattenNavigationSections,
@@ -1600,45 +1601,13 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   }
 
   return (
-    <div className="admin-shell">
-      <aside className="sidebar">
-        <div className="logo">CivitasWatch</div>
-        <div className="subtitle">{isPatrol ? "Patrol Console" : "Admin Dashboard"}</div>
-
-        <nav className="nav">
-          {navSections.map((section) => (
-            <div className="nav-section" key={section.label}>
-              <div className="nav-section-label">{section.label}</div>
-              {section.items.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => setActive(item.label)}
-                  className={active === item.label ? "active" : ""}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          ))}
-        </nav>
-      </aside>
-
-      <div className="content">
-        <div className="header header-row">
-          <div>
-            <h1>{active}</h1>
-            <p>
-              {user
-                ? `Logged in as ${getDisplayName(user)} (${user.role})`
-                : "Live CivitasWatch data"}
-            </p>
-          </div>
-
-          <button className="secondary-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
-
+    <AppShell
+      user={user}
+      active={active}
+      navSections={navSections}
+      onNavigate={setActive}
+      onLogout={logout}
+    >
         <div className="cards">
           <div className="card">
             <div className="card-title">
@@ -1879,8 +1848,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         {active === "Organisations" && canViewOrganisations && (
           <OrganisationsSection organisations={data.organisations} />
         )}
-      </div>
-    </div>
+    </AppShell>
   );
 }
 
