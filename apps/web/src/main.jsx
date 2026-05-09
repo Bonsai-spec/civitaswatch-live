@@ -8,7 +8,6 @@ import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
 import { PERMISSIONS_BY_ROLE } from "./auth/permissions";
 import {
-  DASHBOARD_ENDPOINTS,
   INCIDENT_ENDPOINTS,
   INTELLIGENCE_ENDPOINTS,
   MEMBER_ENDPOINTS,
@@ -18,6 +17,7 @@ import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
 } from "./core/http.utils";
+import { useAdminData } from "./hooks/useAdminData";
 import { useAuth } from "./hooks/useAuth";
 import { usePermissions } from "./hooks/usePermissions";
 import AppShell from "./layout/AppShell";
@@ -57,7 +57,6 @@ import {
 } from "./modules/vehicles/vehicle.utils";
 import OrganisationsSection from "./modules/organisations/OrganisationsSection";
 import {
-  buildLocalWorkload,
   getPatrolOptionLabel,
   getPatrolVehicleLabel,
 } from "./modules/patrols/patrol.utils";
@@ -244,15 +243,6 @@ function App() {
     }, delay);
   }
 
-  const [data, setData] = useState({
-  incidents: [],
-  patrols: [],
-  vehicles: [],
-  organisations: [],
-  members: [],
-});
-
-  const [workload, setWorkload] = useState([]);
   const [patrolReports, setPatrolReports] = useState([]);
   const [reportFilters, setReportFilters] = useState({ ...DEFAULT_REPORT_FILTERS });
   const [selectedPatrolReport, setSelectedPatrolReport] = useState(null);
@@ -274,6 +264,24 @@ function App() {
     isAdmin,
     isPatrol,
   } = usePermissions(user);
+
+  const {
+    data,
+    setData,
+    workload,
+    loadDashboard,
+    loadWorkload,
+    resetAdminData,
+  } = useAdminData({
+    token,
+    user,
+    filter,
+    isPatrol,
+    canViewPatrols,
+    selectedIncident,
+    setSelectedIncident,
+    onUnauthorized: handleLogout,
+  });
 
   const navSections = useMemo(() => {
     return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
@@ -308,87 +316,12 @@ function App() {
   function handleLogout() {
     logout();
     setSelectedIncident(null);
-    setWorkload([]);
     setActive("Dashboard");
-   setData({
-  incidents: [],
-  patrols: [],
-  vehicles: [],
-  organisations: [],
-  members: [],
-});
+    resetAdminData();
     setIntelligenceEntities([]);
     setSelectedIntelEntity(null);
     setIntelForm(null);
     setHiddenAutoLinkSuggestionKeys(new Set());
-  }
-
-  async function loadDashboard() {
-    if (!token) return;
-
-    try {
-      const dashboardUrl = DASHBOARD_ENDPOINTS.dashboard(filter, isPatrol);
-
-      const res = await fetch(dashboardUrl, {
-        headers: getAuthHeaders(),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 401) handleLogout();
-        else alert(json.error || "Failed to load dashboard");
-        return;
-      }
-
-      let incidents = json.incidents || [];
-
-      if (isPatrol && user?.id) {
-        incidents = incidents.filter((incident) => {
-          const patrolId =
-            incident.assignedPatrolId ||
-            incident.patrolId ||
-            incident.linkedPatrolId;
-
-          return patrolId === user.id;
-        });
-      }
-
-      let members = [];
-
-      try {
-        const membersRes = await fetch(MEMBER_ENDPOINTS.list, {
-          headers: getAuthHeaders(),
-        });
-
-        if (membersRes.ok) {
-          members = await membersRes.json();
-        }
-      } catch (err) {
-        console.warn("Failed to load members", err);
-      }
-
-      const nextData = {
-        incidents,
-        patrols: json.patrols || [],
-        vehicles: json.vehicles || [],
-        organisations: json.organisations || [],
-        members,
-      };
-
-      setData(nextData);
-
-      if (selectedIncident) {
-        const updatedSelected = nextData.incidents.find(
-          (incident) => incident.id === selectedIncident.id
-        );
-
-        setSelectedIncident(updatedSelected || null);
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to load dashboard");
-    }
   }
 
   async function autoAssignIncident(id) {
@@ -417,14 +350,6 @@ function App() {
       console.error(err);
       alert("Auto assign failed");
     }
-  }
-
-  async function loadWorkload() {
-    if (!token || !canViewPatrols) return;
-
-    // Local workload keeps the console clean while the API workload route is not enabled.
-    // Re-enable the fetch here only when /admin/patrols/workload exists on the API.
-    setWorkload(buildLocalWorkload(data.patrols, data.incidents));
   }
 
   async function loadPatrolReports() {
@@ -615,18 +540,6 @@ useEffect(() => {
     setRegisterTab("Incidents");
   }
 }, [active]);
-
-  useEffect(() => {
-    if (token && user) {
-      loadDashboard();
-    }
-  }, [token, user?.id, user?.role, filter]);
-
-  useEffect(() => {
-    if (canViewPatrols) {
-      loadWorkload();
-    }
-  }, [canViewPatrols, data.incidents.length, data.patrols.length]);
 
   useEffect(() => {
     if (active === "Reports" && canViewReports) {
