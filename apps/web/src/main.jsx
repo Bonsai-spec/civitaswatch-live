@@ -60,6 +60,7 @@ import {
   getPatrolOptionLabel,
   getPatrolVehicleLabel,
 } from "./modules/patrols/patrol.utils";
+import PatrolsSection from "./modules/patrols/PatrolsSection";
 import {
   filterRegisterIncidents,
   filterRegisterMembers,
@@ -2350,26 +2351,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         )}
 
         {active === "Patrols" && canViewPatrols && (
-          <div className="panel">
-            <h2>Active Patrols</h2>
-
-            {getActivePatrols(data.patrols).length === 0 && (
-              <p>No active patrols found.</p>
-            )}
-
-            {getActivePatrols(data.patrols)
-              .map((p) => (
-                <div key={p.id} className="item">
-                  <div>
-                    <strong>{getDisplayName(p)}</strong>
-                    <div>{p.sector || "No sector"}</div>
-                    <div>{getPatrolVehicleLabel(p)}</div>
-                  </div>
-
-                  <span className="badge">{p.status}</span>
-                </div>
-              ))}
-          </div>
+          <PatrolsSection
+            activePatrols={getActivePatrols(data.patrols)}
+            getDisplayName={getDisplayName}
+            getPatrolVehicleLabel={getPatrolVehicleLabel}
+          />
         )}
 
 {active === "Registers" && canViewRegisters && (
