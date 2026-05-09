@@ -1,8 +1,13 @@
 export const ADMIN_NAV_SECTIONS = [
   {
-    label: "Operations",
+    label: "Dashboard",
     items: [
       { label: "Dashboard", permission: "VIEW_DASHBOARD" },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
       { label: "Incidents", permission: "VIEW_INCIDENTS" },
       { label: "Patrols", permission: "VIEW_PATROLS" },
     ],
@@ -11,7 +16,18 @@ export const ADMIN_NAV_SECTIONS = [
     label: "Registers",
     items: [
       { label: "Registers", permission: "VIEW_REGISTERS" },
+    ],
+  },
+  {
+    label: "Reports",
+    items: [
       { label: "Reports", permission: "VIEW_REPORTS" },
+    ],
+  },
+  {
+    label: "Intelligence",
+    items: [
+      { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
     ],
   },
   {
@@ -21,10 +37,8 @@ export const ADMIN_NAV_SECTIONS = [
     ],
   },
   {
-    label: "Intelligence",
-    items: [
-      { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
-    ],
+    label: "Master Administration",
+    items: [],
   },
 ];
 
