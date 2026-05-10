@@ -129,7 +129,6 @@ function App() {
 
   const {
     loading,
-    setLoading,
     selectedIncident,
     setSelectedIncident,
     filter,
@@ -159,7 +158,6 @@ function App() {
 
   const {
     data,
-    setData,
     workload,
     loadDashboard,
     loadWorkload,
