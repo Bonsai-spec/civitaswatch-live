@@ -1,3 +1,4 @@
+import React from "react";
 import { getDisplayName } from "../modules/vehicles/vehicle.utils";
 
 export default function AppShell({
