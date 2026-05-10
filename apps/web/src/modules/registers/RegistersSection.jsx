@@ -1,3 +1,6 @@
+import React from "react";
+import { getResidentImportMetadata } from "./register.utils";
+
 export default function RegistersSection({
   data,
   registerSearch,
@@ -8,6 +11,7 @@ export default function RegistersSection({
   onRegisterTabChange,
   filteredRegisterIncidents,
   filteredRegisterVehicles,
+  filteredRegisterResidents,
   filteredRegisterMembers,
   filteredRegisterPatrollers,
   filteredRegisterPatrols,
@@ -82,8 +86,14 @@ export default function RegistersSection({
 
         <div className="card">
           <div className="card-title">Member Register</div>
-          <div className="card-value">{data.members.length}</div>
+          <div className="card-value">{filteredRegisterMembers.length}</div>
           <div className="card-detail">Vetted sector members</div>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Resident Register</div>
+          <div className="card-value">{filteredRegisterResidents.length}</div>
+          <div className="card-detail">Imported resident records</div>
         </div>
 
         <div className="card">
@@ -171,6 +181,64 @@ export default function RegistersSection({
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {registerTab === "Residents" && (
+        <>
+          <div className="details-header">
+            <h3>Resident Register</h3>
+            <p className="card-detail">Imported resident records from the resident list.</p>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Cell</th>
+                <th>Address</th>
+                <th>Suburb</th>
+                <th>City/Town</th>
+                <th>Import ID</th>
+                <th>Flags</th>
+                <th>Active</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRegisterResidents.map((resident) => {
+                const metadata = getResidentImportMetadata(resident);
+
+                return (
+                  <tr key={resident.id}>
+                    <td>
+                      {[resident.firstName, resident.surname].filter(Boolean).join(" ") || "-"}
+                    </td>
+                    <td>{resident.cellNumber || "-"}</td>
+                    <td>{resident.address || "-"}</td>
+                    <td>{resident.suburb || "-"}</td>
+                    <td>{metadata.cityTown || "-"}</td>
+                    <td>{metadata.legacyResidentId || "-"}</td>
+                    <td>{metadata.flags.length > 0 ? metadata.flags.join(", ") : "-"}</td>
+                    <td>{resident.isActive ? "Yes" : "No"}</td>
+                    <td>
+                      <button onClick={() => onViewMember(resident)}>View Profile</button>
+                      {canManageMembers && (
+                        <>
+                          <button onClick={() => startEditMember(resident)}>Edit</button>
+                          {resident.isActive ? (
+                            <button onClick={() => disableMember(resident)}>Disable</button>
+                          ) : (
+                            <button onClick={() => enableMember(resident)}>Enable</button>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </>

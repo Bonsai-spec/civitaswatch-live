@@ -60,6 +60,7 @@ import {
   filterRegisterOrganisations,
   filterRegisterPatrollers,
   filterRegisterPatrols,
+  filterRegisterResidents,
   filterRegisterVehicles,
 } from "./modules/registers/register.utils";
 import { REGISTER_TABS } from "./modules/registers/register.constants";
@@ -305,6 +306,7 @@ const filteredRegisterIncidents = filterRegisterIncidents(data.incidents, regist
 const filteredRegisterVehicles = filterRegisterVehicles(data.vehicles, registerSearchText);
 const filteredRegisterPatrols = filterRegisterPatrols(data.patrols, registerSearchText);
 const filteredRegisterMembers = filterRegisterMembers(data.members, registerSearchText);
+const filteredRegisterResidents = filterRegisterResidents(data.members, registerSearchText);
 const filteredRegisterPatrollers = filterRegisterPatrollers(data.members, registerSearchText);
 const filteredRegisterOrganisations = filterRegisterOrganisations(
   data.organisations,
@@ -488,6 +490,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             onRegisterTabChange={setRegisterTab}
             filteredRegisterIncidents={filteredRegisterIncidents}
             filteredRegisterVehicles={filteredRegisterVehicles}
+            filteredRegisterResidents={filteredRegisterResidents}
             filteredRegisterMembers={filteredRegisterMembers}
             filteredRegisterPatrollers={filteredRegisterPatrollers}
             filteredRegisterPatrols={filteredRegisterPatrols}

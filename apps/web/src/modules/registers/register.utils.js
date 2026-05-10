@@ -1,5 +1,9 @@
 import { getMemberRoles } from "../members/member.utils";
 
+const IMPORT_START_MARKER = "[IMPORT]";
+const IMPORT_END_MARKER = "[/IMPORT]";
+const RESIDENT_IMPORT_SOURCE = "resident-list";
+
 export function matchesRegisterSearch(values, searchText) {
   return values
     .filter(Boolean)
@@ -58,9 +62,54 @@ export function filterRegisterPatrols(patrols, searchText) {
   );
 }
 
+export function getResidentImportMetadata(member) {
+  const notes = member?.notes || "";
+  const lines = notes.split("\n").map((line) => line.trim());
+  const startIndex = lines.findIndex((line) => line === IMPORT_START_MARKER);
+  const endIndex = lines.findIndex(
+    (line, index) => index > startIndex && line === IMPORT_END_MARKER
+  );
+
+  if (startIndex === -1 || endIndex === -1) {
+    return {
+      source: "",
+      legacyResidentId: "",
+      cityTown: "",
+      flags: [],
+    };
+  }
+
+  const metadata = {};
+
+  lines.slice(startIndex + 1, endIndex).forEach((line) => {
+    const separatorIndex = line.indexOf(":");
+    if (separatorIndex === -1) return;
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
+    metadata[key] = value;
+  });
+
+  return {
+    source: metadata.source || "",
+    legacyResidentId: metadata.legacyResidentId || "",
+    cityTown: metadata.cityTown || "",
+    flags: metadata.flags ? metadata.flags.split(",").filter(Boolean) : [],
+  };
+}
+
+export function isImportedResident(member) {
+  const notes = member?.notes || "";
+  const metadata = getResidentImportMetadata(member);
+
+  return notes.includes(IMPORT_START_MARKER) && metadata.source === RESIDENT_IMPORT_SOURCE;
+}
+
 export function filterRegisterMembers(members, searchText) {
-  return members.filter((member) =>
-    matchesRegisterSearch(
+  return members.filter((member) => {
+    if (isImportedResident(member)) return false;
+
+    return matchesRegisterSearch(
       [
         member.firstName,
         member.surname,
@@ -77,8 +126,31 @@ export function filterRegisterMembers(members, searchText) {
         getMemberRoles(member).join(" "),
       ],
       searchText
-    )
-  );
+    );
+  });
+}
+
+export function filterRegisterResidents(members, searchText) {
+  return members.filter((member) => {
+    if (!isImportedResident(member)) return false;
+
+    const metadata = getResidentImportMetadata(member);
+
+    return matchesRegisterSearch(
+      [
+        member.firstName,
+        member.surname,
+        member.cellNumber,
+        member.address,
+        member.suburb,
+        metadata.cityTown,
+        metadata.legacyResidentId,
+        metadata.flags.join(" "),
+        member.isActive ? "active" : "inactive",
+      ],
+      searchText
+    );
+  });
 }
 
 export function isPatrollerRegisterRecord(member) {
