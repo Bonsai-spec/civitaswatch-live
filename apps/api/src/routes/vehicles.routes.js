@@ -5,38 +5,61 @@ import { requireRole } from "../middleware/roles.js";
 
 const router = express.Router();
 
-// Create vehicle (ADMIN only for now)
-router.post("/", requireAuth, requireRole("ADMIN"), async (req, res) => {
+const VEHICLE_READ_ROLES = [
+  "ADMIN",
+  "MASTER_ADMIN",
+  "CONTROL_ROOM",
+  "PATROLLER",
+  "PATROL",
+  "SUPERVISOR",
+];
+
+const VEHICLE_WRITE_ROLES = [
+  "ADMIN",
+  "MASTER_ADMIN",
+  "CONTROL_ROOM",
+];
+
+// Create vehicle.
+// Admin / Control Room can add official register vehicles.
+// Patrollers should use the temporary vehicle flow from patroller.html, not this official route.
+router.post("/", requireAuth, requireRole(...VEHICLE_WRITE_ROLES), async (req, res) => {
   try {
     const { make, type, registration, colour } = req.body;
 
+    if (!registration || !registration.trim()) {
+      return res.status(400).json({ error: "Vehicle registration is required" });
+    }
+
     const vehicle = await prisma.vehicle.create({
       data: {
-        make,
-        type,
-        registration,
-        colour
-      }
+        make: make || null,
+        type: type || null,
+        registration: registration.trim().toUpperCase(),
+        colour: colour || null,
+        isActive: true,
+      },
     });
 
     res.status(201).json(vehicle);
   } catch (error) {
-    console.error(error);
+    console.error("POST /vehicles failed:", error);
     res.status(500).json({ error: "Failed to create vehicle" });
   }
 });
 
-// List active vehicles
-router.get("/", requireAuth, async (req, res) => {
+// List active vehicles.
+// This powers Admin Vehicle Register and Patroller vehicle dropdown.
+router.get("/", requireAuth, requireRole(...VEHICLE_READ_ROLES), async (req, res) => {
   try {
     const vehicles = await prisma.vehicle.findMany({
       where: { isActive: true },
-      orderBy: { createdAt: "desc" }
+      orderBy: [{ registration: "asc" }, { createdAt: "desc" }],
     });
 
     res.json(vehicles);
   } catch (error) {
-    console.error(error);
+    console.error("GET /vehicles failed:", error);
     res.status(500).json({ error: "Failed to fetch vehicles" });
   }
 });

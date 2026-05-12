@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { DASHBOARD_ENDPOINTS, MEMBER_ENDPOINTS } from "../core/endpoints";
+import { DASHBOARD_ENDPOINTS, MEMBER_ENDPOINTS, PATROL_ENDPOINTS } from "../core/endpoints";
 import { getAuthHeaders as buildAuthHeaders } from "../core/http.utils";
 import { buildLocalWorkload } from "../modules/patrols/patrol.utils";
 
@@ -9,7 +9,10 @@ const EMPTY_ADMIN_DATA = {
   vehicles: [],
   organisations: [],
   members: [],
+  assistanceRequests: [],
 };
+
+const ASSISTANCE_REQUEST_ROLES = new Set(["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"]);
 
 export function useAdminData({
   token,
@@ -32,6 +35,7 @@ export function useAdminData({
       vehicles: [],
       organisations: [],
       members: [],
+      assistanceRequests: [],
     });
   }
 
@@ -71,6 +75,7 @@ export function useAdminData({
       }
 
       let members = [];
+      let assistanceRequests = [];
 
       try {
         const membersRes = await fetch(MEMBER_ENDPOINTS.list, {
@@ -84,12 +89,27 @@ export function useAdminData({
         console.warn("Failed to load members", err);
       }
 
+      if (ASSISTANCE_REQUEST_ROLES.has(user?.role)) {
+        try {
+          const assistanceRes = await fetch(PATROL_ENDPOINTS.assistanceRequests, {
+            headers: getAuthHeaders(),
+          });
+
+          if (assistanceRes.ok) {
+            assistanceRequests = await assistanceRes.json();
+          }
+        } catch (err) {
+          console.warn("Failed to load assistance requests", err);
+        }
+      }
+
       const nextData = {
         incidents,
         patrols: json.patrols || [],
         vehicles: json.vehicles || [],
         organisations: json.organisations || [],
         members,
+        assistanceRequests,
       };
 
       setData(nextData);

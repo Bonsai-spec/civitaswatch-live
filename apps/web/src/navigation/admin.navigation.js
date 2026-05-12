@@ -9,6 +9,7 @@ export const ADMIN_NAV_SECTIONS = [
     label: "Operations",
     items: [
       { label: "Incidents", permission: "VIEW_INCIDENTS" },
+      { label: "Patrol Operations", permission: "VIEW_PATROL_OPERATIONS" },
       { label: "Patrols", permission: "VIEW_PATROLS" },
     ],
   },

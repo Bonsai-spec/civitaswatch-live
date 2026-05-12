@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function OrganisationsSection({ organisations }) {
   return (
     <div className="panel">

@@ -28,10 +28,18 @@ export const MEMBER_ENDPOINTS = {
 };
 
 export const PATROL_ENDPOINTS = {
+  start: `${API}/patrols/start`,
+  myActive: `${API}/patrols/me/active`,
   reports: (query = "") => `${API}/patrols/report/all${query ? `?${query}` : ""}`,
   adminUpdate: (id) => `${API}/patrols/${id}/admin-update`,
   audit: (id) => `${API}/patrols/${id}/audit`,
   end: (id) => `${API}/patrols/${id}/end`,
+  events: `${API}/patrol-events`,
+  assistanceRequests: `${API}/patrol-events/assistance/requests`,
+};
+
+export const VEHICLE_ENDPOINTS = {
+  list: `${API}/vehicles`,
 };
 
 export const INTELLIGENCE_ENDPOINTS = {

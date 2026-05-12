@@ -1,3 +1,47 @@
+import React from "react";
+
+function getCrewName(item) {
+  return (
+    item?.user?.fullName ||
+    [item?.member?.firstName, item?.member?.surname].filter(Boolean).join(" ") ||
+    item?.user?.email ||
+    item?.member?.email ||
+    "Crew member"
+  );
+}
+
+function getAssistancePatrolLabel(request) {
+  const patrol = request?.patrol;
+  const driver = patrol?.user?.fullName || patrol?.user?.email || "Patrol";
+  return [driver, patrol?.sector, patrol?.status].filter(Boolean).join(" - ");
+}
+
+function getAssistanceVehicleLabel(request) {
+  const patrol = request?.patrol;
+
+  return (
+    patrol?.vehicleLabel ||
+    patrol?.vehicle?.registration ||
+    [
+      patrol?.tempVehicleRegistration,
+      patrol?.tempVehicleMake,
+      patrol?.tempVehicleModel,
+      patrol?.tempVehicleColour,
+      patrol?.tempVehicleType,
+    ]
+      .filter(Boolean)
+      .join(" ") ||
+    "Vehicle not set"
+  );
+}
+
+function formatSubmittedTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString();
+}
+
 export default function IncidentsSection({
   children,
   data,
@@ -30,26 +74,68 @@ export default function IncidentsSection({
   onArchiveIncident,
   onDeleteIncident,
   onSelectIncident,
+  showStatusFilter = true,
+  showAssistanceRequests: shouldShowAssistanceRequests = true,
+  showCreateIncident = true,
+  showIncidentList = true,
+  showSelectedIncidentServices = true,
+  assistancePanelClassName = "panel",
 }) {
+  const assistanceRequests = data.assistanceRequests || [];
+  const showAssistanceRequests =
+    shouldShowAssistanceRequests && canAssignPatrol && !isPatrol;
+
   return (
     <>
-      <div className="filter-bar">
-        <label>
-          Filter status
-          <select value={filter} onChange={(e) => onFilterChange(e.target.value)}>
-            {statusFilterOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {showStatusFilter && (
+        <div className="filter-bar">
+          <label>
+            Filter status
+            <select value={filter} onChange={(e) => onFilterChange(e.target.value)}>
+              {statusFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       {children}
 
+      {showAssistanceRequests && (
+        <div className={assistancePanelClassName}>
+          <div className="details-header">
+            <h2>Assistance Requests</h2>
+            <span className="badge">{assistanceRequests.length} active</span>
+          </div>
+
+          {assistanceRequests.length === 0 && (
+            <p>No assistance requests submitted.</p>
+          )}
+
+          {assistanceRequests.map((request) => (
+            <div key={request.id} className="item">
+              <div>
+                <strong>{request.assistance}</strong>
+                <div>Patrol: {getAssistancePatrolLabel(request)}</div>
+                <div>Vehicle: {getAssistanceVehicleLabel(request)}</div>
+                <div>
+                  Crew: {(request.patrol?.crew || []).map(getCrewName).join(", ") || "-"}
+                </div>
+                <div>Description: {request.description || "-"}</div>
+                <div>Reference number: {request.incidentCode || request.incident?.incidentCode || "-"}</div>
+              </div>
+
+              <span className="badge">{formatSubmittedTime(request.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="grid">
-        {canCreateIncidents && (
+        {showCreateIncident && canCreateIncidents && (
           <div className="panel">
             <h2>Create Incident</h2>
 
@@ -164,10 +250,11 @@ export default function IncidentsSection({
           </div>
         )}
 
+        {(showIncidentList || showSelectedIncidentServices) && (
         <div className="panel">
           <h2>{isPatrol ? "My Assigned Incidents" : "Incidents"}</h2>
 
-          {selectedIncident && (
+          {showSelectedIncidentServices && selectedIncident && (
             <div className="incident-details">
               <div className="details-header">
                 <h3>{selectedIncident.title}</h3>
@@ -277,11 +364,11 @@ export default function IncidentsSection({
             </div>
           )}
 
-          {data.incidents.length === 0 && (
+          {showIncidentList && data.incidents.length === 0 && (
             <p>{isPatrol ? "No incidents assigned to you." : "No incidents found."}</p>
           )}
 
-          {data.incidents.map((incident) => (
+          {showIncidentList && data.incidents.map((incident) => (
             <div key={incident.id} className="item" onClick={() => onSelectIncident(incident)}>
               <div>
                 <strong>{incident.title}</strong>
@@ -298,6 +385,7 @@ export default function IncidentsSection({
             </div>
           ))}
         </div>
+        )}
       </div>
     </>
   );

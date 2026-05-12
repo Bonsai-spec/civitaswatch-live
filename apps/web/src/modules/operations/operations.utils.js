@@ -3,6 +3,15 @@ import { getIncidentPatrol } from "../incidents/incident.utils";
 import { getPatrolOptionLabel } from "../patrols/patrol.utils";
 import { getIncidentVehicle, getVehicleLabel } from "../vehicles/vehicle.utils";
 
+const activePatrolStatuses = [
+  "ACTIVE",
+  "NOTIFIED",
+  "EN_ROUTE",
+  "ON_SCENE",
+  "STAND_DOWN",
+  "MOBILE",
+];
+
 export function getOpenIncidentCount(incidents) {
   return incidents.filter((incident) => incident.status === "OPEN").length;
 }
@@ -12,7 +21,7 @@ export function getActiveIncidentCount(incidents) {
 }
 
 export function getActivePatrols(patrols) {
-  return patrols.filter((patrol) => patrol.status === "ACTIVE");
+  return patrols.filter((patrol) => activePatrolStatuses.includes(patrol.status));
 }
 
 export function getAssignedPatrolName(incident, patrols = []) {

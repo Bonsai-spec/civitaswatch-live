@@ -1,54 +1,74 @@
-import express from "express";
-import { prisma } from "../config/db.js";
-import { requireAuth } from "../middleware/auth.js";
-import { requireRole } from "../middleware/roles.js";
+export const ROLE_GROUPS = {
+  MASTER: ["MASTER_ADMIN"],
 
-const router = express.Router();
+  ADMIN_PANEL: ["MASTER_ADMIN", "ADMIN"],
 
-router.post(
-  "/pre-patrol",
-  requireAuth,
-  requireRole("PATROLLER"),
-  async (req, res) => {
-    try {
-      const { vehicleInspected, safetyCheckCompleted, notes } = req.body;
+  CONTROL_ROOM: ["MASTER_ADMIN", "CONTROL_ROOM"],
 
-      const checklist = await prisma.prePatrolChecklist.create({
-        data: {
-          userId: req.user.id,
-          patrolDate: new Date(),
-          vehicleInspected: Boolean(vehicleInspected),
-          safetyCheckCompleted: Boolean(safetyCheckCompleted),
-          notes: notes || null,
-          completedAt: new Date()
-        }
-      });
+  PATROL_APP: ["MASTER_ADMIN", "PATROLLER", "PATROL"],
 
-      res.status(201).json(checklist);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Failed to save pre-patrol checklist" });
-    }
+  REPORTS: ["MASTER_ADMIN", "ADMIN", "REPORTS", "SUPERVISOR"],
+
+  REGISTERS: ["MASTER_ADMIN", "ADMIN"],
+
+  OPERATIONS: ["MASTER_ADMIN", "ADMIN", "CONTROL_ROOM", "SUPERVISOR"],
+
+  INTELLIGENCE: ["MASTER_ADMIN", "INTELLIGENCE", "INTELLIGENCE_ANALYST"],
+};
+
+export function normalizeRole(role) {
+  return String(role || "").trim().toUpperCase();
+}
+
+export function roleMatches(userRole, allowedRoles = []) {
+  const cleanUserRole = normalizeRole(userRole);
+  const cleanAllowed = allowedRoles.map(normalizeRole);
+
+  if (cleanUserRole === "MASTER_ADMIN") {
+    return true;
   }
-);
 
-router.get(
-  "/pre-patrol/latest",
-  requireAuth,
-  requireRole("PATROLLER"),
-  async (req, res) => {
-    try {
-      const checklist = await prisma.prePatrolChecklist.findFirst({
-        where: { userId: req.user.id },
-        orderBy: { completedAt: "desc" }
-      });
-
-      res.json(checklist);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: "Failed to fetch latest checklist" });
-    }
+  if (cleanUserRole === "PATROL" && cleanAllowed.includes("PATROLLER")) {
+    return true;
   }
-);
 
-export default router;
+  if (cleanUserRole === "PATROLLER" && cleanAllowed.includes("PATROL")) {
+    return true;
+  }
+
+  return cleanAllowed.includes(cleanUserRole);
+}
+
+export function requireRole(...allowedRoles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: "Authentication required",
+      });
+    }
+
+    if (!allowedRoles.length) {
+      return next();
+    }
+
+    if (!roleMatches(req.user.role, allowedRoles)) {
+      return res.status(403).json({
+        error: "Forbidden",
+        requiredRoles: allowedRoles,
+        yourRole: req.user.role,
+      });
+    }
+
+    return next();
+  };
+}
+
+export function requireRoleGroup(groupName) {
+  const roles = ROLE_GROUPS[groupName];
+
+  if (!roles) {
+    throw new Error(`Unknown role group: ${groupName}`);
+  }
+
+  return requireRole(...roles);
+}

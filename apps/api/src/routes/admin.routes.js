@@ -3,6 +3,30 @@ import { prisma } from "../config/db.js";
 
 const router = express.Router();
 
+// Admin "Incident Register" data currently represents operational incident
+// reports/responses. It is not the future Incident Code/Subcode master register.
+// Future configuration registers should remain separate from operational records
+// such as incidents, responses, and patrol reports. Planned master registers
+// include Incident Codes, Incident Subcodes, Service Types, Infrastructure Types,
+// and Emergency Contact Types. Sector isolation should eventually scope both
+// configuration registers and operational data, while Master Admin and Central
+// Intelligence retain cross-sector oversight.
+//
+// Planned master-register CRUD endpoints, not implemented in this batch:
+// - GET    /api/admin/incident-codes
+// - POST   /api/admin/incident-codes
+// - PATCH  /api/admin/incident-codes/:id
+// - DELETE /api/admin/incident-codes/:id
+// Repeat the same CRUD pattern for:
+// - /api/admin/incident-subcodes
+// - /api/admin/service-types
+// - /api/admin/infrastructure-types
+// - /api/admin/emergency-contact-types
+//
+// These endpoints should be sector-scoped. Master Admin may manage shared
+// templates; Sector Admin may manage local sector values. Control Room and
+// Patrol should read active classification values only. Deletes may require
+// confirmation, audit logging, and role checks.
 const VALID_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "ARCHIVED"];
 const VALID_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
@@ -22,6 +46,22 @@ const patrolInclude = {
       make: true,
       type: true,
       colour: true,
+    },
+  },
+  crew: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+        },
+      },
+      member: true,
+    },
+    orderBy: {
+      joinedAt: "asc",
     },
   },
 };

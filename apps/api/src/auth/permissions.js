@@ -1,3 +1,5 @@
+// apps/web/src/auth/permissions.js
+
 export const SYSTEM_ROLES = {
   MASTER_ADMIN: "MASTER_ADMIN",
   ADMIN: "ADMIN",
@@ -11,6 +13,7 @@ export const SYSTEM_ROLES = {
 
 export const PERMISSIONS_BY_ROLE = {
   MASTER_ADMIN: ["*"],
+
   ADMIN: [
     "VIEW_DASHBOARD",
     "VIEW_INCIDENTS",
@@ -24,6 +27,7 @@ export const PERMISSIONS_BY_ROLE = {
     "VIEW_ORGANISATIONS",
     "VIEW_INTELLIGENCE",
   ],
+
   CONTROL_ROOM: [
     "VIEW_DASHBOARD",
     "VIEW_INCIDENTS",
@@ -33,6 +37,7 @@ export const PERMISSIONS_BY_ROLE = {
     "VIEW_PATROLS",
     "VIEW_REGISTERS",
   ],
+
   SUPERVISOR: [
     "VIEW_DASHBOARD",
     "VIEW_INCIDENTS",
@@ -40,18 +45,26 @@ export const PERMISSIONS_BY_ROLE = {
     "VIEW_PATROLS",
     "VIEW_REPORTS",
   ],
+
   REPORTS: ["VIEW_DASHBOARD", "VIEW_REPORTS"],
-  PATROLLER: [
+
+  PATROLLER: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "UPDATE_INCIDENT"],
+
+  PATROL: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "UPDATE_INCIDENT"],
+
+  INTELLIGENCE_ANALYST: [
     "VIEW_DASHBOARD",
     "VIEW_INCIDENTS",
-    "VIEW_PATROL_OPERATIONS",
-    "UPDATE_INCIDENT",
+    "VIEW_INTELLIGENCE",
   ],
-  PATROL: [
-    "VIEW_DASHBOARD",
-    "VIEW_INCIDENTS",
-    "VIEW_PATROL_OPERATIONS",
-    "UPDATE_INCIDENT",
-  ],
-  INTELLIGENCE_ANALYST: ["VIEW_DASHBOARD", "VIEW_INCIDENTS", "VIEW_INTELLIGENCE"],
 };
+
+export const NAV_ITEMS = [
+  { label: "Dashboard", permission: "VIEW_DASHBOARD" },
+  { label: "Incidents", permission: "VIEW_INCIDENTS" },
+  { label: "Patrols", permission: "VIEW_PATROLS" },
+  { label: "Registers", permission: "VIEW_REGISTERS" },
+  { label: "Reports", permission: "VIEW_REPORTS" },
+  { label: "Organisations", permission: "VIEW_ORGANISATIONS" },
+  { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
+];

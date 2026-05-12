@@ -12,6 +12,7 @@ export function usePermissions(user) {
   const canUpdateIncidents = can("UPDATE_INCIDENT");
   const canAssignPatrol = can("ASSIGN_PATROL");
   const canViewPatrols = can("VIEW_PATROLS");
+  const canViewPatrolOperations = can("VIEW_PATROL_OPERATIONS");
   const canViewRegisters = can("VIEW_REGISTERS");
   const canManageMembers = can("MANAGE_MEMBERS");
   const canViewReports = can("VIEW_REPORTS");
@@ -28,6 +29,7 @@ export function usePermissions(user) {
     canUpdateIncidents,
     canAssignPatrol,
     canViewPatrols,
+    canViewPatrolOperations,
     canViewRegisters,
     canManageMembers,
     canViewReports,

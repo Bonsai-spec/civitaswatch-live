@@ -1,5 +1,50 @@
-import React from "react";
+import React, { useState } from "react";
 import { getResidentImportMetadata } from "./register.utils";
+
+const INCIDENT_CODE_PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"];
+const INFRASTRUCTURE_RISK_LEVEL_OPTIONS = ["Low", "Medium", "High", "Critical"];
+const EMERGENCY_CONTACT_ESCALATION_OPTIONS = ["Level 1", "Level 2", "Level 3", "Critical"];
+const MASTER_REGISTER_INCOMPLETE_MESSAGE = "Complete the current row before adding another.";
+const SERVICE_TYPE_CATEGORY_OPTIONS = [
+  "Emergency",
+  "Security",
+  "Municipal",
+  "Medical",
+  "Utilities",
+  "Community",
+  "Other",
+];
+
+const MASTER_REGISTER_PLACEHOLDERS = {
+  // These table shells define the future column structure for full CRUD master
+  // registers. Later backend APIs and Prisma models should provide sector-scoped
+  // records that may be sector-specific or derived from shared master templates.
+  "Incident Codes": {
+    description: "Master list of primary incident classifications.",
+    addLabel: "Add Incident Code",
+    columns: ["Code", "Name", "Priority", "Active"],
+  },
+  "Incident Subcodes": {
+    description: "Detailed classifications linked to Incident Codes.",
+    addLabel: "Add Incident Subcode",
+    columns: ["Parent Code", "Subcode", "Name", "Active"],
+  },
+  "Service Types": {
+    description: "External and internal service categories coordinated by Control Room.",
+    addLabel: "Add Service Type",
+    columns: ["Type", "Category", "Control Room Managed", "Active"],
+  },
+  "Infrastructure Types": {
+    description: "Types of critical infrastructure and assets.",
+    addLabel: "Add Infrastructure Type",
+    columns: ["Type", "Risk Level", "Requires Location", "Active"],
+  },
+  "Emergency Contact Types": {
+    description: "Categories of emergency and support contacts.",
+    addLabel: "Add Emergency Contact Type",
+    columns: ["Type", "Escalation Level", "Sector Specific", "Active"],
+  },
+};
 
 export default function RegistersSection({
   data,
@@ -42,6 +87,290 @@ export default function RegistersSection({
   getDisplayName,
   getVehicleLabel,
 }) {
+  // These five master registers are the canonical configuration taxonomy for
+  // CivitasWatch: Incident Codes, Incident Subcodes, Service Types,
+  // Infrastructure Types, and Emergency Contact Types. Local React state is a
+  // temporary frontend-only persistence layer. Each register follows the same
+  // reusable CRUD pattern: Add button, editable table rows, and empty state.
+  // Backend APIs and Prisma models will later replace this with sector-scoped
+  // persistence consumed by Patrol, Control Room, Admin, and Central
+  // Intelligence. Sector isolation should allow local customization with
+  // optional shared master templates from Master Admin.
+  // Local state currently acts as a temporary in-memory repository. Future API
+  // endpoints will provide sector-scoped CRUD persistence so each sector (S1,
+  // S2, S3, ...) can maintain its own values or inherit shared templates
+  // published by Master Admin. Sector overrides must preserve compatibility
+  // with the core CivitasWatch taxonomy so Central Intelligence can aggregate
+  // standardized values across sectors. This supports local autonomy and
+  // cross-sector comparability.
+  // Integration plan: initial page load will fetch sector-scoped records from
+  // /api/admin/incident-codes, /api/admin/incident-subcodes,
+  // /api/admin/service-types, /api/admin/infrastructure-types, and
+  // /api/admin/emergency-contact-types. Add actions will become POST requests,
+  // inline edits will become PATCH requests, and Delete actions will become
+  // DELETE requests. Local state should remain the working UI state after API
+  // responses. Active-only records will feed Patrol, Control Room, and
+  // Intelligence workflows, and shared template inheritance may prepopulate
+  // sector registers on first load.
+  // Incident Codes is the reference implementation for frontend-only master
+  // register CRUD. Data stays in component-local React state until backend APIs
+  // replace it with sector-scoped persistence.
+  // Future mapping: incidentCodes -> IncidentCode model via
+  // /api/admin/incident-codes. Records will be sector-scoped, may inherit from
+  // shared Master Admin templates, and local state is temporary until API
+  // persistence is implemented.
+  const [incidentCodeRows, setIncidentCodeRows] = useState([]);
+  // Incident Codes and Incident Subcodes form a parent-child classification
+  // taxonomy; subcodes should not be created without a parent code.
+  // Future mapping: incidentSubcodes -> IncidentSubcode model via
+  // /api/admin/incident-subcodes. Records will be sector-scoped, may inherit
+  // from shared Master Admin templates, and local state is temporary until API
+  // persistence is implemented.
+  const [incidentSubcodeRows, setIncidentSubcodeRows] = useState([]);
+  // Service Types define standardized response categories. Control Room will
+  // use them for dispatch, escalation, and coordination, and Patrol assistance
+  // should eventually reference them instead of free-text assistance values.
+  // Future mapping: serviceTypes -> ServiceType model via
+  // /api/admin/service-types. Records will be sector-scoped, may inherit from
+  // shared Master Admin templates, and local state is temporary until API
+  // persistence is implemented.
+  const [serviceTypeRows, setServiceTypeRows] = useState([]);
+  // Infrastructure Types classify monitored assets and critical infrastructure.
+  // Risk Level supports prioritisation and future intelligence analysis.
+  // Future mapping: infrastructureTypes -> InfrastructureType model via
+  // /api/admin/infrastructure-types. Records will be sector-scoped, may inherit
+  // from shared Master Admin templates, and local state is temporary until API
+  // persistence is implemented.
+  const [infrastructureTypeRows, setInfrastructureTypeRows] = useState([]);
+  // Future mapping: emergencyContactTypes -> EmergencyContactType model via
+  // /api/admin/emergency-contact-types. Records will be sector-scoped, may
+  // inherit from shared Master Admin templates, and local state is temporary
+  // until API persistence is implemented.
+  const [emergencyContactTypeRows, setEmergencyContactTypeRows] = useState([]);
+  const [masterRegisterValidationTab, setMasterRegisterValidationTab] = useState("");
+  const isIncidentCodesRegister = registerTab === "Incident Codes";
+  const isIncidentSubcodesRegister = registerTab === "Incident Subcodes";
+  const isServiceTypesRegister = registerTab === "Service Types";
+  const isInfrastructureTypesRegister = registerTab === "Infrastructure Types";
+  const isEmergencyContactTypesRegister = registerTab === "Emergency Contact Types";
+  const isEditableMasterRegister =
+    isIncidentCodesRegister ||
+    isIncidentSubcodesRegister ||
+    isServiceTypesRegister ||
+    isInfrastructureTypesRegister ||
+    isEmergencyContactTypesRegister;
+
+  // The Add button, editable table rows, and empty state establish the layout
+  // pattern future master registers should reuse.
+  // Validation is frontend-only while these registers use local React state.
+  // The guard prevents multiple blank draft rows, while keeping existing rows
+  // editable so operators can correct draft values.
+  function hasText(value) {
+    return String(value || "").trim().length > 0;
+  }
+
+  function isIncidentCodeComplete(row) {
+    return hasText(row?.code) && hasText(row?.name);
+  }
+
+  function isIncidentSubcodeComplete(row) {
+    return hasText(row?.parentCode) && hasText(row?.subcode) && hasText(row?.name);
+  }
+
+  function isServiceTypeComplete(row) {
+    return hasText(row?.type);
+  }
+
+  function isInfrastructureTypeComplete(row) {
+    return hasText(row?.type);
+  }
+
+  function isEmergencyContactTypeComplete(row) {
+    return hasText(row?.type);
+  }
+
+  function latestRowIsIncomplete(rows, isComplete) {
+    return rows.length > 0 && !isComplete(rows[rows.length - 1]);
+  }
+
+  function hasLatestIncompleteMasterRow(tab = registerTab) {
+    // Required fields mirror the minimum viable fields expected for future
+    // backend/API validation with sector-scoped persistence.
+    if (tab === "Incident Codes") {
+      return latestRowIsIncomplete(incidentCodeRows, isIncidentCodeComplete);
+    }
+
+    if (tab === "Incident Subcodes") {
+      return latestRowIsIncomplete(incidentSubcodeRows, isIncidentSubcodeComplete);
+    }
+
+    if (tab === "Service Types") {
+      return latestRowIsIncomplete(serviceTypeRows, isServiceTypeComplete);
+    }
+
+    if (tab === "Infrastructure Types") {
+      return latestRowIsIncomplete(infrastructureTypeRows, isInfrastructureTypeComplete);
+    }
+
+    if (tab === "Emergency Contact Types") {
+      return latestRowIsIncomplete(
+        emergencyContactTypeRows,
+        isEmergencyContactTypeComplete
+      );
+    }
+
+    return false;
+  }
+
+  function addIncidentCodeRow() {
+    if (hasLatestIncompleteMasterRow("Incident Codes")) {
+      setMasterRegisterValidationTab("Incident Codes");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setIncidentCodeRows((current) => [
+      ...current,
+      {
+        id: `incident-code-${Date.now()}-${current.length}`,
+        code: "",
+        name: "",
+        priority: "Medium",
+        active: true,
+      },
+    ]);
+  }
+
+  function updateIncidentCodeRow(id, field, value) {
+    setIncidentCodeRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  // Delete currently removes master-register rows from local React state only.
+  // No backend deletion occurs yet, so the empty state returns when all local
+  // rows are removed. Future persisted deletes should use sector-scoped API
+  // DELETE endpoints with confirmation, audit logging, and role checks.
+  function deleteIncidentCodeRow(id) {
+    setIncidentCodeRows((current) => current.filter((row) => row.id !== id));
+  }
+
+  function addIncidentSubcodeRow() {
+    if (hasLatestIncompleteMasterRow("Incident Subcodes")) {
+      setMasterRegisterValidationTab("Incident Subcodes");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setIncidentSubcodeRows((current) => [
+      ...current,
+      {
+        id: `incident-subcode-${Date.now()}-${current.length}`,
+        parentCode: "",
+        subcode: "",
+        name: "",
+        active: true,
+      },
+    ]);
+  }
+
+  function updateIncidentSubcodeRow(id, field, value) {
+    setIncidentSubcodeRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function deleteIncidentSubcodeRow(id) {
+    setIncidentSubcodeRows((current) => current.filter((row) => row.id !== id));
+  }
+
+  function addServiceTypeRow() {
+    if (hasLatestIncompleteMasterRow("Service Types")) {
+      setMasterRegisterValidationTab("Service Types");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setServiceTypeRows((current) => [
+      ...current,
+      {
+        id: `service-type-${Date.now()}-${current.length}`,
+        type: "",
+        category: "Emergency",
+        controlRoomManaged: true,
+        active: true,
+      },
+    ]);
+  }
+
+  function updateServiceTypeRow(id, field, value) {
+    setServiceTypeRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function deleteServiceTypeRow(id) {
+    setServiceTypeRows((current) => current.filter((row) => row.id !== id));
+  }
+
+  function addInfrastructureTypeRow() {
+    if (hasLatestIncompleteMasterRow("Infrastructure Types")) {
+      setMasterRegisterValidationTab("Infrastructure Types");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setInfrastructureTypeRows((current) => [
+      ...current,
+      {
+        id: `infrastructure-type-${Date.now()}-${current.length}`,
+        type: "",
+        riskLevel: "Medium",
+        requiresLocation: true,
+        active: true,
+      },
+    ]);
+  }
+
+  function updateInfrastructureTypeRow(id, field, value) {
+    setInfrastructureTypeRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function deleteInfrastructureTypeRow(id) {
+    setInfrastructureTypeRows((current) => current.filter((row) => row.id !== id));
+  }
+
+  function addEmergencyContactTypeRow() {
+    if (hasLatestIncompleteMasterRow("Emergency Contact Types")) {
+      setMasterRegisterValidationTab("Emergency Contact Types");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setEmergencyContactTypeRows((current) => [
+      ...current,
+      {
+        id: `emergency-contact-type-${Date.now()}-${current.length}`,
+        type: "",
+        escalationLevel: "Level 1",
+        sectorSpecific: true,
+        active: true,
+      },
+    ]);
+  }
+
+  function updateEmergencyContactTypeRow(id, field, value) {
+    setEmergencyContactTypeRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  function deleteEmergencyContactTypeRow(id) {
+    setEmergencyContactTypeRows((current) => current.filter((row) => row.id !== id));
+  }
+
   return (
     <div className="panel">
       <h2>Registers</h2>
@@ -73,9 +402,12 @@ export default function RegistersSection({
 
       <div className="cards">
         <div className="card">
-          <div className="card-title">Incident Register</div>
+          {/* The internal "Incidents" tab key currently means operational incident reports. */}
+          <div className="card-title">Incident Reports</div>
           <div className="card-value">{data.incidents.length}</div>
-          <div className="card-detail">All captured incidents</div>
+          <div className="card-detail">
+            Operational incident and response records captured by patrols and Control Room.
+          </div>
         </div>
 
         <div className="card">
@@ -115,9 +447,16 @@ export default function RegistersSection({
         </div>
       </div>
 
+      {/*
+        Keep the "Incidents" tab key for now because navigation/state logic may
+        depend on it. Visible UI says "Incident Reports" to avoid confusion with
+        future Incident Code/Subcode master registers, which should be separate.
+        This remains the operational incident/response view for live and
+        historical records.
+      */}
       {registerTab === "Incidents" && (
         <>
-          <h3>Incident Register</h3>
+          <h3>Incident Reports</h3>
           <table>
             <thead>
               <tr>
@@ -891,6 +1230,399 @@ export default function RegistersSection({
             </tbody>
           </table>
         </>
+      )}
+
+      {/*
+        Master register tabs are intentionally UI-only until backend support is
+        added. These "Coming soon" panels reserve navigation for future CRUD
+        screens. Incident Codes and Incident Subcodes will become canonical
+        classification registers for patrols, Control Room, and intelligence:
+        patrol mobile incident capture will select them, Control Room will use
+        them for dispatch/escalation/service coordination, and Central
+        Intelligence will use them for analytics, heatmaps, and trend detection.
+        Service Types will define response categories, Infrastructure Types will
+        classify monitored assets, and Emergency Contact Types will structure
+        contact directories. Sector isolation should scope these registers per
+        sector, with optional shared master templates.
+        The disabled Add buttons reserve toolbar layout for future create
+        actions. Incident Codes/Subcodes will become mandatory classification
+        references for capture and analytics; Service Types will drive dispatch
+        and coordination; Infrastructure Types will classify assets; Emergency
+        Contact Types will structure escalation directories.
+      */}
+      {/*
+        Master registers form CivitasWatch's canonical operational taxonomy.
+        Patrol, Control Room, Admin, and Central Intelligence should all
+        reference the same standardized code sets so reporting stays consistent
+        across sectors. Sector isolation allows local customization while
+        preserving shared governance templates; Master Admin may publish
+        templates that sectors adopt or override. Central Intelligence depends
+        on these classifications for cross-sector analytics and benchmarking.
+      */}
+      {/*
+        Strategically, these registers establish a single source of truth for
+        operational classifications. Incident Codes/Subcodes standardize incident
+        taxonomy, Service Types standardize Control Room resource coordination,
+        Infrastructure Types standardize asset and critical infrastructure
+        classification, and Emergency Contact Types standardize escalation and
+        contact directory structures. Consistent classifications enable
+        comparable reporting, intelligence analysis, benchmarking, and heatmaps.
+        Sector-level overrides may customize local registers while preserving
+        compatibility with Master Admin templates. Central Intelligence depends
+        on shared classifications for cross-sector pattern detection and
+        strategic reporting.
+      */}
+      {MASTER_REGISTER_PLACEHOLDERS[registerTab] && (
+        <div className="panel">
+          <h3>{registerTab}</h3>
+          <p>{MASTER_REGISTER_PLACEHOLDERS[registerTab].description}</p>
+          <p className="card-detail">
+            Frontend-only prototype. Data is not persisted after refresh; backend
+            persistence will be added later.
+          </p>
+          {/*
+            Incident Codes will become the primary classification register used
+            across Patrol, Control Room, Admin, and Central Intelligence. Future
+            master registers should follow this same local-state pattern before
+            backend API persistence is introduced.
+          */}
+          <button
+            className="secondary-btn"
+            disabled={
+              !isIncidentCodesRegister &&
+              !isIncidentSubcodesRegister &&
+              !isServiceTypesRegister &&
+              !isInfrastructureTypesRegister &&
+              !isEmergencyContactTypesRegister
+            }
+            onClick={
+              isIncidentCodesRegister
+                ? addIncidentCodeRow
+                : isIncidentSubcodesRegister
+                  ? addIncidentSubcodeRow
+                  : isServiceTypesRegister
+                    ? addServiceTypeRow
+                    : isInfrastructureTypesRegister
+                      ? addInfrastructureTypeRow
+                      : isEmergencyContactTypesRegister
+                        ? addEmergencyContactTypeRow
+                        : undefined
+            }
+          >
+            {MASTER_REGISTER_PLACEHOLDERS[registerTab].addLabel}
+          </button>
+          {masterRegisterValidationTab === registerTab &&
+            hasLatestIncompleteMasterRow(registerTab) && (
+              <p className="card-detail">{MASTER_REGISTER_INCOMPLETE_MESSAGE}</p>
+            )}
+
+          <table>
+            <thead>
+              <tr>
+                {MASTER_REGISTER_PLACEHOLDERS[registerTab].columns.map((column) => (
+                  <th key={column}>{column}</th>
+                ))}
+                {isEditableMasterRegister && <th>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {isIncidentCodesRegister && incidentCodeRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      value={row.code}
+                      onChange={(event) =>
+                        updateIncidentCodeRow(row.id, "code", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={row.name}
+                      onChange={(event) =>
+                        updateIncidentCodeRow(row.id, "name", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.priority}
+                      onChange={(event) =>
+                        updateIncidentCodeRow(row.id, "priority", event.target.value)
+                      }
+                    >
+                      {INCIDENT_CODE_PRIORITY_OPTIONS.map((priority) => (
+                        <option key={priority} value={priority}>
+                          {priority}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.active}
+                      onChange={(event) =>
+                        updateIncidentCodeRow(row.id, "active", event.target.checked)
+                      }
+                    />
+                  </td>
+                  <td>
+                    {/* Local draft delete only; future persistence should call the register API DELETE endpoint. */}
+                    <button onClick={() => deleteIncidentCodeRow(row.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+
+              {isIncidentSubcodesRegister && incidentSubcodeRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    {/* The Parent Code dropdown demonstrates master registers referencing each other. */}
+                    {incidentCodeRows.length === 0 ? (
+                      "Create Incident Codes first."
+                    ) : (
+                      <select
+                        value={row.parentCode}
+                        onChange={(event) =>
+                          updateIncidentSubcodeRow(row.id, "parentCode", event.target.value)
+                        }
+                      >
+                        <option value="">Select parent code</option>
+                        {incidentCodeRows.map((incidentCode) => (
+                          <option key={incidentCode.id} value={incidentCode.code}>
+                            {incidentCode.code || "Unnamed code"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  <td>
+                    <input
+                      value={row.subcode}
+                      onChange={(event) =>
+                        updateIncidentSubcodeRow(row.id, "subcode", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={row.name}
+                      onChange={(event) =>
+                        updateIncidentSubcodeRow(row.id, "name", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.active}
+                      onChange={(event) =>
+                        updateIncidentSubcodeRow(row.id, "active", event.target.checked)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button onClick={() => deleteIncidentSubcodeRow(row.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+
+              {isServiceTypesRegister && serviceTypeRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      value={row.type}
+                      onChange={(event) =>
+                        updateServiceTypeRow(row.id, "type", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.category}
+                      onChange={(event) =>
+                        updateServiceTypeRow(row.id, "category", event.target.value)
+                      }
+                    >
+                      {SERVICE_TYPE_CATEGORY_OPTIONS.map((category) => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    {/* Control Room Managed means this service must be coordinated through Control Room. */}
+                    <input
+                      type="checkbox"
+                      checked={row.controlRoomManaged}
+                      onChange={(event) =>
+                        updateServiceTypeRow(
+                          row.id,
+                          "controlRoomManaged",
+                          event.target.checked
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.active}
+                      onChange={(event) =>
+                        updateServiceTypeRow(row.id, "active", event.target.checked)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button onClick={() => deleteServiceTypeRow(row.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+
+              {isInfrastructureTypesRegister && infrastructureTypeRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      value={row.type}
+                      onChange={(event) =>
+                        updateInfrastructureTypeRow(row.id, "type", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.riskLevel}
+                      onChange={(event) =>
+                        updateInfrastructureTypeRow(row.id, "riskLevel", event.target.value)
+                      }
+                    >
+                      {INFRASTRUCTURE_RISK_LEVEL_OPTIONS.map((riskLevel) => (
+                        <option key={riskLevel} value={riskLevel}>
+                          {riskLevel}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    {/* Requires Location means address/coordinate data should be mandatory for this type. */}
+                    <input
+                      type="checkbox"
+                      checked={row.requiresLocation}
+                      onChange={(event) =>
+                        updateInfrastructureTypeRow(
+                          row.id,
+                          "requiresLocation",
+                          event.target.checked
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.active}
+                      onChange={(event) =>
+                        updateInfrastructureTypeRow(row.id, "active", event.target.checked)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button onClick={() => deleteInfrastructureTypeRow(row.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+
+              {isEmergencyContactTypesRegister && emergencyContactTypeRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      value={row.type}
+                      onChange={(event) =>
+                        updateEmergencyContactTypeRow(row.id, "type", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.escalationLevel}
+                      onChange={(event) =>
+                        updateEmergencyContactTypeRow(
+                          row.id,
+                          "escalationLevel",
+                          event.target.value
+                        )
+                      }
+                    >
+                      {EMERGENCY_CONTACT_ESCALATION_OPTIONS.map((level) => (
+                        <option key={level} value={level}>
+                          {level}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.sectorSpecific}
+                      onChange={(event) =>
+                        updateEmergencyContactTypeRow(
+                          row.id,
+                          "sectorSpecific",
+                          event.target.checked
+                        )
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.active}
+                      onChange={(event) =>
+                        updateEmergencyContactTypeRow(row.id, "active", event.target.checked)
+                      }
+                    />
+                  </td>
+                  <td>
+                    <button onClick={() => deleteEmergencyContactTypeRow(row.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+
+              {/*
+                Prisma relations and API validation should eventually enforce
+                this dependency. Patrol and Control Room will require primary
+                and detailed classifications, while Central Intelligence uses
+                the hierarchy for granular analytics and trend detection.
+                Backend integration will also persist Service Types by sector.
+                Infrastructure Types will later support infrastructure
+                incidents, risk reviews, asset monitoring, and sector-scoped
+                persistence.
+              */}
+              {((!isIncidentCodesRegister &&
+                !isIncidentSubcodesRegister &&
+                !isServiceTypesRegister &&
+                !isInfrastructureTypesRegister &&
+                !isEmergencyContactTypesRegister) ||
+                (isIncidentCodesRegister && incidentCodeRows.length === 0) ||
+                (isIncidentSubcodesRegister && incidentSubcodeRows.length === 0) ||
+                (isServiceTypesRegister && serviceTypeRows.length === 0) ||
+                (isInfrastructureTypesRegister && infrastructureTypeRows.length === 0) ||
+                (isEmergencyContactTypesRegister && emergencyContactTypeRows.length === 0)) && (
+                <tr>
+                  <td
+                    colSpan={
+                      MASTER_REGISTER_PLACEHOLDERS[registerTab].columns.length +
+                      (isEditableMasterRegister ? 1 : 0)
+                    }
+                  >
+                    No records configured yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

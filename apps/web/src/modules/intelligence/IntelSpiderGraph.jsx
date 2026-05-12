@@ -1,3 +1,5 @@
+import React from "react";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { getIntelTimeFilterLabel, getRecordTimestamp, parseIntelDate } from "../../utils/date.utils";

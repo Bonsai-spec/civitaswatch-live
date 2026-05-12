@@ -1,0 +1,8 @@
+callsign,firstName,surname,fullName,cellNumber,accessLevel,patrollerRole,lastLogon,source
+WC06,Angelique,Heszler,Angelique Heszler,0821234567,Admin,Patroller,2024-12-01,patrollers-pdf
+WC22,Nick,Oosthuizen,Nick Oosthuizen,0822345678,User,Patroller,2024-12-02,patrollers-pdf
+WV69,Daniel,van Rooyen,Daniel van Rooyen,0823456789,Admin,Chair,2024-12-03,patrollers-pdf
+WV75,Le Roux,Minnaar,Le Roux Minnaar,0824567890,Admin,Deputy Chair,2024-12-04,patrollers-pdf
+
+WV83,Jaco,Schoeman,Jaco Schoeman,0825678901,Admin,PRO,2024-12-05,patrollers-pdf
+

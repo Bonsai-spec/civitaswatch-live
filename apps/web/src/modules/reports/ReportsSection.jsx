@@ -1,3 +1,5 @@
+import React from "react";
+
 export default function ReportsSection({
   data,
   reportFilters,
@@ -22,6 +24,10 @@ export default function ReportsSection({
   onLoadPatrolReportAudit,
   onCloseActivePatrol,
   getVehicleLabel,
+  showFilters = true,
+  showSummaryCards = true,
+  showSelectedPatrolReport = true,
+  showReportTable = true,
 }) {
   return (
     <div className="panel">
@@ -32,6 +38,7 @@ export default function ReportsSection({
         </button>
       </div>
 
+      {showFilters && (
       <div className="action-row">
         <input
           type="date"
@@ -95,7 +102,9 @@ export default function ReportsSection({
 
         <button onClick={onClearReportFilters}>Clear</button>
       </div>
+      )}
 
+      {showSummaryCards && (
       <div className="cards">
         <div className="card">
           <div className="card-title">Reports</div>
@@ -121,8 +130,9 @@ export default function ReportsSection({
           <div className="card-detail">Currently on patrol</div>
         </div>
       </div>
+      )}
 
-      {selectedPatrolReport && (
+      {showSelectedPatrolReport && selectedPatrolReport && (
         <div className="incident-details">
           <div className="details-header">
             <h3>Patrol Detail</h3>
@@ -291,7 +301,7 @@ export default function ReportsSection({
         </div>
       )}
 
-      {filteredPatrolReports.length === 0 ? (
+      {showReportTable && (filteredPatrolReports.length === 0 ? (
         <p>No patrol reports match these filters.</p>
       ) : (
         <table>
@@ -341,7 +351,7 @@ export default function ReportsSection({
             ))}
           </tbody>
         </table>
-      )}
+      ))}
     </div>
   );
 }

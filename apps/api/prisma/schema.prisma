@@ -6,6 +6,19 @@ datasource db {
   provider = "postgresql"
 }
 
+/// CivitasWatch is moving toward sector-based multi-tenancy: operational and
+/// register records should eventually belong to a sector such as S1, S2 or S3.
+/// Sectors operate independently under Master Admin governance, while Central
+/// Intelligence retains cross-sector analytical visibility.
+/// Future master-register models are planned but intentionally not defined yet:
+/// IncidentCode, IncidentSubcode, ServiceType, InfrastructureType, and
+/// EmergencyContactType. These should become sector-scoped configuration tables
+/// separate from operational records such as Incident, PatrolEvent, and patrol
+/// reports.
+///
+/// Master template inheritance should allow Master Admin to publish shared
+/// register templates that sectors can adopt, override, or extend locally while
+/// preserving compatibility with the core CivitasWatch taxonomy.
 model User {
   id                  String               @id @default(uuid())
   fullName            String
@@ -17,8 +30,10 @@ model User {
   updatedAt           DateTime             @updatedAt
   incidentsCreated    Incident[]
   patrolSessions      PatrolSession[]
+  patrolSessionCrew   PatrolSessionCrew[]
   prePatrolChecklists PrePatrolChecklist[]
   sectorAccess        UserSectorAccess[]
+  member              Member?
 }
 
 model PrePatrolChecklist {
@@ -53,35 +68,72 @@ model Vehicle {
   patrolSessions PatrolSession[]
 }
 
+/// A patrol session represents one vehicle/call-sign on duty, with a driver and
+/// optional crew travelling under the same operational context.
 model PatrolSession {
-  id           String              @id @default(uuid())
-  userId       String
-  vehicleId    String
-  checklistId  String?
-  sector       String
-  startTime    DateTime            @default(now())
-  endTime      DateTime?
-  startKm      Int
-  endKm        Int?
-  totalKm      Int?
-  summary      String?
-  status       String              @default("ACTIVE")
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  editedAt     DateTime?
-  editedBy     String?
-  editCount    Int                 @default(0)
-  isLocked     Boolean             @default(false)
-  incidents    Incident[]
-  patrolEvents PatrolEvent[]
-  checklist    PrePatrolChecklist? @relation(fields: [checklistId], references: [id])
-  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicle      Vehicle             @relation(fields: [vehicleId], references: [id])
+  id                      String              @id @default(uuid())
+  userId                  String
+  vehicleId               String?
+  checklistId             String?
+  sector                  String
+  startTime               DateTime            @default(now())
+  endTime                 DateTime?
+  startKm                 Int
+  endKm                   Int?
+  totalKm                 Int?
+  summary                 String?
+  status                  String              @default("ACTIVE")
+  vehicleMode             String              @default("REGISTERED")
+  tempVehicleRegistration String?
+  tempVehicleMake         String?
+  tempVehicleModel        String?
+  tempVehicleColour       String?
+  tempVehicleType         String?
+  tempVehicleCallSign     String?
+  tempVehicleOwnerName    String?
+  tempVehicleOwnerPhone   String?
+  tempVehicleNotes        String?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  editedAt                DateTime?
+  editedBy                String?
+  editCount               Int                 @default(0)
+  isLocked                Boolean             @default(false)
+  crew                    PatrolSessionCrew[]
+  incidents               Incident[]
+  patrolEvents            PatrolEvent[]
+  checklist               PrePatrolChecklist? @relation(fields: [checklistId], references: [id])
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle                 Vehicle?            @relation(fields: [vehicleId], references: [id])
 
   @@index([userId, startTime])
   @@index([vehicleId, startTime])
   @@index([sector])
   @@index([status])
+}
+
+model PatrolSessionCrew {
+  id               String    @id @default(uuid())
+  patrolSessionId  String
+  userId           String?
+  memberId         String?
+  role             String    @default("CREW")
+  attendanceStatus String    @default("PRESENT")
+  joinedAt         DateTime  @default(now())
+  leftAt           DateTime?
+  creditGranted    Boolean   @default(true)
+  notes            String?
+
+  patrolSession PatrolSession @relation(fields: [patrolSessionId], references: [id], onDelete: Cascade)
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  member        Member?       @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@unique([patrolSessionId, userId])
+  @@unique([patrolSessionId, memberId])
+  @@index([patrolSessionId])
+  @@index([userId])
+  @@index([memberId])
+  @@index([role])
 }
 
 model PatrolReportAuditLog {
@@ -96,9 +148,11 @@ model PatrolReportAuditLog {
   createdAt    DateTime @default(now())
 }
 
+/// Operational incident reports/responses are distinct from future
+/// configuration registers such as Incident Codes and Incident Subcodes.
 model Incident {
-  id              String         @id @default(uuid())
-  incidentCode    String         @unique
+  id              String    @id @default(uuid())
+  incidentCode    String    @unique
   title           String
   description     String?
   sector          String
@@ -109,16 +163,17 @@ model Incident {
   createdByUserId String
   reportedAt      DateTime
   occurredAt      DateTime?
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   incidentType    String?
   street          String?
   suburb          String?
-  createdBy       User           @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
-  linkedPatrol    PatrolSession? @relation(fields: [linkedPatrolId], references: [id])
-  patrolEvents    PatrolEvent[]
 
-  voiLinks IncidentVOILink[]
+  createdBy        User                 @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  linkedPatrol     PatrolSession?       @relation(fields: [linkedPatrolId], references: [id])
+  patrolEvents     PatrolEvent[]
+  incidentServices IncidentServiceLog[]
+  voiLinks         IncidentVOILink[]
 
   @@index([createdByUserId])
   @@index([linkedPatrolId])
@@ -129,24 +184,70 @@ model Incident {
   @@index([reportedAt])
 }
 
+/// Patrol events are operational records. Assistance Requests are generated by
+/// Patrol into the assistance field and managed by Control Room.
 model PatrolEvent {
-  id           String        @id @default(uuid())
+  id           String   @id @default(uuid())
   patrolId     String
   type         String
   incidentCode String?
   description  String?
   assistance   String?
   sceneActive  Boolean?
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime @default(now())
   incidentId   String?
-  incident     Incident?     @relation(fields: [incidentId], references: [id])
-  patrol       PatrolSession @relation(fields: [patrolId], references: [id], onDelete: Cascade)
 
+  incident Incident?            @relation(fields: [incidentId], references: [id])
+  patrol   PatrolSession        @relation(fields: [patrolId], references: [id], onDelete: Cascade)
   voiLinks PatrolEventVOILink[]
 
   @@index([patrolId, createdAt])
   @@index([incidentId])
   @@index([type])
+}
+
+/// Service records are configuration-style data for Control Room coordination.
+/// Future configuration registers should also include Service Types,
+/// Infrastructure Types, and Emergency Contact Types.
+model Service {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  phone     String?
+  radio     String?
+  sector    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incidentLogs IncidentServiceLog[]
+
+  @@index([type])
+  @@index([sector])
+  @@index([isActive])
+}
+
+/// Operational service coordination remains tied to incidents; Control Room
+/// coordinates external services rather than Patrol bypassing it.
+model IncidentServiceLog {
+  id          String    @id @default(uuid())
+  incidentId  String
+  serviceId   String
+  status      String
+  refNumber   String?
+  requestedAt DateTime?
+  arrivedAt   DateTime?
+  clearedAt   DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  incident Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  service  Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([incidentId])
+  @@index([serviceId])
+  @@index([status])
 }
 
 model Organisation {
@@ -159,6 +260,11 @@ model Organisation {
   sectors   Sector[]
 }
 
+/// Sectors provide the future isolation boundary for both operational data and
+/// configuration registers, while Master Admin retains governance across them.
+/// Future IncidentCode, IncidentSubcode, ServiceType, InfrastructureType, and
+/// EmergencyContactType records should be scoped to Sector, with optional links
+/// back to shared Master Admin templates for inheritance/override behavior.
 model Sector {
   id             String             @id @default(uuid())
   name           String
@@ -212,10 +318,9 @@ model IntelligenceEntity {
   updatedAt           DateTime             @updatedAt
   voivehicleDetails   VOIVehicleDetails?
   patrolEventVOILinks PatrolEventVOILink[]
-
-  incidentVOILinks IncidentVOILink[]
-  outgoingLinks    IntelligenceLink[] @relation("FromEntity")
-  incomingLinks    IntelligenceLink[] @relation("ToEntity")
+  incidentVOILinks    IncidentVOILink[]
+  outgoingLinks       IntelligenceLink[]   @relation("FromEntity")
+  incomingLinks       IntelligenceLink[]   @relation("ToEntity")
 
   @@index([entityType])
   @@index([status])
@@ -224,16 +329,15 @@ model IntelligenceEntity {
 }
 
 model VOIVehicleDetails {
-  id                   String @id @default(uuid())
-  intelligenceEntityId String @unique
-
-  registrationNumber  String
-  make                String?
-  model               String?
-  colour              String?
-  vehicleType         String?
-  distinguishingMarks String?
-  notes               String?
+  id                   String  @id @default(uuid())
+  intelligenceEntityId String  @unique
+  registrationNumber   String
+  make                 String?
+  model                String?
+  colour               String?
+  vehicleType          String?
+  distinguishingMarks  String?
+  notes                String?
 
   intelligenceEntity IntelligenceEntity @relation(fields: [intelligenceEntityId], references: [id], onDelete: Cascade)
 
@@ -244,7 +348,7 @@ model PatrolEventVOILink {
   id                   String   @id @default(uuid())
   patrolEventId        String
   intelligenceEntityId String
-  observationType      String? // Seen, Stopped, Followed, Reported
+  observationType      String?
   notes                String?
   createdAt            DateTime @default(now())
 
@@ -259,7 +363,7 @@ model IncidentVOILink {
   id                   String   @id @default(uuid())
   incidentId           String
   intelligenceEntityId String
-  roleInIncident       String? // Suspect vehicle, getaway vehicle, seen nearby
+  roleInIncident       String?
   notes                String?
   createdAt            DateTime @default(now())
 
@@ -274,8 +378,8 @@ model IntelligenceLink {
   id           String   @id @default(uuid())
   fromEntityId String
   toEntityId   String
-  relationship String // owns, drives, seen_with, linked_to, etc
-  strength     Int? // confidence level (1–10)
+  relationship String
+  strength     Int?
   notes        String?
   createdAt    DateTime @default(now())
 
@@ -284,46 +388,55 @@ model IntelligenceLink {
 
   @@index([fromEntityId])
   @@index([toEntityId])
-
-
-
 }
 
-
 model Member {
-  id               String   @id @default(uuid())
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  firstName        String
-  surname          String
-  idNumber         String?
-  cellNumber       String?
-  email            String?
-  address          String?
-  suburb           String?
-  sector           String?
-  callSign         String?
+  firstName  String
+  surname    String
+  idNumber   String?
+  cellNumber String?
+  email      String?
+  address    String?
+  suburb     String?
+  sector     String?
+  callSign   String?
 
-  vettingStatus    String   @default("PENDING")
-  isActive         Boolean  @default(true)
+  vettingStatus String  @default("PENDING")
+  isActive      Boolean @default(true)
 
-  nextOfKinName    String?
-  nextOfKinPhone   String?
-  medicalNotes     String?
-  allergies        String?
-  medication       String?
-  bloodType        String?
+  nextOfKinName  String?
+  nextOfKinPhone String?
+  medicalNotes   String?
+  allergies      String?
+  medication     String?
+  bloodType      String?
 
-  driversLicence   Boolean  @default(false)
-  licenceCode      String?
-  pdp              Boolean  @default(false)
+  driversLicence Boolean @default(false)
+  licenceCode    String?
+  pdp            Boolean @default(false)
 
-  firstAid         Boolean  @default(false)
-  fireTraining     Boolean  @default(false)
-  radioTraining    Boolean  @default(false)
-  patrolTraining   Boolean  @default(false)
+  firstAid            Boolean @default(false)
+  fireTraining        Boolean @default(false)
+  radioTraining       Boolean @default(false)
+  patrolTraining      Boolean @default(false)
   controlRoomTraining Boolean @default(false)
 
-  notes            String?
+  userId         String? @unique
+  patrolApproved Boolean @default(false)
+  patrolStatus   String  @default("NOT_PATROLLER")
+  patrolNotes    String?
+
+  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  patrolSessionCrew PatrolSessionCrew[]
+
+  notes String?
+
+  @@index([sector])
+  @@index([isActive])
+  @@index([patrolApproved])
+  @@index([patrolStatus])
 }

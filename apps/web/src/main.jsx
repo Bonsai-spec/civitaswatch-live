@@ -6,7 +6,7 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import { MEMBER_ROLES, ROLE_MARKER } from "./auth/memberRoles";
-import { PERMISSIONS_BY_ROLE } from "./auth/permissions";
+import { PERMISSIONS_BY_ROLE, SYSTEM_ROLES } from "./auth/permissions";
 import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
@@ -53,6 +53,7 @@ import {
   getPatrolOptionLabel,
   getPatrolVehicleLabel,
 } from "./modules/patrols/patrol.utils";
+import PatrolOperationsSection from "./modules/patrols/PatrolOperationsSection";
 import PatrolsSection from "./modules/patrols/PatrolsSection";
 import {
   filterRegisterIncidents,
@@ -85,12 +86,125 @@ import {
 } from "./modules/operations/operations.utils";
 import "./index.css";
 
+const CONTROL_ROOM_TABS = [
+  "Live Overview",
+  "Assistance Requests",
+  "Incidents",
+  "Selected Incident Services",
+  "Patrol Reports",
+  "Selected Patrol Timeline",
+  "Map",
+];
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
 });
+
+function getPreferredLandingRoute(role) {
+  switch (role) {
+    case SYSTEM_ROLES.PATROLLER:
+    case SYSTEM_ROLES.PATROL:
+      return "Patrol Operations";
+    case SYSTEM_ROLES.CONTROL_ROOM:
+      return "Incidents";
+    case SYSTEM_ROLES.INTELLIGENCE_ANALYST:
+      return "Intelligence";
+    case SYSTEM_ROLES.ADMIN:
+    case SYSTEM_ROLES.MASTER_ADMIN:
+    default:
+      return "Dashboard";
+  }
+}
+
+function formatOperationalTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString();
+}
+
+function getCrewMemberName(crewMember) {
+  return (
+    crewMember?.user?.fullName ||
+    [crewMember?.member?.firstName, crewMember?.member?.surname]
+      .filter(Boolean)
+      .join(" ") ||
+    crewMember?.user?.email ||
+    crewMember?.member?.email ||
+    "Crew member"
+  );
+}
+
+function getPatrolCallSign(patrol) {
+  const driverCrew = (patrol?.crew || []).find((crewMember) => crewMember.role === "DRIVER");
+
+  return (
+    patrol?.callSign ||
+    patrol?.tempVehicleCallSign ||
+    driverCrew?.member?.callSign ||
+    patrol?.user?.member?.callSign ||
+    patrol?.user?.callSign ||
+    patrol?.vehicle?.callSign ||
+    patrol?.vehicle?.callsign ||
+    patrol?.vehicle?.registration ||
+    "No call sign"
+  );
+}
+
+function getOperationalVehicleLabel(patrol) {
+  return (
+    patrol?.vehicleLabel ||
+    patrol?.vehicle?.registration ||
+    [
+      patrol?.tempVehicleRegistration,
+      patrol?.tempVehicleMake,
+      patrol?.tempVehicleModel,
+      patrol?.tempVehicleColour,
+      patrol?.tempVehicleType,
+    ]
+      .filter(Boolean)
+      .join(" ") ||
+    "Vehicle not set"
+  );
+}
+
+function getPatrolCrewSummary(patrol) {
+  const crew = patrol?.crew || [];
+  const crewOnly = crew.filter((crewMember) => crewMember.role !== "DRIVER");
+  const names = crewOnly.map(getCrewMemberName).filter(Boolean);
+
+  if (!names.length) return "0 crew";
+  return `${names.length} crew: ${names.join(", ")}`;
+}
+
+function getLatestActivityItems({ assistanceRequests, activePatrols, incidents }) {
+  return [
+    ...assistanceRequests.map((request) => ({
+      id: `assistance-${request.id}`,
+      title: `Assistance requested: ${request.assistance || "Unspecified"}`,
+      detail: getPatrolCallSign(request.patrol),
+      at: request.createdAt,
+    })),
+    ...activePatrols.map((patrol) => ({
+      id: `patrol-${patrol.id}`,
+      title: `Patrol ${patrol.status || "ACTIVE"}`,
+      detail: getPatrolCallSign(patrol),
+      at: patrol.updatedAt || patrol.startTime || patrol.createdAt,
+    })),
+    ...incidents.map((incident) => ({
+      id: `incident-${incident.id}`,
+      title: `Incident ${incident.status || "OPEN"}`,
+      detail: incident.title || incident.incidentCode || "Incident",
+      at: incident.updatedAt || incident.reportedAt || incident.createdAt,
+    })),
+  ]
+    .filter((item) => item.at)
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, 8);
+}
 
 function App() {
   const {
@@ -105,8 +219,10 @@ function App() {
   } = useAuth();
 
   const [active, setActive] = useState("Dashboard");
+  const [controlRoomTab, setControlRoomTab] = useState("Live Overview");
   const [registerTab, setRegisterTab] = useState("Incidents");
   const [registerSearch, setRegisterSearch] = useState("");
+  const [controlRoomRefreshing, setControlRoomRefreshing] = useState(false);
 
   const {
     userRole,
@@ -114,6 +230,7 @@ function App() {
     canUpdateIncidents,
     canAssignPatrol,
     canViewPatrols,
+    canViewPatrolOperations,
     canViewRegisters,
     canManageMembers,
     canViewReports,
@@ -177,6 +294,9 @@ function App() {
   adminDataActionsRef.current.loadDashboard = loadDashboard;
   adminDataActionsRef.current.loadWorkload = loadWorkload;
 
+  // Admin navigation separates management views from the local Control Room
+  // workflow. The Admin Dashboard is an overview, not a replacement for
+  // operational dispatch functions.
   const navSections = useMemo(() => {
     return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
   }, [userRole]);
@@ -186,6 +306,11 @@ function App() {
     [navSections]
   );
 
+  const landingRoute = useMemo(() => {
+    const preferredRoute = getPreferredLandingRoute(userRole);
+    return navItems.includes(preferredRoute) ? preferredRoute : navItems[0] || "Dashboard";
+  }, [navItems, userRole]);
+
   function getAuthHeaders(customToken = token) {
     return buildAuthHeaders(customToken);
   }
@@ -193,6 +318,16 @@ function App() {
   function getJsonAuthHeaders(customToken = token) {
     return buildJsonAuthHeaders(customToken);
   }
+
+  const isControlRoomUser = userRole === SYSTEM_ROLES.CONTROL_ROOM;
+  const canUseControlRoomReports = canViewReports || isControlRoomUser;
+  // Control Room report summaries are part of the local overview, so loading follows
+  // the active local tab instead of the global Reports route.
+  const reportActiveRoute =
+    isControlRoomUser &&
+    ["Live Overview", "Patrol Reports", "Selected Patrol Timeline"].includes(controlRoomTab)
+      ? "Reports"
+      : active;
 
   const {
     reportFilters,
@@ -216,8 +351,8 @@ function App() {
     closeActivePatrol,
   } = useReports({
     token,
-    active,
-    canViewReports,
+    active: reportActiveRoute,
+    canViewReports: canUseControlRoomReports,
     data,
     getAuthHeaders,
     getJsonAuthHeaders,
@@ -295,10 +430,16 @@ useEffect(() => {
 }, [active]);
 
   useEffect(() => {
-    if (!navItems.includes(active)) {
-      setActive("Dashboard");
+    if (token && userRole) {
+      setActive((current) => (current === "Dashboard" ? landingRoute : current));
     }
-  }, [navItems, active]);
+  }, [landingRoute, token, userRole]);
+
+  useEffect(() => {
+    if (!navItems.includes(active)) {
+      setActive(landingRoute);
+    }
+  }, [navItems, active, landingRoute]);
 
 const registerSearchText = registerSearch.toLowerCase();
 
@@ -312,6 +453,335 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   data.organisations,
   registerSearchText
 );
+
+  // Active Patrols include operational statuses such as ACTIVE, MOBILE,
+  // NOTIFIED, EN_ROUTE, ON_SCENE, and STAND_DOWN.
+  const activePatrols = getActivePatrols(data.patrols);
+  // CONTROL_ROOM must always stay inside the local Control Room tabs; old route
+  // sections below are explicitly suppressed for this role.
+  const showControlRoomTabs = isControlRoomUser;
+  const latestActivityItems = getLatestActivityItems({
+    assistanceRequests: data.assistanceRequests || [],
+    activePatrols,
+    incidents: data.incidents || [],
+  });
+
+  async function refreshControlRoom() {
+    // Manual refresh reloads the operational data displayed in Live Overview:
+    // active patrols/dashboard state, assistance requests, and patrol reports.
+    try {
+      setControlRoomRefreshing(true);
+      await loadDashboard();
+      await loadWorkload();
+
+      if (canUseControlRoomReports) {
+        await loadPatrolReports();
+      }
+    } finally {
+      setControlRoomRefreshing(false);
+    }
+  }
+
+  function renderIncidentsSection(options = {}, sectionChildren = null) {
+    return (
+      <IncidentsSection
+        data={data}
+        filter={filter}
+        onFilterChange={(value) => {
+          setFilter(value);
+          setSelectedIncident(null);
+        }}
+        statusFilterOptions={OPERATION_STATUS_FILTER_OPTIONS}
+        canCreateIncidents={canCreateIncidents}
+        form={form}
+        onIncidentFormFieldChange={(field, value) =>
+          setForm({ ...form, [field]: value })
+        }
+        incidentTypeOptions={OPERATION_INCIDENT_TYPE_OPTIONS}
+        sectorOptions={OPERATION_SECTOR_OPTIONS}
+        severityOptions={OPERATION_SEVERITY_OPTIONS}
+        onCreateIncident={createIncident}
+        loading={loading}
+        isPatrol={isPatrol}
+        selectedIncident={selectedIncident}
+        onCloseSelectedIncident={() => setSelectedIncident(null)}
+        getAssignedPatrolName={getAssignedPatrolName}
+        getAssignedVehicleName={getAssignedVehicleName}
+        onUpdateStatus={updateStatus}
+        canAssignPatrol={canAssignPatrol}
+        onAutoAssignIncident={autoAssignIncident}
+        getIncidentLinkedPatrolId={getIncidentLinkedPatrolId}
+        onAssignSelectedIncidentPatrol={(patrolId) =>
+          assignPatrol(
+            selectedIncident.id,
+            patrolId,
+            selectedIncident.assignedVehicleId ||
+              selectedIncident.vehicleId ||
+              selectedIncident.linkedVehicleId
+          )
+        }
+        onAssignSelectedIncidentVehicle={(vehicleId) =>
+          assignPatrol(
+            selectedIncident.id,
+            selectedIncident.assignedPatrolId ||
+              selectedIncident.patrolId ||
+              selectedIncident.linkedPatrolId,
+            vehicleId
+          )
+        }
+        activePatrols={activePatrols}
+        getPatrolOptionLabel={getPatrolOptionLabel}
+        getVehicleLabel={getVehicleLabel}
+        onUnassignPatrol={unassignPatrol}
+        onArchiveIncident={archiveIncident}
+        onDeleteIncident={deleteIncident}
+        onSelectIncident={setSelectedIncident}
+        {...options}
+      >
+        {sectionChildren}
+      </IncidentsSection>
+    );
+  }
+
+  function renderReportsSection(options = {}) {
+    return (
+      <ReportsSection
+        data={data}
+        reportFilters={reportFilters}
+        onReportFiltersChange={setReportFilters}
+        onClearReportFilters={clearReportFilters}
+        onRefreshReports={loadPatrolReports}
+        sectorFilterOptions={REPORT_SECTOR_FILTER_OPTIONS}
+        statusFilterOptions={REPORT_STATUS_FILTER_OPTIONS}
+        patrollerFilterOptions={patrollerFilterOptions}
+        filteredPatrolReports={filteredPatrolReports}
+        reportTotalKm={reportTotalKm}
+        completedReportCount={completedReportCount}
+        activeReportCount={activeReportCount}
+        selectedPatrolReport={selectedPatrolReport}
+        editPatrolForm={editPatrolForm}
+        onEditPatrolFormChange={setEditPatrolForm}
+        patrolAuditLogs={patrolAuditLogs}
+        onClosePatrolReport={closePatrolReport}
+        onSavePatrolReportEdits={savePatrolReportEdits}
+        onViewPatrolReport={viewPatrolReport}
+        onEditPatrolReport={editPatrolReport}
+        onLoadPatrolReportAudit={loadPatrolReportAudit}
+        onCloseActivePatrol={closeActivePatrol}
+        getVehicleLabel={getVehicleLabel}
+        {...options}
+      />
+    );
+  }
+
+  function renderPatrolWorkloadPanel() {
+    return (
+      <div className="panel">
+        <h2>Active Patrols</h2>
+
+        {activePatrols.length === 0 && <p>No active patrols to show yet.</p>}
+
+        {activePatrols.map((patrol) => (
+          <div key={patrol.id} className="item">
+            <div>
+              <strong>{getPatrolCallSign(patrol)}</strong>
+              <div>Driver: {getDisplayName(patrol)}</div>
+              <div>Crew: {getPatrolCrewSummary(patrol)}</div>
+              <div>Vehicle: {getOperationalVehicleLabel(patrol)}</div>
+              <div>Sector: {patrol.sector || "-"}</div>
+              <div>Last update: {formatOperationalTime(patrol.updatedAt || patrol.startTime || patrol.createdAt)}</div>
+            </div>
+            <span className="badge">{patrol.status || "ACTIVE"}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderPatrolReportsOverviewPanel() {
+    return (
+      <div className="panel">
+        <h2>Patrol Reports</h2>
+        <div className="cards control-room-mini-cards">
+          <div className="card">
+            <div className="card-title">Reports</div>
+            <div className="card-value">{filteredPatrolReports.length}</div>
+            <div className="card-detail">Matching current filters</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Active</div>
+            <div className="card-value">{activeReportCount}</div>
+            <div className="card-detail">Currently on patrol</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function renderLatestActivityPanel() {
+    return (
+      <div className="panel">
+        <h2>Latest Activity</h2>
+
+        {latestActivityItems.length === 0 && <p>No recent operational activity.</p>}
+
+        {latestActivityItems.map((item) => (
+          <div key={item.id} className="item">
+            <div>
+              <strong>{item.title}</strong>
+              <div>{item.detail}</div>
+            </div>
+            <span className="badge">{formatOperationalTime(item.at)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderControlRoomTab() {
+    if (controlRoomTab === "Live Overview") {
+      return (
+        <>
+          <div className="details-header control-room-overview-header">
+            <h2>Live Overview</h2>
+            <button
+              className="secondary-btn"
+              type="button"
+              onClick={refreshControlRoom}
+              disabled={controlRoomRefreshing}
+            >
+              {controlRoomRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          <div className="cards control-room-overview-cards">
+            <div className="card">
+              <div className="card-title">Active Incidents</div>
+              <div className="card-value">{getActiveIncidentCount(data.incidents)}</div>
+              <div className="card-detail">Open, assigned, or in progress</div>
+            </div>
+
+            <div className="card assistance-count-card">
+              <div className="card-title">Assistance Requests</div>
+              <div className="card-value">{data.assistanceRequests.length}</div>
+              {/* This queue uses the same PatrolEvent.assistance source written by Patrol Emergency Assistance. */}
+              <div className="card-detail">Submitted by patrol teams</div>
+            </div>
+
+            <div className="card">
+              <div className="card-title">Active Patrols</div>
+              <div className="card-value">{activePatrols.length}</div>
+              <div className="card-detail">Currently available sessions</div>
+            </div>
+          </div>
+
+          <div className="control-room-overview-grid">
+            {renderIncidentsSection(
+              {
+                showStatusFilter: false,
+                showAssistanceRequests: true,
+                showCreateIncident: false,
+                showIncidentList: false,
+                showSelectedIncidentServices: false,
+                assistancePanelClassName: "panel assistance-queue-panel",
+              }
+            )}
+            {canViewPatrols && renderPatrolWorkloadPanel()}
+            {renderPatrolReportsOverviewPanel()}
+            {renderLatestActivityPanel()}
+          </div>
+        </>
+      );
+    }
+
+    if (controlRoomTab === "Assistance Requests") {
+      return renderIncidentsSection({
+        showStatusFilter: false,
+        showAssistanceRequests: true,
+        showCreateIncident: false,
+        showIncidentList: false,
+        showSelectedIncidentServices: false,
+        assistancePanelClassName: "panel assistance-queue-panel",
+      });
+    }
+
+    if (controlRoomTab === "Incidents") {
+      return renderIncidentsSection({
+        showAssistanceRequests: false,
+        showSelectedIncidentServices: false,
+      });
+    }
+
+    if (controlRoomTab === "Selected Incident Services") {
+      return (
+        <>
+          {!selectedIncident && (
+            <div className="panel">
+              <h2>Selected Incident Services</h2>
+              <p>Select an incident from the Incidents tab to manage services.</p>
+            </div>
+          )}
+          {renderIncidentsSection({
+            showStatusFilter: false,
+            showAssistanceRequests: false,
+            showCreateIncident: false,
+            showIncidentList: false,
+            showSelectedIncidentServices: true,
+          })}
+        </>
+      );
+    }
+
+    if (controlRoomTab === "Patrol Reports") {
+      if (!canUseControlRoomReports) {
+        return (
+          <div className="panel">
+            <h2>Patrol Reports</h2>
+            <p>Report access is not enabled for this role.</p>
+          </div>
+        );
+      }
+
+      return renderReportsSection({
+        showSelectedPatrolReport: false,
+      });
+    }
+
+    if (controlRoomTab === "Selected Patrol Timeline") {
+      if (!canUseControlRoomReports) {
+        return (
+          <div className="panel">
+            <h2>Selected Patrol Timeline</h2>
+            <p>Report access is not enabled for this role.</p>
+          </div>
+        );
+      }
+
+      return (
+        <>
+          {!selectedPatrolReport && (
+            <div className="panel">
+              <h2>Selected Patrol Timeline</h2>
+              <p>Select a patrol report from the Patrol Reports tab to view the timeline.</p>
+            </div>
+          )}
+          {renderReportsSection({
+            showFilters: false,
+            showSummaryCards: false,
+            showReportTable: false,
+            showSelectedPatrolReport: true,
+          })}
+        </>
+      );
+    }
+
+    return (
+      <div className="panel map-placeholder-panel">
+        <h2>Map</h2>
+        <p>Map data is not available in the current Control Room frontend data set.</p>
+      </div>
+    );
+  }
 
 
   if (!token) {
@@ -359,6 +829,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       onNavigate={setActive}
       onLogout={handleLogout}
     >
+      {/* Admin Dashboard summarizes management data only; operational dispatch remains in Control Room tabs. */}
+      {/* Old route sections must remain suppressed for CONTROL_ROOM so the mixed Dashboard/Incidents layout cannot leak in. */}
+      {active === "Dashboard" && !isControlRoomUser && (
         <div className="cards">
           <div className="card">
             <div className="card-title">
@@ -394,84 +867,40 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             </>
           )}
         </div>
+      )}
 
-        {(active === "Dashboard" || active === "Incidents") && (
-          <IncidentsSection
-            data={data}
-            filter={filter}
-            onFilterChange={(value) => {
-              setFilter(value);
-              setSelectedIncident(null);
-            }}
-            statusFilterOptions={OPERATION_STATUS_FILTER_OPTIONS}
-            canCreateIncidents={canCreateIncidents}
-            form={form}
-            onIncidentFormFieldChange={(field, value) =>
-              setForm({ ...form, [field]: value })
-            }
-            incidentTypeOptions={OPERATION_INCIDENT_TYPE_OPTIONS}
-            sectorOptions={OPERATION_SECTOR_OPTIONS}
-            severityOptions={OPERATION_SEVERITY_OPTIONS}
-            onCreateIncident={createIncident}
-            loading={loading}
-            isPatrol={isPatrol}
-            selectedIncident={selectedIncident}
-            onCloseSelectedIncident={() => setSelectedIncident(null)}
-            getAssignedPatrolName={getAssignedPatrolName}
-            getAssignedVehicleName={getAssignedVehicleName}
-            onUpdateStatus={updateStatus}
-            canAssignPatrol={canAssignPatrol}
-            onAutoAssignIncident={autoAssignIncident}
-            getIncidentLinkedPatrolId={getIncidentLinkedPatrolId}
-            onAssignSelectedIncidentPatrol={(patrolId) =>
-              assignPatrol(
-                selectedIncident.id,
-                patrolId,
-                selectedIncident.assignedVehicleId ||
-                  selectedIncident.vehicleId ||
-                  selectedIncident.linkedVehicleId
-              )
-            }
-            onAssignSelectedIncidentVehicle={(vehicleId) =>
-              assignPatrol(
-                selectedIncident.id,
-                selectedIncident.assignedPatrolId ||
-                  selectedIncident.patrolId ||
-                  selectedIncident.linkedPatrolId,
-                vehicleId
-              )
-            }
-            activePatrols={getActivePatrols(data.patrols)}
-            getPatrolOptionLabel={getPatrolOptionLabel}
-            getVehicleLabel={getVehicleLabel}
-            onUnassignPatrol={unassignPatrol}
-            onArchiveIncident={archiveIncident}
-            onDeleteIncident={deleteIncident}
-            onSelectIncident={setSelectedIncident}
-          >
-            {canViewPatrols && active === "Dashboard" && (
-              <div className="panel">
-                <h2>Patrol Workload</h2>
-
-                {workload.length === 0 && <p>No patrol workload to show yet.</p>}
-
-                {workload.map((patrol) => (
-                  <div key={patrol.id} className="item">
-                    <div>
-                      <strong>{getDisplayName(patrol)}</strong>
-                      <div>{patrol.sector || patrol.email || "Patrol user"}</div>
-                    </div>
-                    <span className="badge">
-                      {patrol.activeIncidentCount || 0} active
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </IncidentsSection>
+        {active === "Dashboard" && !isControlRoomUser && renderIncidentsSection(
+          {},
+          canViewPatrols ? renderPatrolWorkloadPanel() : null
         )}
 
-        {active === "Patrols" && canViewPatrols && (
+        {showControlRoomTabs && (
+          <div className="control-room-layout">
+            <div className="control-room-tabs" role="tablist" aria-label="Control Room sections">
+              {CONTROL_ROOM_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={controlRoomTab === tab}
+                  className={controlRoomTab === tab ? "active" : ""}
+                  onClick={() => setControlRoomTab(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="control-room-tab-panel">
+              {renderControlRoomTab()}
+            </div>
+          </div>
+        )}
+
+        {active === "Incidents" && !showControlRoomTabs && renderIncidentsSection()}
+
+        {/* Patrol sessions represent one vehicle/call-sign with one driver and optional crew members. */}
+        {active === "Patrols" && !isControlRoomUser && canViewPatrols && (
           <PatrolsSection
             activePatrols={getActivePatrols(data.patrols)}
             getDisplayName={getDisplayName}
@@ -479,7 +908,27 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           />
         )}
 
-{active === "Registers" && canViewRegisters && (
+        {active === "Patrol Operations" && !isControlRoomUser && canViewPatrolOperations && (
+          <PatrolOperationsSection
+            token={token}
+            user={user}
+            members={data.members}
+            getAuthHeaders={getAuthHeaders}
+            getJsonAuthHeaders={getJsonAuthHeaders}
+          />
+        )}
+
+{active === "Registers" && !isControlRoomUser && canViewRegisters && (
+          /*
+            Current Incident Register rows are operational incident reports and
+            responses. Future master registers should stay separate from
+            operational data such as incidents, patrol reports, and assistance
+            requests. Planned configuration registers include Incident Codes,
+            Incident Subcodes, Service Types, Infrastructure Types, and
+            Emergency Contact Types. Sector isolation will eventually scope all
+            Admin and operational data, while Master Admin and Central
+            Intelligence retain cross-sector oversight.
+          */
           <RegistersSection
             data={data}
             registerSearch={registerSearch}
@@ -528,7 +977,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
 
 
-        {active === "Intelligence" && canViewIntelligence && (
+        {active === "Intelligence" && !isControlRoomUser && canViewIntelligence && (
           <IntelligenceSection
             intelligenceEntities={intelligenceEntities}
             filteredIntelligenceEntities={filteredIntelligenceEntities}
@@ -569,7 +1018,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           />
         )}
 
-        {active === "Reports" && canViewReports && (
+        {active === "Reports" && !isControlRoomUser && canViewReports && (
           <ReportsSection
             data={data}
             reportFilters={reportFilters}
@@ -597,7 +1046,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           />
         )}
 
-        {active === "Organisations" && canViewOrganisations && (
+        {active === "Organisations" && !isControlRoomUser && canViewOrganisations && (
           <OrganisationsSection organisations={data.organisations} />
         )}
     </AppShell>
