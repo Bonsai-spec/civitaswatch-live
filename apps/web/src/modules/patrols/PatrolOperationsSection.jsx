@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { API } from "../../core/api";
 import {
   MEMBER_ENDPOINTS,
   PATROL_ENDPOINTS,
@@ -15,6 +16,8 @@ const INCIDENT_RESPONSE_TYPES = [
   "STAND_DOWN",
   "RESUME_PATROL",
 ];
+const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
+const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 
 const EMERGENCY_SERVICE_OPTIONS = [
   "Ambulance",
@@ -46,6 +49,9 @@ const INITIAL_EVENT_FORM = {
   type: "MOBILE",
   incidentId: "",
   incidentCode: "",
+  incidentCodeId: "",
+  incidentSubcodeId: "",
+  incidentType: "",
   description: "",
   assistance: "",
 };
@@ -169,6 +175,11 @@ export default function PatrolOperationsSection({
   const [eventForm, setEventForm] = useState(INITIAL_EVENT_FORM);
   const [endForm, setEndForm] = useState({ endKm: "", summary: "" });
   const [emergencyServices, setEmergencyServices] = useState([]);
+  const [incidentCodes, setIncidentCodes] = useState([]);
+  const [incidentSubcodes, setIncidentSubcodes] = useState([]);
+  const [incidentCodesLoading, setIncidentCodesLoading] = useState(false);
+  const [incidentSubcodesLoading, setIncidentSubcodesLoading] = useState(false);
+  const [incidentRegisterError, setIncidentRegisterError] = useState("");
   const [selectedPatrolAction, setSelectedPatrolAction] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -254,6 +265,55 @@ export default function PatrolOperationsSection({
     loadPatrolOperations();
   }, [token]);
 
+  useEffect(() => {
+    if (showIncidentResponseForm && token && incidentCodes.length === 0 && !incidentCodesLoading) {
+      loadIncidentCodes();
+    }
+  }, [showIncidentResponseForm, token, incidentCodes.length, incidentCodesLoading]);
+
+  async function loadIncidentCodes() {
+    try {
+      setIncidentCodesLoading(true);
+      setIncidentRegisterError("");
+
+      const json = await loadJson(`${INCIDENT_CODES_ENDPOINT}?active=true`, {
+        headers: getAuthHeaders(),
+      });
+
+      setIncidentCodes(Array.isArray(json) ? json : []);
+    } catch (error) {
+      setIncidentRegisterError(error.message || "Failed to load incident codes.");
+    } finally {
+      setIncidentCodesLoading(false);
+    }
+  }
+
+  async function loadIncidentSubcodes(incidentCodeId) {
+    if (!incidentCodeId) {
+      setIncidentSubcodes([]);
+      return;
+    }
+
+    try {
+      setIncidentSubcodesLoading(true);
+      setIncidentRegisterError("");
+
+      const query = new URLSearchParams({
+        incidentCodeId,
+        active: "true",
+      });
+      const json = await loadJson(`${INCIDENT_SUBCODES_ENDPOINT}?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+
+      setIncidentSubcodes(Array.isArray(json) ? json : []);
+    } catch (error) {
+      setIncidentRegisterError(error.message || "Failed to load incident subcodes.");
+    } finally {
+      setIncidentSubcodesLoading(false);
+    }
+  }
+
   function updateStartForm(field, value) {
     setStartForm((current) => ({
       ...current,
@@ -277,6 +337,23 @@ export default function PatrolOperationsSection({
     );
   }
 
+  function updateIncidentCodeSelection(incidentCodeId) {
+    const selectedIncidentCode = incidentCodes.find((item) => item.id === incidentCodeId);
+
+    setEventForm((current) => ({
+      ...current,
+      incidentCodeId,
+      incidentSubcodeId: "",
+      incidentCode: selectedIncidentCode?.code || "",
+      incidentType: selectedIncidentCode?.code || "",
+    }));
+    setIncidentSubcodes([]);
+
+    if (incidentCodeId) {
+      loadIncidentSubcodes(incidentCodeId);
+    }
+  }
+
   function selectPatrolAction(action) {
     setSelectedPatrolAction(action.id);
     setMessage("");
@@ -288,9 +365,13 @@ export default function PatrolOperationsSection({
       type: action.type,
       incidentId: action.id === "incidentResponse" ? current.incidentId : "",
       incidentCode: "",
+      incidentCodeId: "",
+      incidentSubcodeId: "",
+      incidentType: "",
       description: action.description,
       assistance: action.id === "incidentResponse" ? current.assistance : "",
     }));
+    setIncidentSubcodes([]);
   }
 
   async function startPatrol(event) {
@@ -355,6 +436,9 @@ export default function PatrolOperationsSection({
           type: eventForm.type,
           incidentId: selectedPatrolAction === "incidentResponse" ? eventForm.incidentId || null : null,
           incidentCode: eventForm.incidentCode || null,
+          incidentCodeId: eventForm.incidentCodeId || null,
+          incidentSubcodeId: eventForm.incidentSubcodeId || null,
+          incidentType: eventForm.incidentType || eventForm.incidentCode || null,
           description: eventForm.description || eventForm.type,
           // Emergency Assistance must write to PatrolEvent.assistance, the same
           // source Control Room reads for its assistance queue.
@@ -691,10 +775,49 @@ export default function PatrolOperationsSection({
                 </label>
               )}
 
+              {incidentCodesLoading && (
+                <p className="patrol-muted">Loading incident codes...</p>
+              )}
+              {incidentRegisterError && (
+                <div className="patrol-message">{incidentRegisterError}</div>
+              )}
               <label>
                 Incident Code
-                <input value={eventForm.incidentCode} onChange={(event) => setEventForm({ ...eventForm, incidentCode: event.target.value })} />
+                <select
+                  value={eventForm.incidentCodeId}
+                  onChange={(event) => updateIncidentCodeSelection(event.target.value)}
+                  required
+                >
+                  <option value="">Select incident code</option>
+                  {incidentCodes.map((incidentCode) => (
+                    <option key={incidentCode.id} value={incidentCode.id}>
+                      {incidentCode.code} - {incidentCode.name}
+                    </option>
+                  ))}
+                </select>
               </label>
+              <label>
+                Incident Subcode
+                <select
+                  value={eventForm.incidentSubcodeId}
+                  onChange={(event) =>
+                    setEventForm({ ...eventForm, incidentSubcodeId: event.target.value })
+                  }
+                  disabled={!eventForm.incidentCodeId || incidentSubcodesLoading}
+                >
+                  <option value="">
+                    {eventForm.incidentCodeId ? "Select incident subcode" : "Select code first"}
+                  </option>
+                  {incidentSubcodes.map((incidentSubcode) => (
+                    <option key={incidentSubcode.id} value={incidentSubcode.id}>
+                      {incidentSubcode.subcode} - {incidentSubcode.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {incidentSubcodesLoading && (
+                <p className="patrol-muted">Loading incident subcodes...</p>
+              )}
               <label>
                 Description
                 <textarea value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} />
