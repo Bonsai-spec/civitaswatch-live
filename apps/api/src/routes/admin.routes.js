@@ -12,11 +12,7 @@ const router = express.Router();
 // configuration registers and operational data, while Master Admin and Central
 // Intelligence retain cross-sector oversight.
 //
-// Planned master-register CRUD endpoints, not implemented in this batch:
-// - GET    /api/admin/incident-codes
-// - POST   /api/admin/incident-codes
-// - PATCH  /api/admin/incident-codes/:id
-// - DELETE /api/admin/incident-codes/:id
+// Incident Codes are implemented below as the first persistent master register.
 // Repeat the same CRUD pattern for:
 // - /api/admin/incident-subcodes
 // - /api/admin/service-types
@@ -91,11 +87,173 @@ function cleanText(value) {
   return trimmed.length ? trimmed : null;
 }
 
+function parseOptionalBoolean(value) {
+  if (value === undefined) return undefined;
+  if (typeof value === "boolean") return value;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+
+  return null;
+}
+
+function nullableText(value) {
+  return value === undefined ? undefined : cleanText(value);
+}
+
 function parseIncidentDateTime(date, time) {
   if (!date || !time) return null;
   const value = new Date(`${date}T${time}:00`);
   return Number.isNaN(value.getTime()) ? null : value;
 }
+
+router.get("/incident-codes", async (req, res) => {
+  try {
+    const { sectorId, active } = req.query;
+    const where = {};
+
+    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      where.active = parsedActive;
+    }
+
+    const incidentCodes = await prisma.incidentCode.findMany({
+      where,
+      orderBy: { code: "asc" },
+    });
+
+    res.json(incidentCodes);
+  } catch (err) {
+    console.error("GET /admin/incident-codes failed:", err);
+    res.status(500).json({ error: "Failed to fetch incident codes." });
+  }
+});
+
+router.post("/incident-codes", async (req, res) => {
+  try {
+    const { sectorId, code, name, priority, active, templateSourceId } = req.body;
+    const cleanCode = cleanText(code);
+    const cleanName = cleanText(name);
+
+    if (!cleanCode || !cleanName) {
+      return res.status(400).json({ error: "code and name are required." });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const incidentCode = await prisma.incidentCode.create({
+      data: {
+        sectorId: cleanText(sectorId),
+        code: cleanCode,
+        name: cleanName,
+        priority: cleanText(priority) || "Medium",
+        active: parsedActive === undefined ? true : parsedActive,
+        templateSourceId: cleanText(templateSourceId),
+      },
+    });
+
+    res.status(201).json(incidentCode);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Incident Code already exists for this sector." });
+    }
+
+    console.error("POST /admin/incident-codes failed:", err);
+    res.status(500).json({ error: "Failed to create incident code." });
+  }
+});
+
+router.patch("/incident-codes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sectorId, code, name, priority, active, templateSourceId } = req.body;
+    const data = {};
+
+    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+
+    if (code !== undefined) {
+      const cleanCode = cleanText(code);
+      if (!cleanCode) {
+        return res.status(400).json({ error: "code cannot be empty." });
+      }
+      data.code = cleanCode;
+    }
+
+    if (name !== undefined) {
+      const cleanName = cleanText(name);
+      if (!cleanName) {
+        return res.status(400).json({ error: "name cannot be empty." });
+      }
+      data.name = cleanName;
+    }
+
+    if (priority !== undefined) data.priority = cleanText(priority) || "Medium";
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    if (templateSourceId !== undefined) {
+      data.templateSourceId = nullableText(templateSourceId);
+    }
+
+    const incidentCode = await prisma.incidentCode.update({
+      where: { id },
+      data,
+    });
+
+    res.json(incidentCode);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Incident Code not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Incident Code already exists for this sector." });
+    }
+
+    console.error("PATCH /admin/incident-codes/:id failed:", err);
+    res.status(500).json({ error: "Failed to update incident code." });
+  }
+});
+
+router.delete("/incident-codes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.incidentCode.delete({
+      where: { id },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Incident Code not found." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(409).json({
+        error: "Incident Code cannot be deleted while Incident Subcodes reference it.",
+      });
+    }
+
+    console.error("DELETE /admin/incident-codes/:id failed:", err);
+    res.status(500).json({ error: "Failed to delete incident code." });
+  }
+});
 
 router.get("/dashboard", async (req, res) => {
   try {
@@ -126,7 +284,6 @@ router.get("/dashboard", async (req, res) => {
         take: 50,
       }),
       prisma.organisation.findMany({
-        include: { sectors: true },
         orderBy: { name: "asc" },
       }),
     ]);
