@@ -20,6 +20,7 @@ const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
 const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
+const EMERGENCY_CONTACT_TYPES_ENDPOINT = `${API}/admin/emergency-contact-types`;
 
 const MASTER_REGISTER_PLACEHOLDERS = {
   // These table shells define the future column structure for full CRUD master
@@ -167,6 +168,10 @@ export default function RegistersSection({
   // inherit from shared Master Admin templates, and local state is temporary
   // until API persistence is implemented.
   const [emergencyContactTypeRows, setEmergencyContactTypeRows] = useState([]);
+  const [emergencyContactTypesLoading, setEmergencyContactTypesLoading] = useState(false);
+  const [emergencyContactTypesLoaded, setEmergencyContactTypesLoaded] = useState(false);
+  const [emergencyContactTypesError, setEmergencyContactTypesError] = useState("");
+  const [emergencyContactTypeSavingIds, setEmergencyContactTypeSavingIds] = useState([]);
   const [masterRegisterValidationTab, setMasterRegisterValidationTab] = useState("");
   const isIncidentCodesRegister = registerTab === "Incident Codes";
   const isIncidentSubcodesRegister = registerTab === "Incident Subcodes";
@@ -222,6 +227,20 @@ export default function RegistersSection({
     infrastructureTypesLoading,
   ]);
 
+  useEffect(() => {
+    if (
+      isEmergencyContactTypesRegister &&
+      !emergencyContactTypesLoaded &&
+      !emergencyContactTypesLoading
+    ) {
+      loadEmergencyContactTypes();
+    }
+  }, [
+    isEmergencyContactTypesRegister,
+    emergencyContactTypesLoaded,
+    emergencyContactTypesLoading,
+  ]);
+
   // The Add button, editable table rows, and empty state establish the layout
   // pattern future master registers should reuse.
   // Validation is frontend-only while these registers use local React state.
@@ -255,6 +274,10 @@ export default function RegistersSection({
     return String(row?.id || "").startsWith("infrastructure-type-draft-");
   }
 
+  function isDraftEmergencyContactType(row) {
+    return String(row?.id || "").startsWith("emergency-contact-type-draft-");
+  }
+
   function setIncidentCodeSaving(id, isSaving) {
     setIncidentCodeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
@@ -278,6 +301,13 @@ export default function RegistersSection({
 
   function setInfrastructureTypeSaving(id, isSaving) {
     setInfrastructureTypeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function setEmergencyContactTypeSaving(id, isSaving) {
+    setEmergencyContactTypeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
@@ -353,6 +383,27 @@ export default function RegistersSection({
       type: String(row.type || "").trim(),
       riskLevel: String(row.riskLevel || "Medium").trim() || "Medium",
       requiresLocation: Boolean(row.requiresLocation),
+      active: Boolean(row.active),
+      templateSourceId: row.templateSourceId || null,
+    };
+  }
+
+  function normalizeEmergencyContactType(row) {
+    return {
+      ...row,
+      type: row.type || "",
+      escalationLevel: row.escalationLevel || "Level 1",
+      sectorSpecific: row.sectorSpecific ?? true,
+      active: row.active ?? true,
+    };
+  }
+
+  function emergencyContactTypePayload(row) {
+    return {
+      sectorId: row.sectorId || null,
+      type: String(row.type || "").trim(),
+      escalationLevel: String(row.escalationLevel || "Level 1").trim() || "Level 1",
+      sectorSpecific: Boolean(row.sectorSpecific),
       active: Boolean(row.active),
       templateSourceId: row.templateSourceId || null,
     };
@@ -657,6 +708,76 @@ export default function RegistersSection({
     return hasText(row?.type);
   }
 
+  async function loadEmergencyContactTypes() {
+    setEmergencyContactTypesLoading(true);
+    setEmergencyContactTypesError("");
+
+    try {
+      const res = await fetch(EMERGENCY_CONTACT_TYPES_ENDPOINT, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load emergency contact types.");
+      }
+
+      setEmergencyContactTypeRows(
+        Array.isArray(json) ? json.map((row) => normalizeEmergencyContactType(row)) : []
+      );
+      setEmergencyContactTypesLoaded(true);
+    } catch (err) {
+      console.error("Failed to load emergency contact types", err);
+      setEmergencyContactTypesError(err.message || "Failed to load emergency contact types.");
+      setEmergencyContactTypesLoaded(true);
+    } finally {
+      setEmergencyContactTypesLoading(false);
+    }
+  }
+
+  async function saveEmergencyContactTypeRow(row) {
+    if (!row || emergencyContactTypeSavingIds.includes(row.id)) return;
+
+    if (!isEmergencyContactTypeComplete(row)) {
+      setMasterRegisterValidationTab("Emergency Contact Types");
+      return;
+    }
+
+    const isDraft = isDraftEmergencyContactType(row);
+    const endpoint = isDraft
+      ? EMERGENCY_CONTACT_TYPES_ENDPOINT
+      : `${EMERGENCY_CONTACT_TYPES_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setEmergencyContactTypeSaving(row.id, true);
+    setEmergencyContactTypesError("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(emergencyContactTypePayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save emergency contact type.");
+      }
+
+      const nextRow = normalizeEmergencyContactType(json);
+
+      setMasterRegisterValidationTab("");
+      setEmergencyContactTypeRows((current) =>
+        current.map((item) => (item.id === row.id ? nextRow : item))
+      );
+    } catch (err) {
+      console.error("Failed to save emergency contact type", err);
+      setEmergencyContactTypesError(err.message || "Failed to save emergency contact type.");
+    } finally {
+      setEmergencyContactTypeSaving(row.id, false);
+    }
+  }
+
   function latestRowIsIncomplete(rows, isComplete) {
     return rows.length > 0 && !isComplete(rows[rows.length - 1]);
   }
@@ -913,7 +1034,7 @@ export default function RegistersSection({
     setEmergencyContactTypeRows((current) => [
       ...current,
       {
-        id: `emergency-contact-type-${Date.now()}-${current.length}`,
+        id: `emergency-contact-type-draft-${Date.now()}-${current.length}`,
         type: "",
         escalationLevel: "Level 1",
         sectorSpecific: true,
@@ -928,8 +1049,32 @@ export default function RegistersSection({
     );
   }
 
-  function deleteEmergencyContactTypeRow(id) {
-    setEmergencyContactTypeRows((current) => current.filter((row) => row.id !== id));
+  async function deleteEmergencyContactTypeRow(id) {
+    const row = emergencyContactTypeRows.find((item) => item.id === id);
+
+    if (!row || isDraftEmergencyContactType(row)) {
+      setEmergencyContactTypeRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setEmergencyContactTypesError("");
+
+    try {
+      const res = await fetch(`${EMERGENCY_CONTACT_TYPES_ENDPOINT}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to delete emergency contact type.");
+      }
+
+      setEmergencyContactTypeRows((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Failed to delete emergency contact type", err);
+      setEmergencyContactTypesError(err.message || "Failed to delete emergency contact type.");
+    }
   }
 
   return (
@@ -1841,7 +1986,8 @@ export default function RegistersSection({
             {isIncidentCodesRegister ||
             isIncidentSubcodesRegister ||
             isServiceTypesRegister ||
-            isInfrastructureTypesRegister
+            isInfrastructureTypesRegister ||
+            isEmergencyContactTypesRegister
               ? "Persisted through the Admin API."
               : "Frontend-only prototype. Data is not persisted after refresh; backend persistence will be added later."}
           </p>
@@ -1903,6 +2049,12 @@ export default function RegistersSection({
           )}
           {isInfrastructureTypesRegister && infrastructureTypesError && (
             <p className="card-detail">{infrastructureTypesError}</p>
+          )}
+          {isEmergencyContactTypesRegister && emergencyContactTypesLoading && (
+            <p className="card-detail">Loading emergency contact types...</p>
+          )}
+          {isEmergencyContactTypesRegister && emergencyContactTypesError && (
+            <p className="card-detail">{emergencyContactTypesError}</p>
           )}
 
           <table>
@@ -2208,6 +2360,9 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateEmergencyContactTypeRow(row.id, "type", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveEmergencyContactTypeRow({ ...row, type: event.target.value })
+                      }
                     />
                   </td>
                   <td>
@@ -2219,6 +2374,12 @@ export default function RegistersSection({
                           "escalationLevel",
                           event.target.value
                         )
+                      }
+                      onBlur={(event) =>
+                        saveEmergencyContactTypeRow({
+                          ...row,
+                          escalationLevel: event.target.value,
+                        })
                       }
                     >
                       {EMERGENCY_CONTACT_ESCALATION_OPTIONS.map((level) => (
@@ -2232,26 +2393,35 @@ export default function RegistersSection({
                     <input
                       type="checkbox"
                       checked={row.sectorSpecific}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const nextRow = { ...row, sectorSpecific: event.target.checked };
                         updateEmergencyContactTypeRow(
                           row.id,
                           "sectorSpecific",
                           event.target.checked
-                        )
-                      }
+                        );
+                        saveEmergencyContactTypeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
                     <input
                       type="checkbox"
                       checked={row.active}
-                      onChange={(event) =>
-                        updateEmergencyContactTypeRow(row.id, "active", event.target.checked)
-                      }
+                      onChange={(event) => {
+                        const nextRow = { ...row, active: event.target.checked };
+                        updateEmergencyContactTypeRow(row.id, "active", event.target.checked);
+                        saveEmergencyContactTypeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
-                    <button onClick={() => deleteEmergencyContactTypeRow(row.id)}>Delete</button>
+                    <button
+                      disabled={emergencyContactTypeSavingIds.includes(row.id)}
+                      onClick={() => deleteEmergencyContactTypeRow(row.id)}
+                    >
+                      {emergencyContactTypeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
