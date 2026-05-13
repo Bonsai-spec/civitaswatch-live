@@ -94,6 +94,21 @@ function cleanText(value) {
   return trimmed.length ? trimmed : null;
 }
 
+// Sector Admin users normally work inside their assigned sector; Master Admin
+// may override sectorId explicitly when managing shared or cross-sector data.
+function resolveSectorId(req, providedSectorId) {
+  if (providedSectorId !== undefined) {
+    return providedSectorId;
+  }
+
+  return (
+    req.user?.sectorId ||
+    req.user?.defaultSectorId ||
+    req.user?.sectors?.[0]?.id ||
+    null
+  );
+}
+
 function parseOptionalBoolean(value) {
   if (value === undefined) return undefined;
   if (typeof value === "boolean") return value;
@@ -119,8 +134,9 @@ router.get("/incident-codes", async (req, res) => {
   try {
     const { sectorId, active } = req.query;
     const where = {};
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (resolvedSectorId) where.sectorId = resolvedSectorId;
 
     if (active !== undefined) {
       const parsedActive = parseOptionalBoolean(active);
@@ -147,6 +163,7 @@ router.post("/incident-codes", async (req, res) => {
     const { sectorId, code, name, priority, active, templateSourceId } = req.body;
     const cleanCode = cleanText(code);
     const cleanName = cleanText(name);
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (!cleanCode || !cleanName) {
       return res.status(400).json({ error: "code and name are required." });
@@ -159,7 +176,7 @@ router.post("/incident-codes", async (req, res) => {
 
     const incidentCode = await prisma.incidentCode.create({
       data: {
-        sectorId: cleanText(sectorId),
+        sectorId: resolvedSectorId,
         code: cleanCode,
         name: cleanName,
         priority: cleanText(priority) || "Medium",
@@ -185,7 +202,7 @@ router.patch("/incident-codes/:id", async (req, res) => {
     const { sectorId, code, name, priority, active, templateSourceId } = req.body;
     const data = {};
 
-    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+    if (sectorId !== undefined) data.sectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (code !== undefined) {
       const cleanCode = cleanText(code);
@@ -266,8 +283,9 @@ router.get("/incident-subcodes", async (req, res) => {
   try {
     const { sectorId, incidentCodeId, active } = req.query;
     const where = {};
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (resolvedSectorId) where.sectorId = resolvedSectorId;
     if (incidentCodeId !== undefined) where.incidentCodeId = cleanText(incidentCodeId);
 
     if (active !== undefined) {
@@ -297,6 +315,7 @@ router.post("/incident-subcodes", async (req, res) => {
     const cleanIncidentCodeId = cleanText(incidentCodeId);
     const cleanSubcode = cleanText(subcode);
     const cleanName = cleanText(name);
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (!cleanIncidentCodeId || !cleanSubcode || !cleanName) {
       return res.status(400).json({
@@ -311,7 +330,7 @@ router.post("/incident-subcodes", async (req, res) => {
 
     const incidentSubcode = await prisma.incidentSubcode.create({
       data: {
-        sectorId: cleanText(sectorId),
+        sectorId: resolvedSectorId,
         incidentCodeId: cleanIncidentCodeId,
         subcode: cleanSubcode,
         name: cleanName,
@@ -342,7 +361,7 @@ router.patch("/incident-subcodes/:id", async (req, res) => {
     const { sectorId, incidentCodeId, subcode, name, active, templateSourceId } = req.body;
     const data = {};
 
-    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+    if (sectorId !== undefined) data.sectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (incidentCodeId !== undefined) {
       const cleanIncidentCodeId = cleanText(incidentCodeId);
@@ -428,8 +447,9 @@ router.get("/service-types", async (req, res) => {
   try {
     const { sectorId, active, controlRoomManaged, category } = req.query;
     const where = {};
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (resolvedSectorId) where.sectorId = resolvedSectorId;
     if (category !== undefined) where.category = cleanText(category);
 
     if (active !== undefined) {
@@ -464,6 +484,7 @@ router.post("/service-types", async (req, res) => {
   try {
     const { sectorId, type, category, controlRoomManaged, active, templateSourceId } = req.body;
     const cleanType = cleanText(type);
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (!cleanType) {
       return res.status(400).json({ error: "type is required." });
@@ -481,7 +502,7 @@ router.post("/service-types", async (req, res) => {
 
     const serviceType = await prisma.serviceType.create({
       data: {
-        sectorId: cleanText(sectorId),
+        sectorId: resolvedSectorId,
         type: cleanType,
         category: cleanText(category) || "Emergency",
         controlRoomManaged:
@@ -512,7 +533,7 @@ router.patch("/service-types/:id", async (req, res) => {
     const { sectorId, type, category, controlRoomManaged, active, templateSourceId } = req.body;
     const data = {};
 
-    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+    if (sectorId !== undefined) data.sectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (type !== undefined) {
       const cleanType = cleanText(type);
@@ -591,8 +612,9 @@ router.get("/infrastructure-types", async (req, res) => {
   try {
     const { sectorId, active, requiresLocation, riskLevel } = req.query;
     const where = {};
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (resolvedSectorId) where.sectorId = resolvedSectorId;
     if (riskLevel !== undefined) where.riskLevel = cleanText(riskLevel);
 
     if (active !== undefined) {
@@ -627,6 +649,7 @@ router.post("/infrastructure-types", async (req, res) => {
   try {
     const { sectorId, type, riskLevel, requiresLocation, active, templateSourceId } = req.body;
     const cleanType = cleanText(type);
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (!cleanType) {
       return res.status(400).json({ error: "type is required." });
@@ -644,7 +667,7 @@ router.post("/infrastructure-types", async (req, res) => {
 
     const infrastructureType = await prisma.infrastructureType.create({
       data: {
-        sectorId: cleanText(sectorId),
+        sectorId: resolvedSectorId,
         type: cleanType,
         riskLevel: cleanText(riskLevel) || "Medium",
         requiresLocation: parsedRequiresLocation === undefined ? true : parsedRequiresLocation,
@@ -676,7 +699,7 @@ router.patch("/infrastructure-types/:id", async (req, res) => {
     const { sectorId, type, riskLevel, requiresLocation, active, templateSourceId } = req.body;
     const data = {};
 
-    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+    if (sectorId !== undefined) data.sectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (type !== undefined) {
       const cleanType = cleanText(type);
@@ -757,8 +780,9 @@ router.get("/emergency-contact-types", async (req, res) => {
   try {
     const { sectorId, active, sectorSpecific, escalationLevel } = req.query;
     const where = {};
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (resolvedSectorId) where.sectorId = resolvedSectorId;
     if (escalationLevel !== undefined) where.escalationLevel = cleanText(escalationLevel);
 
     if (active !== undefined) {
@@ -793,6 +817,7 @@ router.post("/emergency-contact-types", async (req, res) => {
   try {
     const { sectorId, type, escalationLevel, sectorSpecific, active, templateSourceId } = req.body;
     const cleanType = cleanText(type);
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (!cleanType) {
       return res.status(400).json({ error: "type is required." });
@@ -810,7 +835,7 @@ router.post("/emergency-contact-types", async (req, res) => {
 
     const emergencyContactType = await prisma.emergencyContactType.create({
       data: {
-        sectorId: cleanText(sectorId),
+        sectorId: resolvedSectorId,
         type: cleanType,
         escalationLevel: cleanText(escalationLevel) || "Level 1",
         sectorSpecific: parsedSectorSpecific === undefined ? true : parsedSectorSpecific,
@@ -842,7 +867,7 @@ router.patch("/emergency-contact-types/:id", async (req, res) => {
     const { sectorId, type, escalationLevel, sectorSpecific, active, templateSourceId } = req.body;
     const data = {};
 
-    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+    if (sectorId !== undefined) data.sectorId = cleanText(resolveSectorId(req, sectorId));
 
     if (type !== undefined) {
       const cleanType = cleanText(type);
