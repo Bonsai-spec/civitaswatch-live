@@ -126,6 +126,102 @@ function formatOperationalTime(value) {
   return date.toLocaleString();
 }
 
+function formatClassificationRecord(record, valueKey) {
+  if (!record || typeof record !== "object") return null;
+
+  const value = record[valueKey] || record.code || record.subcode || record.type;
+  if (!value) return null;
+
+  return [value, record.name].filter(Boolean).join(" — ");
+}
+
+function getIncidentClassificationLines(item) {
+  const incident = item?.incident || null;
+  const codeLabel = formatClassificationRecord(
+    item?.incidentCodeRef || incident?.incidentCodeRef,
+    "code"
+  );
+  const subcodeLabel = formatClassificationRecord(
+    item?.incidentSubcodeRef || incident?.incidentSubcodeRef,
+    "subcode"
+  );
+
+  return [
+    codeLabel ? `Incident Code: ${codeLabel}` : null,
+    subcodeLabel ? `Incident Subcode: ${subcodeLabel}` : null,
+  ].filter(Boolean);
+}
+
+function getIncidentClassificationFallback(item) {
+  const incident = item?.incident || null;
+
+  return (
+    item?.incidentType ||
+    (typeof item?.incidentCode === "string" ? item.incidentCode : null) ||
+    item?.type ||
+    incident?.incidentType ||
+    (typeof incident?.incidentCode === "string" ? incident.incidentCode : null) ||
+    incident?.type ||
+    null
+  );
+}
+
+function getIncidentClassificationLabel(item) {
+  const classificationLines = getIncidentClassificationLines(item);
+  if (classificationLines.length) return classificationLines.join(" • ");
+
+  return getIncidentClassificationFallback(item) || "N/A";
+}
+
+function decorateIncidentForControlRoom(incident) {
+  if (!incident) return incident;
+
+  return {
+    ...incident,
+    incidentType: getIncidentClassificationLabel(incident),
+    patrolEvents: (incident.patrolEvents || []).map((event) => ({
+      ...event,
+      type: getIncidentClassificationLabel(event),
+    })),
+  };
+}
+
+function decorateAssistanceRequestForControlRoom(request) {
+  const classification = getIncidentClassificationLabel(request);
+  const description = [classification, request.description].filter(Boolean).join(" | ");
+
+  return {
+    ...request,
+    description: description || request.description,
+  };
+}
+
+function getPatrolTimelineEvents(patrol) {
+  return patrol?.patrolEvents || patrol?.events || [];
+}
+
+function getPatrolClassificationItems(patrol) {
+  return getPatrolTimelineEvents(patrol).map((event) => ({
+    id: event.id,
+    label: getIncidentClassificationLabel(event),
+    at: event.createdAt,
+  }));
+}
+
+function decoratePatrolReportForControlRoom(patrol) {
+  const classifications = getPatrolClassificationItems(patrol)
+    .map((item) => item.label)
+    .filter(Boolean);
+  const uniqueClassifications = Array.from(new Set(classifications));
+
+  if (!uniqueClassifications.length) return patrol;
+
+  return {
+    ...patrol,
+    summary: [uniqueClassifications.join(" • "), patrol.summary].filter(Boolean).join(" | "),
+  };
+}
+
 function getCrewMemberName(crewMember) {
   return (
     crewMember?.user?.fullName ||
@@ -460,10 +556,31 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   // CONTROL_ROOM must always stay inside the local Control Room tabs; old route
   // sections below are explicitly suppressed for this role.
   const showControlRoomTabs = isControlRoomUser;
+  const controlRoomData = useMemo(() => {
+    if (!isControlRoomUser) return data;
+
+    return {
+      ...data,
+      incidents: (data.incidents || []).map(decorateIncidentForControlRoom),
+      assistanceRequests: (data.assistanceRequests || []).map(
+        decorateAssistanceRequestForControlRoom
+      ),
+    };
+  }, [data, isControlRoomUser]);
+  const controlRoomSelectedIncident = isControlRoomUser
+    ? decorateIncidentForControlRoom(selectedIncident)
+    : selectedIncident;
+  const controlRoomPatrolReports = useMemo(() => {
+    if (!isControlRoomUser) return filteredPatrolReports;
+    return filteredPatrolReports.map(decoratePatrolReportForControlRoom);
+  }, [filteredPatrolReports, isControlRoomUser]);
+  const controlRoomSelectedPatrolReport = isControlRoomUser
+    ? decoratePatrolReportForControlRoom(selectedPatrolReport)
+    : selectedPatrolReport;
   const latestActivityItems = getLatestActivityItems({
-    assistanceRequests: data.assistanceRequests || [],
+    assistanceRequests: controlRoomData.assistanceRequests || [],
     activePatrols,
-    incidents: data.incidents || [],
+    incidents: controlRoomData.incidents || [],
   });
 
   async function refreshControlRoom() {
@@ -483,9 +600,14 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   }
 
   function renderIncidentsSection(options = {}, sectionChildren = null) {
+    const sectionData = isControlRoomUser ? controlRoomData : data;
+    const sectionSelectedIncident = isControlRoomUser
+      ? controlRoomSelectedIncident
+      : selectedIncident;
+
     return (
       <IncidentsSection
-        data={data}
+        data={sectionData}
         filter={filter}
         onFilterChange={(value) => {
           setFilter(value);
@@ -503,7 +625,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         onCreateIncident={createIncident}
         loading={loading}
         isPatrol={isPatrol}
-        selectedIncident={selectedIncident}
+        selectedIncident={sectionSelectedIncident}
         onCloseSelectedIncident={() => setSelectedIncident(null)}
         getAssignedPatrolName={getAssignedPatrolName}
         getAssignedVehicleName={getAssignedVehicleName}
@@ -513,19 +635,19 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         getIncidentLinkedPatrolId={getIncidentLinkedPatrolId}
         onAssignSelectedIncidentPatrol={(patrolId) =>
           assignPatrol(
-            selectedIncident.id,
+            sectionSelectedIncident.id,
             patrolId,
-            selectedIncident.assignedVehicleId ||
-              selectedIncident.vehicleId ||
-              selectedIncident.linkedVehicleId
+            sectionSelectedIncident.assignedVehicleId ||
+              sectionSelectedIncident.vehicleId ||
+              sectionSelectedIncident.linkedVehicleId
           )
         }
         onAssignSelectedIncidentVehicle={(vehicleId) =>
           assignPatrol(
-            selectedIncident.id,
-            selectedIncident.assignedPatrolId ||
-              selectedIncident.patrolId ||
-              selectedIncident.linkedPatrolId,
+            sectionSelectedIncident.id,
+            sectionSelectedIncident.assignedPatrolId ||
+              sectionSelectedIncident.patrolId ||
+              sectionSelectedIncident.linkedPatrolId,
             vehicleId
           )
         }
@@ -546,7 +668,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   function renderReportsSection(options = {}) {
     return (
       <ReportsSection
-        data={data}
+        data={isControlRoomUser ? controlRoomData : data}
         reportFilters={reportFilters}
         onReportFiltersChange={setReportFilters}
         onClearReportFilters={clearReportFilters}
@@ -554,11 +676,13 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         sectorFilterOptions={REPORT_SECTOR_FILTER_OPTIONS}
         statusFilterOptions={REPORT_STATUS_FILTER_OPTIONS}
         patrollerFilterOptions={patrollerFilterOptions}
-        filteredPatrolReports={filteredPatrolReports}
+        filteredPatrolReports={isControlRoomUser ? controlRoomPatrolReports : filteredPatrolReports}
         reportTotalKm={reportTotalKm}
         completedReportCount={completedReportCount}
         activeReportCount={activeReportCount}
-        selectedPatrolReport={selectedPatrolReport}
+        selectedPatrolReport={
+          isControlRoomUser ? controlRoomSelectedPatrolReport : selectedPatrolReport
+        }
         editPatrolForm={editPatrolForm}
         onEditPatrolFormChange={setEditPatrolForm}
         patrolAuditLogs={patrolAuditLogs}
@@ -614,6 +738,57 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             <div className="card-detail">Currently on patrol</div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  function renderPatrolReportClassificationsPanel(reports) {
+    const rows = reports
+      .flatMap((report) =>
+        getPatrolClassificationItems(report).map((item) => ({
+          ...item,
+          patrolId: report.id,
+          patrolLabel: getPatrolCallSign(report),
+        }))
+      )
+      .filter((item) => item.label && item.label !== "N/A")
+      .slice(0, 12);
+
+    if (!rows.length) return null;
+
+    return (
+      <div className="panel">
+        <h2>Incident Classifications</h2>
+        {rows.map((item) => (
+          <div key={`${item.patrolId}-${item.id}`} className="item">
+            <div>
+              <strong>{item.patrolLabel}</strong>
+              <div>{item.label}</div>
+            </div>
+            <span className="badge">{formatOperationalTime(item.at)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderSelectedPatrolTimelineClassifications() {
+    const events = getPatrolTimelineEvents(controlRoomSelectedPatrolReport);
+
+    if (!controlRoomSelectedPatrolReport || !events.length) return null;
+
+    return (
+      <div className="panel">
+        <h2>Incident Classifications</h2>
+        {events.map((event) => (
+          <div key={event.id} className="item">
+            <div>
+              <strong>{event.type || "Patrol event"}</strong>
+              <div>{getIncidentClassificationLabel(event)}</div>
+            </div>
+            <span className="badge">{formatOperationalTime(event.createdAt)}</span>
+          </div>
+        ))}
       </div>
     );
   }
@@ -742,9 +917,14 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         );
       }
 
-      return renderReportsSection({
-        showSelectedPatrolReport: false,
-      });
+      return (
+        <>
+          {renderPatrolReportClassificationsPanel(controlRoomPatrolReports)}
+          {renderReportsSection({
+            showSelectedPatrolReport: false,
+          })}
+        </>
+      );
     }
 
     if (controlRoomTab === "Selected Patrol Timeline") {
@@ -771,6 +951,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             showReportTable: false,
             showSelectedPatrolReport: true,
           })}
+          {renderSelectedPatrolTimelineClassifications()}
         </>
       );
     }
