@@ -12,9 +12,8 @@ const router = express.Router();
 // configuration registers and operational data, while Master Admin and Central
 // Intelligence retain cross-sector oversight.
 //
-// Incident Codes and Incident Subcodes are implemented below as the first
-// persistent master registers. Repeat the same CRUD pattern for:
-// - /api/admin/service-types
+// Incident Codes, Incident Subcodes, and Service Types are implemented below as
+// the first persistent master registers. Repeat the same CRUD pattern for:
 // - /api/admin/infrastructure-types
 // - /api/admin/emergency-contact-types
 //
@@ -423,6 +422,169 @@ router.delete("/incident-subcodes/:id", async (req, res) => {
 
     console.error("DELETE /admin/incident-subcodes/:id failed:", err);
     res.status(500).json({ error: "Failed to delete incident subcode." });
+  }
+});
+
+router.get("/service-types", async (req, res) => {
+  try {
+    const { sectorId, active, controlRoomManaged, category } = req.query;
+    const where = {};
+
+    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (category !== undefined) where.category = cleanText(category);
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      where.active = parsedActive;
+    }
+
+    if (controlRoomManaged !== undefined) {
+      const parsedControlRoomManaged = parseOptionalBoolean(controlRoomManaged);
+      if (parsedControlRoomManaged === null) {
+        return res.status(400).json({ error: "controlRoomManaged must be true or false." });
+      }
+      where.controlRoomManaged = parsedControlRoomManaged;
+    }
+
+    const serviceTypes = await prisma.serviceType.findMany({
+      where,
+      orderBy: { type: "asc" },
+    });
+
+    res.json(serviceTypes);
+  } catch (err) {
+    console.error("GET /admin/service-types failed:", err);
+    res.status(500).json({ error: "Failed to fetch service types." });
+  }
+});
+
+router.post("/service-types", async (req, res) => {
+  try {
+    const { sectorId, type, category, controlRoomManaged, active, templateSourceId } = req.body;
+    const cleanType = cleanText(type);
+
+    if (!cleanType) {
+      return res.status(400).json({ error: "type is required." });
+    }
+
+    const parsedControlRoomManaged = parseOptionalBoolean(controlRoomManaged);
+    if (parsedControlRoomManaged === null) {
+      return res.status(400).json({ error: "controlRoomManaged must be true or false." });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const serviceType = await prisma.serviceType.create({
+      data: {
+        sectorId: cleanText(sectorId),
+        type: cleanType,
+        category: cleanText(category) || "Emergency",
+        controlRoomManaged:
+          parsedControlRoomManaged === undefined ? true : parsedControlRoomManaged,
+        active: parsedActive === undefined ? true : parsedActive,
+        templateSourceId: cleanText(templateSourceId),
+      },
+    });
+
+    res.status(201).json(serviceType);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Service Type already exists for this sector." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("POST /admin/service-types failed:", err);
+    res.status(500).json({ error: "Failed to create service type." });
+  }
+});
+
+router.patch("/service-types/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sectorId, type, category, controlRoomManaged, active, templateSourceId } = req.body;
+    const data = {};
+
+    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+
+    if (type !== undefined) {
+      const cleanType = cleanText(type);
+      if (!cleanType) {
+        return res.status(400).json({ error: "type cannot be empty." });
+      }
+      data.type = cleanType;
+    }
+
+    if (category !== undefined) data.category = cleanText(category) || "Emergency";
+
+    if (controlRoomManaged !== undefined) {
+      const parsedControlRoomManaged = parseOptionalBoolean(controlRoomManaged);
+      if (parsedControlRoomManaged === null) {
+        return res.status(400).json({ error: "controlRoomManaged must be true or false." });
+      }
+      data.controlRoomManaged = parsedControlRoomManaged;
+    }
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    if (templateSourceId !== undefined) {
+      data.templateSourceId = nullableText(templateSourceId);
+    }
+
+    const serviceType = await prisma.serviceType.update({
+      where: { id },
+      data,
+    });
+
+    res.json(serviceType);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Service Type not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Service Type already exists for this sector." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("PATCH /admin/service-types/:id failed:", err);
+    res.status(500).json({ error: "Failed to update service type." });
+  }
+});
+
+router.delete("/service-types/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.serviceType.delete({
+      where: { id },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Service Type not found." });
+    }
+
+    console.error("DELETE /admin/service-types/:id failed:", err);
+    res.status(500).json({ error: "Failed to delete service type." });
   }
 });
 
