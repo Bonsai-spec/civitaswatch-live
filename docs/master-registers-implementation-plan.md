@@ -2,16 +2,31 @@
 
 ## 1. Current Status
 
-- Five master registers exist in the Admin UI:
+- Five master registers now have Prisma models:
   - Incident Codes
   - Incident Subcodes
   - Service Types
   - Infrastructure Types
   - Emergency Contact Types
-- They currently use frontend-only local React state.
-- Data does not persist after page refresh.
+- Admin CRUD APIs exist for all five registers.
+- The Admin UI is connected to the backend APIs.
+- Register data persists after refresh.
+- A seed script exists for default global/template records:
+  - `apps/api/scripts/seed-master-registers.js`
+- A smoke test script exists for GET endpoint verification:
+  - `apps/api/scripts/smoke-master-registers.js`
 
-## 2. Target Backend Models
+## 2. Completed Batches
+
+- Batch 7: Prisma models
+- Batch 8: migrations
+- Batch 9-13: Admin CRUD APIs
+- Batch 14-18: frontend API integration
+- Batch 20: Patrol Incident Response uses Incident Codes/Subcodes
+- Batch 24: seed script
+- Batch 25: smoke test script
+
+## 3. Implemented Backend Models
 
 - Sector
 - IncidentCode
@@ -20,7 +35,7 @@
 - InfrastructureType
 - EmergencyContactType
 
-## 3. API Endpoints
+## 4. API Endpoints
 
 - `/api/admin/incident-codes`
 - `/api/admin/incident-subcodes`
@@ -28,24 +43,32 @@
 - `/api/admin/infrastructure-types`
 - `/api/admin/emergency-contact-types`
 
-Each endpoint should support sector-scoped CRUD when implemented.
+Each endpoint supports Admin CRUD and persisted records.
 
-## 4. Frontend Integration Steps
+## 5. Frontend Integration
 
-- Fetch sector-scoped register records on load.
-- Use `POST` when adding records.
-- Use `PATCH` when editing records.
-- Use `DELETE` when deleting records.
-- Keep local React state synchronized after successful API responses.
+- The Admin master-register UI fetches records from the API.
+- Add actions use `POST`.
+- Inline edits use `PATCH`.
+- Delete actions use `DELETE`.
+- Local React state is synchronized after successful API responses.
 
-## 5. Sector and Template Rules
+## 6. Sector and Template Rules
 
 - Register records should be scoped by sector.
 - Master Admin can publish shared templates.
 - Sectors can adopt or override shared templates.
 - Patrol and Control Room should consume active-only values.
 
-## 6. Verification Plan
+## 7. Next Integration Work
+
+- Sector scoping
+- Persist patrol incident classification IDs
+- Control Room classification display
+- Service Types in Patrol assistance requests
+- Intelligence analytics
+
+## 8. Verification Plan
 
 - Run Prisma validation:
 
@@ -57,6 +80,18 @@ npx prisma validate --schema apps/api/prisma/schema.prisma
 
 ```bash
 node --check apps/api/src/routes/admin.routes.js
+```
+
+- Run the seed script:
+
+```bash
+node apps/api/scripts/seed-master-registers.js
+```
+
+- Run the API smoke test when the API and token are available:
+
+```bash
+API_BASE_URL=http://localhost:4000 API_TOKEN=<token> node apps/api/scripts/smoke-master-registers.js
 ```
 
 - Run the web build:
