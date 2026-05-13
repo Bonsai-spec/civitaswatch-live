@@ -12,10 +12,9 @@ const router = express.Router();
 // configuration registers and operational data, while Master Admin and Central
 // Intelligence retain cross-sector oversight.
 //
-// Incident Codes, Incident Subcodes, Service Types, and Infrastructure Types are
-// implemented below as the first persistent master registers. Repeat the same
-// CRUD pattern for:
-// - /api/admin/emergency-contact-types
+// Incident Codes, Incident Subcodes, Service Types, Infrastructure Types, and
+// Emergency Contact Types are implemented below as the first persistent master
+// registers.
 //
 // These endpoints should be sector-scoped. Master Admin may manage shared
 // templates; Sector Admin may manage local sector values. Control Room and
@@ -751,6 +750,174 @@ router.delete("/infrastructure-types/:id", async (req, res) => {
 
     console.error("DELETE /admin/infrastructure-types/:id failed:", err);
     res.status(500).json({ error: "Failed to delete infrastructure type." });
+  }
+});
+
+router.get("/emergency-contact-types", async (req, res) => {
+  try {
+    const { sectorId, active, sectorSpecific, escalationLevel } = req.query;
+    const where = {};
+
+    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (escalationLevel !== undefined) where.escalationLevel = cleanText(escalationLevel);
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      where.active = parsedActive;
+    }
+
+    if (sectorSpecific !== undefined) {
+      const parsedSectorSpecific = parseOptionalBoolean(sectorSpecific);
+      if (parsedSectorSpecific === null) {
+        return res.status(400).json({ error: "sectorSpecific must be true or false." });
+      }
+      where.sectorSpecific = parsedSectorSpecific;
+    }
+
+    const emergencyContactTypes = await prisma.emergencyContactType.findMany({
+      where,
+      orderBy: { type: "asc" },
+    });
+
+    res.json(emergencyContactTypes);
+  } catch (err) {
+    console.error("GET /admin/emergency-contact-types failed:", err);
+    res.status(500).json({ error: "Failed to fetch emergency contact types." });
+  }
+});
+
+router.post("/emergency-contact-types", async (req, res) => {
+  try {
+    const { sectorId, type, escalationLevel, sectorSpecific, active, templateSourceId } = req.body;
+    const cleanType = cleanText(type);
+
+    if (!cleanType) {
+      return res.status(400).json({ error: "type is required." });
+    }
+
+    const parsedSectorSpecific = parseOptionalBoolean(sectorSpecific);
+    if (parsedSectorSpecific === null) {
+      return res.status(400).json({ error: "sectorSpecific must be true or false." });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const emergencyContactType = await prisma.emergencyContactType.create({
+      data: {
+        sectorId: cleanText(sectorId),
+        type: cleanType,
+        escalationLevel: cleanText(escalationLevel) || "Level 1",
+        sectorSpecific: parsedSectorSpecific === undefined ? true : parsedSectorSpecific,
+        active: parsedActive === undefined ? true : parsedActive,
+        templateSourceId: cleanText(templateSourceId),
+      },
+    });
+
+    res.status(201).json(emergencyContactType);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({
+        error: "Emergency Contact Type already exists for this sector.",
+      });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("POST /admin/emergency-contact-types failed:", err);
+    res.status(500).json({ error: "Failed to create emergency contact type." });
+  }
+});
+
+router.patch("/emergency-contact-types/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sectorId, type, escalationLevel, sectorSpecific, active, templateSourceId } = req.body;
+    const data = {};
+
+    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+
+    if (type !== undefined) {
+      const cleanType = cleanText(type);
+      if (!cleanType) {
+        return res.status(400).json({ error: "type cannot be empty." });
+      }
+      data.type = cleanType;
+    }
+
+    if (escalationLevel !== undefined) {
+      data.escalationLevel = cleanText(escalationLevel) || "Level 1";
+    }
+
+    if (sectorSpecific !== undefined) {
+      const parsedSectorSpecific = parseOptionalBoolean(sectorSpecific);
+      if (parsedSectorSpecific === null) {
+        return res.status(400).json({ error: "sectorSpecific must be true or false." });
+      }
+      data.sectorSpecific = parsedSectorSpecific;
+    }
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    if (templateSourceId !== undefined) {
+      data.templateSourceId = nullableText(templateSourceId);
+    }
+
+    const emergencyContactType = await prisma.emergencyContactType.update({
+      where: { id },
+      data,
+    });
+
+    res.json(emergencyContactType);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Emergency Contact Type not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({
+        error: "Emergency Contact Type already exists for this sector.",
+      });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("PATCH /admin/emergency-contact-types/:id failed:", err);
+    res.status(500).json({ error: "Failed to update emergency contact type." });
+  }
+});
+
+router.delete("/emergency-contact-types/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.emergencyContactType.delete({
+      where: { id },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Emergency Contact Type not found." });
+    }
+
+    console.error("DELETE /admin/emergency-contact-types/:id failed:", err);
+    res.status(500).json({ error: "Failed to delete emergency contact type." });
   }
 });
 
