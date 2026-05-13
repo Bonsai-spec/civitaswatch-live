@@ -18,6 +18,7 @@ const SERVICE_TYPE_CATEGORY_OPTIONS = [
 ];
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
+const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
 
 const MASTER_REGISTER_PLACEHOLDERS = {
   // These table shells define the future column structure for full CRUD master
@@ -145,6 +146,10 @@ export default function RegistersSection({
   // shared Master Admin templates, and local state is temporary until API
   // persistence is implemented.
   const [serviceTypeRows, setServiceTypeRows] = useState([]);
+  const [serviceTypesLoading, setServiceTypesLoading] = useState(false);
+  const [serviceTypesLoaded, setServiceTypesLoaded] = useState(false);
+  const [serviceTypesError, setServiceTypesError] = useState("");
+  const [serviceTypeSavingIds, setServiceTypeSavingIds] = useState([]);
   // Infrastructure Types classify monitored assets and critical infrastructure.
   // Risk Level supports prioritisation and future intelligence analysis.
   // Future mapping: infrastructureTypes -> InfrastructureType model via
@@ -192,6 +197,12 @@ export default function RegistersSection({
     incidentSubcodesLoading,
   ]);
 
+  useEffect(() => {
+    if (isServiceTypesRegister && !serviceTypesLoaded && !serviceTypesLoading) {
+      loadServiceTypes();
+    }
+  }, [isServiceTypesRegister, serviceTypesLoaded, serviceTypesLoading]);
+
   // The Add button, editable table rows, and empty state establish the layout
   // pattern future master registers should reuse.
   // Validation is frontend-only while these registers use local React state.
@@ -217,6 +228,10 @@ export default function RegistersSection({
     return String(row?.id || "").startsWith("incident-subcode-draft-");
   }
 
+  function isDraftServiceType(row) {
+    return String(row?.id || "").startsWith("service-type-draft-");
+  }
+
   function setIncidentCodeSaving(id, isSaving) {
     setIncidentCodeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
@@ -226,6 +241,13 @@ export default function RegistersSection({
 
   function setIncidentSubcodeSaving(id, isSaving) {
     setIncidentSubcodeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function setServiceTypeSaving(id, isSaving) {
+    setServiceTypeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
@@ -259,6 +281,27 @@ export default function RegistersSection({
       incidentCodeId: row.incidentCodeId || null,
       subcode: String(row.subcode || "").trim(),
       name: String(row.name || "").trim(),
+      active: Boolean(row.active),
+      templateSourceId: row.templateSourceId || null,
+    };
+  }
+
+  function normalizeServiceType(row) {
+    return {
+      ...row,
+      type: row.type || "",
+      category: row.category || "Emergency",
+      controlRoomManaged: row.controlRoomManaged ?? true,
+      active: row.active ?? true,
+    };
+  }
+
+  function serviceTypePayload(row) {
+    return {
+      sectorId: row.sectorId || null,
+      type: String(row.type || "").trim(),
+      category: String(row.category || "Emergency").trim() || "Emergency",
+      controlRoomManaged: Boolean(row.controlRoomManaged),
       active: Boolean(row.active),
       templateSourceId: row.templateSourceId || null,
     };
@@ -415,6 +458,74 @@ export default function RegistersSection({
 
   function isServiceTypeComplete(row) {
     return hasText(row?.type);
+  }
+
+  async function loadServiceTypes() {
+    setServiceTypesLoading(true);
+    setServiceTypesError("");
+
+    try {
+      const res = await fetch(SERVICE_TYPES_ENDPOINT, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load service types.");
+      }
+
+      setServiceTypeRows(
+        Array.isArray(json) ? json.map((row) => normalizeServiceType(row)) : []
+      );
+      setServiceTypesLoaded(true);
+    } catch (err) {
+      console.error("Failed to load service types", err);
+      setServiceTypesError(err.message || "Failed to load service types.");
+      setServiceTypesLoaded(true);
+    } finally {
+      setServiceTypesLoading(false);
+    }
+  }
+
+  async function saveServiceTypeRow(row) {
+    if (!row || serviceTypeSavingIds.includes(row.id)) return;
+
+    if (!isServiceTypeComplete(row)) {
+      setMasterRegisterValidationTab("Service Types");
+      return;
+    }
+
+    const isDraft = isDraftServiceType(row);
+    const endpoint = isDraft ? SERVICE_TYPES_ENDPOINT : `${SERVICE_TYPES_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setServiceTypeSaving(row.id, true);
+    setServiceTypesError("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(serviceTypePayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save service type.");
+      }
+
+      const nextRow = normalizeServiceType(json);
+
+      setMasterRegisterValidationTab("");
+      setServiceTypeRows((current) =>
+        current.map((item) => (item.id === row.id ? nextRow : item))
+      );
+    } catch (err) {
+      console.error("Failed to save service type", err);
+      setServiceTypesError(err.message || "Failed to save service type.");
+    } finally {
+      setServiceTypeSaving(row.id, false);
+    }
   }
 
   function isInfrastructureTypeComplete(row) {
@@ -575,7 +686,7 @@ export default function RegistersSection({
     setServiceTypeRows((current) => [
       ...current,
       {
-        id: `service-type-${Date.now()}-${current.length}`,
+        id: `service-type-draft-${Date.now()}-${current.length}`,
         type: "",
         category: "Emergency",
         controlRoomManaged: true,
@@ -590,8 +701,32 @@ export default function RegistersSection({
     );
   }
 
-  function deleteServiceTypeRow(id) {
-    setServiceTypeRows((current) => current.filter((row) => row.id !== id));
+  async function deleteServiceTypeRow(id) {
+    const row = serviceTypeRows.find((item) => item.id === id);
+
+    if (!row || isDraftServiceType(row)) {
+      setServiceTypeRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setServiceTypesError("");
+
+    try {
+      const res = await fetch(`${SERVICE_TYPES_ENDPOINT}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to delete service type.");
+      }
+
+      setServiceTypeRows((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Failed to delete service type", err);
+      setServiceTypesError(err.message || "Failed to delete service type.");
+    }
   }
 
   function addInfrastructureTypeRow() {
@@ -1558,7 +1693,7 @@ export default function RegistersSection({
           <h3>{registerTab}</h3>
           <p>{MASTER_REGISTER_PLACEHOLDERS[registerTab].description}</p>
           <p className="card-detail">
-            {isIncidentCodesRegister || isIncidentSubcodesRegister
+            {isIncidentCodesRegister || isIncidentSubcodesRegister || isServiceTypesRegister
               ? "Persisted through the Admin API."
               : "Frontend-only prototype. Data is not persisted after refresh; backend persistence will be added later."}
           </p>
@@ -1608,6 +1743,12 @@ export default function RegistersSection({
           )}
           {isIncidentSubcodesRegister && incidentSubcodesError && (
             <p className="card-detail">{incidentSubcodesError}</p>
+          )}
+          {isServiceTypesRegister && serviceTypesLoading && (
+            <p className="card-detail">Loading service types...</p>
+          )}
+          {isServiceTypesRegister && serviceTypesError && (
+            <p className="card-detail">{serviceTypesError}</p>
           )}
 
           <table>
@@ -1777,6 +1918,9 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateServiceTypeRow(row.id, "type", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveServiceTypeRow({ ...row, type: event.target.value })
+                      }
                     />
                   </td>
                   <td>
@@ -1784,6 +1928,9 @@ export default function RegistersSection({
                       value={row.category}
                       onChange={(event) =>
                         updateServiceTypeRow(row.id, "category", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveServiceTypeRow({ ...row, category: event.target.value })
                       }
                     >
                       {SERVICE_TYPE_CATEGORY_OPTIONS.map((category) => (
@@ -1798,26 +1945,35 @@ export default function RegistersSection({
                     <input
                       type="checkbox"
                       checked={row.controlRoomManaged}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const nextRow = { ...row, controlRoomManaged: event.target.checked };
                         updateServiceTypeRow(
                           row.id,
                           "controlRoomManaged",
                           event.target.checked
-                        )
-                      }
+                        );
+                        saveServiceTypeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
                     <input
                       type="checkbox"
                       checked={row.active}
-                      onChange={(event) =>
-                        updateServiceTypeRow(row.id, "active", event.target.checked)
-                      }
+                      onChange={(event) => {
+                        const nextRow = { ...row, active: event.target.checked };
+                        updateServiceTypeRow(row.id, "active", event.target.checked);
+                        saveServiceTypeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
-                    <button onClick={() => deleteServiceTypeRow(row.id)}>Delete</button>
+                    <button
+                      disabled={serviceTypeSavingIds.includes(row.id)}
+                      onClick={() => deleteServiceTypeRow(row.id)}
+                    >
+                      {serviceTypeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
