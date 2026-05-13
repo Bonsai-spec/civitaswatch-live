@@ -257,7 +257,6 @@ model Organisation {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  sectors   Sector[]
 }
 
 /// Sectors provide the future isolation boundary for both operational data and
@@ -266,19 +265,101 @@ model Organisation {
 /// EmergencyContactType records should be scoped to Sector, with optional links
 /// back to shared Master Admin templates for inheritance/override behavior.
 model Sector {
-  id             String             @id @default(uuid())
-  name           String
-  code           String
-  isActive       Boolean            @default(true)
-  organisationId String
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  organisation   Organisation       @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  userAccess     UserSectorAccess[]
+  id                    String                 @id @default(cuid())
+  code                  String                 @unique
+  name                  String
+  active                Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  userAccess            UserSectorAccess[]
+  incidentCodes         IncidentCode[]
+  incidentSubcodes      IncidentSubcode[]
+  serviceTypes          ServiceType[]
+  infrastructureTypes   InfrastructureType[]
+  emergencyContactTypes EmergencyContactType[]
+}
 
-  @@unique([organisationId, code])
-  @@index([organisationId])
-  @@index([isActive])
+model IncidentCode {
+  id               String            @id @default(cuid())
+  sectorId         String?
+  code             String
+  name             String
+  priority         String            @default("Medium")
+  active           Boolean           @default(true)
+  templateSourceId String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sector           Sector?           @relation(fields: [sectorId], references: [id])
+  subcodes         IncidentSubcode[]
+
+  @@unique([sectorId, code])
+  @@index([sectorId])
+}
+
+model IncidentSubcode {
+  id               String       @id @default(cuid())
+  sectorId         String?
+  incidentCodeId   String
+  subcode          String
+  name             String
+  active           Boolean      @default(true)
+  templateSourceId String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  sector           Sector?      @relation(fields: [sectorId], references: [id])
+  incidentCode     IncidentCode @relation(fields: [incidentCodeId], references: [id])
+
+  @@unique([incidentCodeId, subcode])
+  @@index([sectorId])
+  @@index([incidentCodeId])
+}
+
+model ServiceType {
+  id                 String   @id @default(cuid())
+  sectorId           String?
+  type               String
+  category           String   @default("Emergency")
+  controlRoomManaged Boolean  @default(true)
+  active             Boolean  @default(true)
+  templateSourceId   String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  sector             Sector?  @relation(fields: [sectorId], references: [id])
+
+  @@unique([sectorId, type])
+  @@index([sectorId])
+}
+
+model InfrastructureType {
+  id               String   @id @default(cuid())
+  sectorId         String?
+  type             String
+  riskLevel        String   @default("Medium")
+  requiresLocation Boolean  @default(true)
+  active           Boolean  @default(true)
+  templateSourceId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  sector           Sector?  @relation(fields: [sectorId], references: [id])
+
+  @@unique([sectorId, type])
+  @@index([sectorId])
+}
+
+model EmergencyContactType {
+  id               String   @id @default(cuid())
+  sectorId         String?
+  type             String
+  escalationLevel  String   @default("Level 1")
+  sectorSpecific   Boolean  @default(true)
+  active           Boolean  @default(true)
+  templateSourceId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  sector           Sector?  @relation(fields: [sectorId], references: [id])
+
+  @@unique([sectorId, type])
+  @@index([sectorId])
 }
 
 model UserSectorAccess {
