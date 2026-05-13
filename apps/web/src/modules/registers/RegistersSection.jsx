@@ -17,6 +17,7 @@ const SERVICE_TYPE_CATEGORY_OPTIONS = [
   "Other",
 ];
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
+const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 
 const MASTER_REGISTER_PLACEHOLDERS = {
   // These table shells define the future column structure for full CRUD master
@@ -132,6 +133,10 @@ export default function RegistersSection({
   // from shared Master Admin templates, and local state is temporary until API
   // persistence is implemented.
   const [incidentSubcodeRows, setIncidentSubcodeRows] = useState([]);
+  const [incidentSubcodesLoading, setIncidentSubcodesLoading] = useState(false);
+  const [incidentSubcodesLoaded, setIncidentSubcodesLoaded] = useState(false);
+  const [incidentSubcodesError, setIncidentSubcodesError] = useState("");
+  const [incidentSubcodeSavingIds, setIncidentSubcodeSavingIds] = useState([]);
   // Service Types define standardized response categories. Control Room will
   // use them for dispatch, escalation, and coordination, and Patrol assistance
   // should eventually reference them instead of free-text assistance values.
@@ -171,6 +176,22 @@ export default function RegistersSection({
     }
   }, [isIncidentCodesRegister, incidentCodesLoaded, incidentCodesLoading]);
 
+  useEffect(() => {
+    if (isIncidentSubcodesRegister && !incidentCodesLoaded && !incidentCodesLoading) {
+      loadIncidentCodes();
+    }
+
+    if (isIncidentSubcodesRegister && !incidentSubcodesLoaded && !incidentSubcodesLoading) {
+      loadIncidentSubcodes();
+    }
+  }, [
+    isIncidentSubcodesRegister,
+    incidentCodesLoaded,
+    incidentCodesLoading,
+    incidentSubcodesLoaded,
+    incidentSubcodesLoading,
+  ]);
+
   // The Add button, editable table rows, and empty state establish the layout
   // pattern future master registers should reuse.
   // Validation is frontend-only while these registers use local React state.
@@ -192,8 +213,19 @@ export default function RegistersSection({
     return String(row?.id || "").startsWith("incident-code-draft-");
   }
 
+  function isDraftIncidentSubcode(row) {
+    return String(row?.id || "").startsWith("incident-subcode-draft-");
+  }
+
   function setIncidentCodeSaving(id, isSaving) {
     setIncidentCodeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function setIncidentSubcodeSaving(id, isSaving) {
+    setIncidentSubcodeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
@@ -205,6 +237,28 @@ export default function RegistersSection({
       code: String(row.code || "").trim(),
       name: String(row.name || "").trim(),
       priority: row.priority || "Medium",
+      active: Boolean(row.active),
+      templateSourceId: row.templateSourceId || null,
+    };
+  }
+
+  function normalizeIncidentSubcode(row) {
+    return {
+      ...row,
+      incidentCodeId: row.incidentCodeId || row.incidentCode?.id || "",
+      parentCode: row.parentCode || row.incidentCode?.code || "",
+      subcode: row.subcode || "",
+      name: row.name || "",
+      active: row.active ?? true,
+    };
+  }
+
+  function incidentSubcodePayload(row) {
+    return {
+      sectorId: row.sectorId || null,
+      incidentCodeId: row.incidentCodeId || null,
+      subcode: String(row.subcode || "").trim(),
+      name: String(row.name || "").trim(),
       active: Boolean(row.active),
       templateSourceId: row.templateSourceId || null,
     };
@@ -286,7 +340,77 @@ export default function RegistersSection({
   }
 
   function isIncidentSubcodeComplete(row) {
-    return hasText(row?.parentCode) && hasText(row?.subcode) && hasText(row?.name);
+    return hasText(row?.incidentCodeId) && hasText(row?.subcode) && hasText(row?.name);
+  }
+
+  async function loadIncidentSubcodes() {
+    setIncidentSubcodesLoading(true);
+    setIncidentSubcodesError("");
+
+    try {
+      const res = await fetch(INCIDENT_SUBCODES_ENDPOINT, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load incident subcodes.");
+      }
+
+      setIncidentSubcodeRows(
+        Array.isArray(json) ? json.map((row) => normalizeIncidentSubcode(row)) : []
+      );
+      setIncidentSubcodesLoaded(true);
+    } catch (err) {
+      console.error("Failed to load incident subcodes", err);
+      setIncidentSubcodesError(err.message || "Failed to load incident subcodes.");
+      setIncidentSubcodesLoaded(true);
+    } finally {
+      setIncidentSubcodesLoading(false);
+    }
+  }
+
+  async function saveIncidentSubcodeRow(row) {
+    if (!row || incidentSubcodeSavingIds.includes(row.id)) return;
+
+    if (!isIncidentSubcodeComplete(row)) {
+      setMasterRegisterValidationTab("Incident Subcodes");
+      return;
+    }
+
+    const isDraft = isDraftIncidentSubcode(row);
+    const endpoint = isDraft
+      ? INCIDENT_SUBCODES_ENDPOINT
+      : `${INCIDENT_SUBCODES_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setIncidentSubcodeSaving(row.id, true);
+    setIncidentSubcodesError("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(incidentSubcodePayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save incident subcode.");
+      }
+
+      const nextRow = normalizeIncidentSubcode(json);
+
+      setMasterRegisterValidationTab("");
+      setIncidentSubcodeRows((current) =>
+        current.map((item) => (item.id === row.id ? nextRow : item))
+      );
+    } catch (err) {
+      console.error("Failed to save incident subcode", err);
+      setIncidentSubcodesError(err.message || "Failed to save incident subcode.");
+    } finally {
+      setIncidentSubcodeSaving(row.id, false);
+    }
   }
 
   function isServiceTypeComplete(row) {
@@ -397,7 +521,8 @@ export default function RegistersSection({
     setIncidentSubcodeRows((current) => [
       ...current,
       {
-        id: `incident-subcode-${Date.now()}-${current.length}`,
+        id: `incident-subcode-draft-${Date.now()}-${current.length}`,
+        incidentCodeId: "",
         parentCode: "",
         subcode: "",
         name: "",
@@ -412,8 +537,32 @@ export default function RegistersSection({
     );
   }
 
-  function deleteIncidentSubcodeRow(id) {
-    setIncidentSubcodeRows((current) => current.filter((row) => row.id !== id));
+  async function deleteIncidentSubcodeRow(id) {
+    const row = incidentSubcodeRows.find((item) => item.id === id);
+
+    if (!row || isDraftIncidentSubcode(row)) {
+      setIncidentSubcodeRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setIncidentSubcodesError("");
+
+    try {
+      const res = await fetch(`${INCIDENT_SUBCODES_ENDPOINT}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to delete incident subcode.");
+      }
+
+      setIncidentSubcodeRows((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Failed to delete incident subcode", err);
+      setIncidentSubcodesError(err.message || "Failed to delete incident subcode.");
+    }
   }
 
   function addServiceTypeRow() {
@@ -1409,7 +1558,7 @@ export default function RegistersSection({
           <h3>{registerTab}</h3>
           <p>{MASTER_REGISTER_PLACEHOLDERS[registerTab].description}</p>
           <p className="card-detail">
-            {isIncidentCodesRegister
+            {isIncidentCodesRegister || isIncidentSubcodesRegister
               ? "Persisted through the Admin API."
               : "Frontend-only prototype. Data is not persisted after refresh; backend persistence will be added later."}
           </p>
@@ -1453,6 +1602,12 @@ export default function RegistersSection({
           )}
           {isIncidentCodesRegister && incidentCodesError && (
             <p className="card-detail">{incidentCodesError}</p>
+          )}
+          {isIncidentSubcodesRegister && (incidentSubcodesLoading || incidentCodesLoading) && (
+            <p className="card-detail">Loading incident subcodes...</p>
+          )}
+          {isIncidentSubcodesRegister && incidentSubcodesError && (
+            <p className="card-detail">{incidentSubcodesError}</p>
           )}
 
           <table>
@@ -1533,17 +1688,37 @@ export default function RegistersSection({
                   <td>
                     {/* The Parent Code dropdown demonstrates master registers referencing each other. */}
                     {incidentCodeRows.length === 0 ? (
-                      "Create Incident Codes first."
+                      incidentCodesLoading ? "Loading parent codes..." : "Create Incident Codes first."
                     ) : (
                       <select
-                        value={row.parentCode}
-                        onChange={(event) =>
-                          updateIncidentSubcodeRow(row.id, "parentCode", event.target.value)
-                        }
+                        value={row.incidentCodeId || ""}
+                        onChange={(event) => {
+                          const selectedIncidentCode = incidentCodeRows.find(
+                            (incidentCode) => incidentCode.id === event.target.value
+                          );
+
+                          updateIncidentSubcodeRow(row.id, "incidentCodeId", event.target.value);
+                          updateIncidentSubcodeRow(
+                            row.id,
+                            "parentCode",
+                            selectedIncidentCode?.code || ""
+                          );
+                        }}
+                        onBlur={(event) => {
+                          const selectedIncidentCode = incidentCodeRows.find(
+                            (incidentCode) => incidentCode.id === event.target.value
+                          );
+
+                          saveIncidentSubcodeRow({
+                            ...row,
+                            incidentCodeId: event.target.value,
+                            parentCode: selectedIncidentCode?.code || "",
+                          });
+                        }}
                       >
                         <option value="">Select parent code</option>
                         {incidentCodeRows.map((incidentCode) => (
-                          <option key={incidentCode.id} value={incidentCode.code}>
+                          <option key={incidentCode.id} value={incidentCode.id}>
                             {incidentCode.code || "Unnamed code"}
                           </option>
                         ))}
@@ -1556,6 +1731,9 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateIncidentSubcodeRow(row.id, "subcode", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveIncidentSubcodeRow({ ...row, subcode: event.target.value })
+                      }
                     />
                   </td>
                   <td>
@@ -1564,19 +1742,29 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateIncidentSubcodeRow(row.id, "name", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveIncidentSubcodeRow({ ...row, name: event.target.value })
+                      }
                     />
                   </td>
                   <td>
                     <input
                       type="checkbox"
                       checked={row.active}
-                      onChange={(event) =>
-                        updateIncidentSubcodeRow(row.id, "active", event.target.checked)
-                      }
+                      onChange={(event) => {
+                        const nextRow = { ...row, active: event.target.checked };
+                        updateIncidentSubcodeRow(row.id, "active", event.target.checked);
+                        saveIncidentSubcodeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
-                    <button onClick={() => deleteIncidentSubcodeRow(row.id)}>Delete</button>
+                    <button
+                      disabled={incidentSubcodeSavingIds.includes(row.id)}
+                      onClick={() => deleteIncidentSubcodeRow(row.id)}
+                    >
+                      {incidentSubcodeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
