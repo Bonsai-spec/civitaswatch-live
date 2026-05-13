@@ -7,6 +7,8 @@ const INCIDENT_CODE_PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"];
 const INFRASTRUCTURE_RISK_LEVEL_OPTIONS = ["Low", "Medium", "High", "Critical"];
 const EMERGENCY_CONTACT_ESCALATION_OPTIONS = ["Level 1", "Level 2", "Level 3", "Critical"];
 const MASTER_REGISTER_INCOMPLETE_MESSAGE = "Complete the current row before adding another.";
+const MASTER_REGISTER_PERSISTED_MESSAGE = "Records are saved to the backend and persist after refresh.";
+const MASTER_REGISTER_SUCCESS_MESSAGE = "Saved.";
 const SERVICE_TYPE_CATEGORY_OPTIONS = [
   "Emergency",
   "Security",
@@ -173,6 +175,7 @@ export default function RegistersSection({
   const [emergencyContactTypesError, setEmergencyContactTypesError] = useState("");
   const [emergencyContactTypeSavingIds, setEmergencyContactTypeSavingIds] = useState([]);
   const [masterRegisterValidationTab, setMasterRegisterValidationTab] = useState("");
+  const [masterRegisterSuccessTab, setMasterRegisterSuccessTab] = useState("");
   const isIncidentCodesRegister = registerTab === "Incident Codes";
   const isIncidentSubcodesRegister = registerTab === "Incident Subcodes";
   const isServiceTypesRegister = registerTab === "Service Types";
@@ -459,6 +462,7 @@ export default function RegistersSection({
 
     setIncidentCodeSaving(row.id, true);
     setIncidentCodesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(endpoint, {
@@ -473,6 +477,7 @@ export default function RegistersSection({
       }
 
       setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Incident Codes");
       setIncidentCodeRows((current) =>
         current.map((item) => (item.id === row.id ? json : item))
       );
@@ -531,6 +536,7 @@ export default function RegistersSection({
 
     setIncidentSubcodeSaving(row.id, true);
     setIncidentSubcodesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(endpoint, {
@@ -547,6 +553,7 @@ export default function RegistersSection({
       const nextRow = normalizeIncidentSubcode(json);
 
       setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Incident Subcodes");
       setIncidentSubcodeRows((current) =>
         current.map((item) => (item.id === row.id ? nextRow : item))
       );
@@ -603,6 +610,7 @@ export default function RegistersSection({
 
     setServiceTypeSaving(row.id, true);
     setServiceTypesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(endpoint, {
@@ -619,6 +627,7 @@ export default function RegistersSection({
       const nextRow = normalizeServiceType(json);
 
       setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Service Types");
       setServiceTypeRows((current) =>
         current.map((item) => (item.id === row.id ? nextRow : item))
       );
@@ -677,6 +686,7 @@ export default function RegistersSection({
 
     setInfrastructureTypeSaving(row.id, true);
     setInfrastructureTypesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(endpoint, {
@@ -693,6 +703,7 @@ export default function RegistersSection({
       const nextRow = normalizeInfrastructureType(json);
 
       setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Infrastructure Types");
       setInfrastructureTypeRows((current) =>
         current.map((item) => (item.id === row.id ? nextRow : item))
       );
@@ -751,6 +762,7 @@ export default function RegistersSection({
 
     setEmergencyContactTypeSaving(row.id, true);
     setEmergencyContactTypesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(endpoint, {
@@ -767,6 +779,7 @@ export default function RegistersSection({
       const nextRow = normalizeEmergencyContactType(json);
 
       setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Emergency Contact Types");
       setEmergencyContactTypeRows((current) =>
         current.map((item) => (item.id === row.id ? nextRow : item))
       );
@@ -845,6 +858,7 @@ export default function RegistersSection({
     }
 
     setIncidentCodesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(`${INCIDENT_CODES_ENDPOINT}/${id}`, {
@@ -858,6 +872,7 @@ export default function RegistersSection({
       }
 
       setIncidentCodeRows((current) => current.filter((item) => item.id !== id));
+      setMasterRegisterSuccessTab("Incident Codes");
     } catch (err) {
       console.error("Failed to delete incident code", err);
       setIncidentCodesError(err.message || "Failed to delete incident code.");
@@ -899,6 +914,7 @@ export default function RegistersSection({
     }
 
     setIncidentSubcodesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(`${INCIDENT_SUBCODES_ENDPOINT}/${id}`, {
@@ -912,6 +928,7 @@ export default function RegistersSection({
       }
 
       setIncidentSubcodeRows((current) => current.filter((item) => item.id !== id));
+      setMasterRegisterSuccessTab("Incident Subcodes");
     } catch (err) {
       console.error("Failed to delete incident subcode", err);
       setIncidentSubcodesError(err.message || "Failed to delete incident subcode.");
@@ -952,6 +969,7 @@ export default function RegistersSection({
     }
 
     setServiceTypesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(`${SERVICE_TYPES_ENDPOINT}/${id}`, {
@@ -965,6 +983,7 @@ export default function RegistersSection({
       }
 
       setServiceTypeRows((current) => current.filter((item) => item.id !== id));
+      setMasterRegisterSuccessTab("Service Types");
     } catch (err) {
       console.error("Failed to delete service type", err);
       setServiceTypesError(err.message || "Failed to delete service type.");
@@ -1005,6 +1024,7 @@ export default function RegistersSection({
     }
 
     setInfrastructureTypesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(`${INFRASTRUCTURE_TYPES_ENDPOINT}/${id}`, {
@@ -1018,6 +1038,7 @@ export default function RegistersSection({
       }
 
       setInfrastructureTypeRows((current) => current.filter((item) => item.id !== id));
+      setMasterRegisterSuccessTab("Infrastructure Types");
     } catch (err) {
       console.error("Failed to delete infrastructure type", err);
       setInfrastructureTypesError(err.message || "Failed to delete infrastructure type.");
@@ -1058,6 +1079,7 @@ export default function RegistersSection({
     }
 
     setEmergencyContactTypesError("");
+    setMasterRegisterSuccessTab("");
 
     try {
       const res = await fetch(`${EMERGENCY_CONTACT_TYPES_ENDPOINT}/${id}`, {
@@ -1071,6 +1093,7 @@ export default function RegistersSection({
       }
 
       setEmergencyContactTypeRows((current) => current.filter((item) => item.id !== id));
+      setMasterRegisterSuccessTab("Emergency Contact Types");
     } catch (err) {
       console.error("Failed to delete emergency contact type", err);
       setEmergencyContactTypesError(err.message || "Failed to delete emergency contact type.");
@@ -1983,13 +2006,7 @@ export default function RegistersSection({
           <h3>{registerTab}</h3>
           <p>{MASTER_REGISTER_PLACEHOLDERS[registerTab].description}</p>
           <p className="card-detail">
-            {isIncidentCodesRegister ||
-            isIncidentSubcodesRegister ||
-            isServiceTypesRegister ||
-            isInfrastructureTypesRegister ||
-            isEmergencyContactTypesRegister
-              ? "Persisted through the Admin API."
-              : "Frontend-only prototype. Data is not persisted after refresh; backend persistence will be added later."}
+            {MASTER_REGISTER_PERSISTED_MESSAGE}
           </p>
           {/*
             Incident Codes will become the primary classification register used
@@ -2026,6 +2043,9 @@ export default function RegistersSection({
             hasLatestIncompleteMasterRow(registerTab) && (
               <p className="card-detail">{MASTER_REGISTER_INCOMPLETE_MESSAGE}</p>
             )}
+          {masterRegisterSuccessTab === registerTab && (
+            <p className="card-detail">{MASTER_REGISTER_SUCCESS_MESSAGE}</p>
+          )}
           {isIncidentCodesRegister && incidentCodesLoading && (
             <p className="card-detail">Loading incident codes...</p>
           )}
