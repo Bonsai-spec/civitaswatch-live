@@ -19,6 +19,7 @@ const SERVICE_TYPE_CATEGORY_OPTIONS = [
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
+const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
 
 const MASTER_REGISTER_PLACEHOLDERS = {
   // These table shells define the future column structure for full CRUD master
@@ -157,6 +158,10 @@ export default function RegistersSection({
   // from shared Master Admin templates, and local state is temporary until API
   // persistence is implemented.
   const [infrastructureTypeRows, setInfrastructureTypeRows] = useState([]);
+  const [infrastructureTypesLoading, setInfrastructureTypesLoading] = useState(false);
+  const [infrastructureTypesLoaded, setInfrastructureTypesLoaded] = useState(false);
+  const [infrastructureTypesError, setInfrastructureTypesError] = useState("");
+  const [infrastructureTypeSavingIds, setInfrastructureTypeSavingIds] = useState([]);
   // Future mapping: emergencyContactTypes -> EmergencyContactType model via
   // /api/admin/emergency-contact-types. Records will be sector-scoped, may
   // inherit from shared Master Admin templates, and local state is temporary
@@ -203,6 +208,20 @@ export default function RegistersSection({
     }
   }, [isServiceTypesRegister, serviceTypesLoaded, serviceTypesLoading]);
 
+  useEffect(() => {
+    if (
+      isInfrastructureTypesRegister &&
+      !infrastructureTypesLoaded &&
+      !infrastructureTypesLoading
+    ) {
+      loadInfrastructureTypes();
+    }
+  }, [
+    isInfrastructureTypesRegister,
+    infrastructureTypesLoaded,
+    infrastructureTypesLoading,
+  ]);
+
   // The Add button, editable table rows, and empty state establish the layout
   // pattern future master registers should reuse.
   // Validation is frontend-only while these registers use local React state.
@@ -232,6 +251,10 @@ export default function RegistersSection({
     return String(row?.id || "").startsWith("service-type-draft-");
   }
 
+  function isDraftInfrastructureType(row) {
+    return String(row?.id || "").startsWith("infrastructure-type-draft-");
+  }
+
   function setIncidentCodeSaving(id, isSaving) {
     setIncidentCodeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
@@ -248,6 +271,13 @@ export default function RegistersSection({
 
   function setServiceTypeSaving(id, isSaving) {
     setServiceTypeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function setInfrastructureTypeSaving(id, isSaving) {
+    setInfrastructureTypeSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
@@ -302,6 +332,27 @@ export default function RegistersSection({
       type: String(row.type || "").trim(),
       category: String(row.category || "Emergency").trim() || "Emergency",
       controlRoomManaged: Boolean(row.controlRoomManaged),
+      active: Boolean(row.active),
+      templateSourceId: row.templateSourceId || null,
+    };
+  }
+
+  function normalizeInfrastructureType(row) {
+    return {
+      ...row,
+      type: row.type || "",
+      riskLevel: row.riskLevel || "Medium",
+      requiresLocation: row.requiresLocation ?? true,
+      active: row.active ?? true,
+    };
+  }
+
+  function infrastructureTypePayload(row) {
+    return {
+      sectorId: row.sectorId || null,
+      type: String(row.type || "").trim(),
+      riskLevel: String(row.riskLevel || "Medium").trim() || "Medium",
+      requiresLocation: Boolean(row.requiresLocation),
       active: Boolean(row.active),
       templateSourceId: row.templateSourceId || null,
     };
@@ -532,6 +583,76 @@ export default function RegistersSection({
     return hasText(row?.type);
   }
 
+  async function loadInfrastructureTypes() {
+    setInfrastructureTypesLoading(true);
+    setInfrastructureTypesError("");
+
+    try {
+      const res = await fetch(INFRASTRUCTURE_TYPES_ENDPOINT, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load infrastructure types.");
+      }
+
+      setInfrastructureTypeRows(
+        Array.isArray(json) ? json.map((row) => normalizeInfrastructureType(row)) : []
+      );
+      setInfrastructureTypesLoaded(true);
+    } catch (err) {
+      console.error("Failed to load infrastructure types", err);
+      setInfrastructureTypesError(err.message || "Failed to load infrastructure types.");
+      setInfrastructureTypesLoaded(true);
+    } finally {
+      setInfrastructureTypesLoading(false);
+    }
+  }
+
+  async function saveInfrastructureTypeRow(row) {
+    if (!row || infrastructureTypeSavingIds.includes(row.id)) return;
+
+    if (!isInfrastructureTypeComplete(row)) {
+      setMasterRegisterValidationTab("Infrastructure Types");
+      return;
+    }
+
+    const isDraft = isDraftInfrastructureType(row);
+    const endpoint = isDraft
+      ? INFRASTRUCTURE_TYPES_ENDPOINT
+      : `${INFRASTRUCTURE_TYPES_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setInfrastructureTypeSaving(row.id, true);
+    setInfrastructureTypesError("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(infrastructureTypePayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save infrastructure type.");
+      }
+
+      const nextRow = normalizeInfrastructureType(json);
+
+      setMasterRegisterValidationTab("");
+      setInfrastructureTypeRows((current) =>
+        current.map((item) => (item.id === row.id ? nextRow : item))
+      );
+    } catch (err) {
+      console.error("Failed to save infrastructure type", err);
+      setInfrastructureTypesError(err.message || "Failed to save infrastructure type.");
+    } finally {
+      setInfrastructureTypeSaving(row.id, false);
+    }
+  }
+
   function isEmergencyContactTypeComplete(row) {
     return hasText(row?.type);
   }
@@ -739,7 +860,7 @@ export default function RegistersSection({
     setInfrastructureTypeRows((current) => [
       ...current,
       {
-        id: `infrastructure-type-${Date.now()}-${current.length}`,
+        id: `infrastructure-type-draft-${Date.now()}-${current.length}`,
         type: "",
         riskLevel: "Medium",
         requiresLocation: true,
@@ -754,8 +875,32 @@ export default function RegistersSection({
     );
   }
 
-  function deleteInfrastructureTypeRow(id) {
-    setInfrastructureTypeRows((current) => current.filter((row) => row.id !== id));
+  async function deleteInfrastructureTypeRow(id) {
+    const row = infrastructureTypeRows.find((item) => item.id === id);
+
+    if (!row || isDraftInfrastructureType(row)) {
+      setInfrastructureTypeRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setInfrastructureTypesError("");
+
+    try {
+      const res = await fetch(`${INFRASTRUCTURE_TYPES_ENDPOINT}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to delete infrastructure type.");
+      }
+
+      setInfrastructureTypeRows((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Failed to delete infrastructure type", err);
+      setInfrastructureTypesError(err.message || "Failed to delete infrastructure type.");
+    }
   }
 
   function addEmergencyContactTypeRow() {
@@ -1693,7 +1838,10 @@ export default function RegistersSection({
           <h3>{registerTab}</h3>
           <p>{MASTER_REGISTER_PLACEHOLDERS[registerTab].description}</p>
           <p className="card-detail">
-            {isIncidentCodesRegister || isIncidentSubcodesRegister || isServiceTypesRegister
+            {isIncidentCodesRegister ||
+            isIncidentSubcodesRegister ||
+            isServiceTypesRegister ||
+            isInfrastructureTypesRegister
               ? "Persisted through the Admin API."
               : "Frontend-only prototype. Data is not persisted after refresh; backend persistence will be added later."}
           </p>
@@ -1749,6 +1897,12 @@ export default function RegistersSection({
           )}
           {isServiceTypesRegister && serviceTypesError && (
             <p className="card-detail">{serviceTypesError}</p>
+          )}
+          {isInfrastructureTypesRegister && infrastructureTypesLoading && (
+            <p className="card-detail">Loading infrastructure types...</p>
+          )}
+          {isInfrastructureTypesRegister && infrastructureTypesError && (
+            <p className="card-detail">{infrastructureTypesError}</p>
           )}
 
           <table>
@@ -1986,6 +2140,9 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateInfrastructureTypeRow(row.id, "type", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveInfrastructureTypeRow({ ...row, type: event.target.value })
+                      }
                     />
                   </td>
                   <td>
@@ -1993,6 +2150,9 @@ export default function RegistersSection({
                       value={row.riskLevel}
                       onChange={(event) =>
                         updateInfrastructureTypeRow(row.id, "riskLevel", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveInfrastructureTypeRow({ ...row, riskLevel: event.target.value })
                       }
                     >
                       {INFRASTRUCTURE_RISK_LEVEL_OPTIONS.map((riskLevel) => (
@@ -2007,26 +2167,35 @@ export default function RegistersSection({
                     <input
                       type="checkbox"
                       checked={row.requiresLocation}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const nextRow = { ...row, requiresLocation: event.target.checked };
                         updateInfrastructureTypeRow(
                           row.id,
                           "requiresLocation",
                           event.target.checked
-                        )
-                      }
+                        );
+                        saveInfrastructureTypeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
                     <input
                       type="checkbox"
                       checked={row.active}
-                      onChange={(event) =>
-                        updateInfrastructureTypeRow(row.id, "active", event.target.checked)
-                      }
+                      onChange={(event) => {
+                        const nextRow = { ...row, active: event.target.checked };
+                        updateInfrastructureTypeRow(row.id, "active", event.target.checked);
+                        saveInfrastructureTypeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
-                    <button onClick={() => deleteInfrastructureTypeRow(row.id)}>Delete</button>
+                    <button
+                      disabled={infrastructureTypeSavingIds.includes(row.id)}
+                      onClick={() => deleteInfrastructureTypeRow(row.id)}
+                    >
+                      {infrastructureTypeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
