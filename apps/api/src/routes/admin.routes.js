@@ -12,9 +12,8 @@ const router = express.Router();
 // configuration registers and operational data, while Master Admin and Central
 // Intelligence retain cross-sector oversight.
 //
-// Incident Codes are implemented below as the first persistent master register.
-// Repeat the same CRUD pattern for:
-// - /api/admin/incident-subcodes
+// Incident Codes and Incident Subcodes are implemented below as the first
+// persistent master registers. Repeat the same CRUD pattern for:
 // - /api/admin/service-types
 // - /api/admin/infrastructure-types
 // - /api/admin/emergency-contact-types
@@ -65,6 +64,16 @@ const patrolInclude = {
 const incidentInclude = {
   linkedPatrol: {
     include: patrolInclude,
+  },
+};
+
+const incidentSubcodeInclude = {
+  incidentCode: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+    },
   },
 };
 
@@ -252,6 +261,168 @@ router.delete("/incident-codes/:id", async (req, res) => {
 
     console.error("DELETE /admin/incident-codes/:id failed:", err);
     res.status(500).json({ error: "Failed to delete incident code." });
+  }
+});
+
+router.get("/incident-subcodes", async (req, res) => {
+  try {
+    const { sectorId, incidentCodeId, active } = req.query;
+    const where = {};
+
+    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (incidentCodeId !== undefined) where.incidentCodeId = cleanText(incidentCodeId);
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      where.active = parsedActive;
+    }
+
+    const incidentSubcodes = await prisma.incidentSubcode.findMany({
+      where,
+      include: incidentSubcodeInclude,
+      orderBy: { subcode: "asc" },
+    });
+
+    res.json(incidentSubcodes);
+  } catch (err) {
+    console.error("GET /admin/incident-subcodes failed:", err);
+    res.status(500).json({ error: "Failed to fetch incident subcodes." });
+  }
+});
+
+router.post("/incident-subcodes", async (req, res) => {
+  try {
+    const { sectorId, incidentCodeId, subcode, name, active, templateSourceId } = req.body;
+    const cleanIncidentCodeId = cleanText(incidentCodeId);
+    const cleanSubcode = cleanText(subcode);
+    const cleanName = cleanText(name);
+
+    if (!cleanIncidentCodeId || !cleanSubcode || !cleanName) {
+      return res.status(400).json({
+        error: "incidentCodeId, subcode and name are required.",
+      });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const incidentSubcode = await prisma.incidentSubcode.create({
+      data: {
+        sectorId: cleanText(sectorId),
+        incidentCodeId: cleanIncidentCodeId,
+        subcode: cleanSubcode,
+        name: cleanName,
+        active: parsedActive === undefined ? true : parsedActive,
+        templateSourceId: cleanText(templateSourceId),
+      },
+      include: incidentSubcodeInclude,
+    });
+
+    res.status(201).json(incidentSubcode);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Incident Subcode already exists for this code." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid incidentCodeId." });
+    }
+
+    console.error("POST /admin/incident-subcodes failed:", err);
+    res.status(500).json({ error: "Failed to create incident subcode." });
+  }
+});
+
+router.patch("/incident-subcodes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sectorId, incidentCodeId, subcode, name, active, templateSourceId } = req.body;
+    const data = {};
+
+    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+
+    if (incidentCodeId !== undefined) {
+      const cleanIncidentCodeId = cleanText(incidentCodeId);
+      if (!cleanIncidentCodeId) {
+        return res.status(400).json({ error: "incidentCodeId cannot be empty." });
+      }
+      data.incidentCodeId = cleanIncidentCodeId;
+    }
+
+    if (subcode !== undefined) {
+      const cleanSubcode = cleanText(subcode);
+      if (!cleanSubcode) {
+        return res.status(400).json({ error: "subcode cannot be empty." });
+      }
+      data.subcode = cleanSubcode;
+    }
+
+    if (name !== undefined) {
+      const cleanName = cleanText(name);
+      if (!cleanName) {
+        return res.status(400).json({ error: "name cannot be empty." });
+      }
+      data.name = cleanName;
+    }
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    if (templateSourceId !== undefined) {
+      data.templateSourceId = nullableText(templateSourceId);
+    }
+
+    const incidentSubcode = await prisma.incidentSubcode.update({
+      where: { id },
+      data,
+      include: incidentSubcodeInclude,
+    });
+
+    res.json(incidentSubcode);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Incident Subcode not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Incident Subcode already exists for this code." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid incidentCodeId." });
+    }
+
+    console.error("PATCH /admin/incident-subcodes/:id failed:", err);
+    res.status(500).json({ error: "Failed to update incident subcode." });
+  }
+});
+
+router.delete("/incident-subcodes/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.incidentSubcode.delete({
+      where: { id },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Incident Subcode not found." });
+    }
+
+    console.error("DELETE /admin/incident-subcodes/:id failed:", err);
+    res.status(500).json({ error: "Failed to delete incident subcode." });
   }
 });
 
