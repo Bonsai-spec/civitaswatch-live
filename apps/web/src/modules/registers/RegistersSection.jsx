@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { API } from "../../core/api";
+import { getAuthHeaders, getJsonAuthHeaders } from "../../core/http.utils";
 import { getResidentImportMetadata } from "./register.utils";
 
 const INCIDENT_CODE_PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"];
@@ -14,6 +16,7 @@ const SERVICE_TYPE_CATEGORY_OPTIONS = [
   "Community",
   "Other",
 ];
+const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 
 const MASTER_REGISTER_PLACEHOLDERS = {
   // These table shells define the future column structure for full CRUD master
@@ -112,14 +115,16 @@ export default function RegistersSection({
   // responses. Active-only records will feed Patrol, Control Room, and
   // Intelligence workflows, and shared template inheritance may prepopulate
   // sector registers on first load.
-  // Incident Codes is the reference implementation for frontend-only master
-  // register CRUD. Data stays in component-local React state until backend APIs
-  // replace it with sector-scoped persistence.
+  // Incident Codes is the first master register backed by the Admin API.
   // Future mapping: incidentCodes -> IncidentCode model via
   // /api/admin/incident-codes. Records will be sector-scoped, may inherit from
   // shared Master Admin templates, and local state is temporary until API
   // persistence is implemented.
   const [incidentCodeRows, setIncidentCodeRows] = useState([]);
+  const [incidentCodesLoading, setIncidentCodesLoading] = useState(false);
+  const [incidentCodesLoaded, setIncidentCodesLoaded] = useState(false);
+  const [incidentCodesError, setIncidentCodesError] = useState("");
+  const [incidentCodeSavingIds, setIncidentCodeSavingIds] = useState([]);
   // Incident Codes and Incident Subcodes form a parent-child classification
   // taxonomy; subcodes should not be created without a parent code.
   // Future mapping: incidentSubcodes -> IncidentSubcode model via
@@ -160,6 +165,12 @@ export default function RegistersSection({
     isInfrastructureTypesRegister ||
     isEmergencyContactTypesRegister;
 
+  useEffect(() => {
+    if (isIncidentCodesRegister && !incidentCodesLoaded && !incidentCodesLoading) {
+      loadIncidentCodes();
+    }
+  }, [isIncidentCodesRegister, incidentCodesLoaded, incidentCodesLoading]);
+
   // The Add button, editable table rows, and empty state establish the layout
   // pattern future master registers should reuse.
   // Validation is frontend-only while these registers use local React state.
@@ -171,6 +182,107 @@ export default function RegistersSection({
 
   function isIncidentCodeComplete(row) {
     return hasText(row?.code) && hasText(row?.name);
+  }
+
+  function getToken() {
+    return localStorage.getItem("token");
+  }
+
+  function isDraftIncidentCode(row) {
+    return String(row?.id || "").startsWith("incident-code-draft-");
+  }
+
+  function setIncidentCodeSaving(id, isSaving) {
+    setIncidentCodeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function incidentCodePayload(row) {
+    return {
+      sectorId: row.sectorId || null,
+      code: String(row.code || "").trim(),
+      name: String(row.name || "").trim(),
+      priority: row.priority || "Medium",
+      active: Boolean(row.active),
+      templateSourceId: row.templateSourceId || null,
+    };
+  }
+
+  async function parseApiResponse(res) {
+    const text = await res.text();
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  async function loadIncidentCodes() {
+    setIncidentCodesLoading(true);
+    setIncidentCodesError("");
+
+    try {
+      const res = await fetch(INCIDENT_CODES_ENDPOINT, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load incident codes.");
+      }
+
+      setIncidentCodeRows(Array.isArray(json) ? json : []);
+      setIncidentCodesLoaded(true);
+    } catch (err) {
+      console.error("Failed to load incident codes", err);
+      setIncidentCodesError(err.message || "Failed to load incident codes.");
+      setIncidentCodesLoaded(true);
+    } finally {
+      setIncidentCodesLoading(false);
+    }
+  }
+
+  async function saveIncidentCodeRow(row) {
+    if (!row || incidentCodeSavingIds.includes(row.id)) return;
+
+    if (!isIncidentCodeComplete(row)) {
+      setMasterRegisterValidationTab("Incident Codes");
+      return;
+    }
+
+    const isDraft = isDraftIncidentCode(row);
+    const endpoint = isDraft ? INCIDENT_CODES_ENDPOINT : `${INCIDENT_CODES_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setIncidentCodeSaving(row.id, true);
+    setIncidentCodesError("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(incidentCodePayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save incident code.");
+      }
+
+      setMasterRegisterValidationTab("");
+      setIncidentCodeRows((current) =>
+        current.map((item) => (item.id === row.id ? json : item))
+      );
+    } catch (err) {
+      console.error("Failed to save incident code", err);
+      setIncidentCodesError(err.message || "Failed to save incident code.");
+    } finally {
+      setIncidentCodeSaving(row.id, false);
+    }
   }
 
   function isIncidentSubcodeComplete(row) {
@@ -232,7 +344,7 @@ export default function RegistersSection({
     setIncidentCodeRows((current) => [
       ...current,
       {
-        id: `incident-code-${Date.now()}-${current.length}`,
+        id: `incident-code-draft-${Date.now()}-${current.length}`,
         code: "",
         name: "",
         priority: "Medium",
@@ -247,12 +359,32 @@ export default function RegistersSection({
     );
   }
 
-  // Delete currently removes master-register rows from local React state only.
-  // No backend deletion occurs yet, so the empty state returns when all local
-  // rows are removed. Future persisted deletes should use sector-scoped API
-  // DELETE endpoints with confirmation, audit logging, and role checks.
-  function deleteIncidentCodeRow(id) {
-    setIncidentCodeRows((current) => current.filter((row) => row.id !== id));
+  async function deleteIncidentCodeRow(id) {
+    const row = incidentCodeRows.find((item) => item.id === id);
+
+    if (!row || isDraftIncidentCode(row)) {
+      setIncidentCodeRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setIncidentCodesError("");
+
+    try {
+      const res = await fetch(`${INCIDENT_CODES_ENDPOINT}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to delete incident code.");
+      }
+
+      setIncidentCodeRows((current) => current.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error("Failed to delete incident code", err);
+      setIncidentCodesError(err.message || "Failed to delete incident code.");
+    }
   }
 
   function addIncidentSubcodeRow() {
@@ -1277,8 +1409,9 @@ export default function RegistersSection({
           <h3>{registerTab}</h3>
           <p>{MASTER_REGISTER_PLACEHOLDERS[registerTab].description}</p>
           <p className="card-detail">
-            Frontend-only prototype. Data is not persisted after refresh; backend
-            persistence will be added later.
+            {isIncidentCodesRegister
+              ? "Persisted through the Admin API."
+              : "Frontend-only prototype. Data is not persisted after refresh; backend persistence will be added later."}
           </p>
           {/*
             Incident Codes will become the primary classification register used
@@ -1315,6 +1448,12 @@ export default function RegistersSection({
             hasLatestIncompleteMasterRow(registerTab) && (
               <p className="card-detail">{MASTER_REGISTER_INCOMPLETE_MESSAGE}</p>
             )}
+          {isIncidentCodesRegister && incidentCodesLoading && (
+            <p className="card-detail">Loading incident codes...</p>
+          )}
+          {isIncidentCodesRegister && incidentCodesError && (
+            <p className="card-detail">{incidentCodesError}</p>
+          )}
 
           <table>
             <thead>
@@ -1334,6 +1473,9 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateIncidentCodeRow(row.id, "code", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveIncidentCodeRow({ ...row, code: event.target.value })
+                      }
                     />
                   </td>
                   <td>
@@ -1342,6 +1484,9 @@ export default function RegistersSection({
                       onChange={(event) =>
                         updateIncidentCodeRow(row.id, "name", event.target.value)
                       }
+                      onBlur={(event) =>
+                        saveIncidentCodeRow({ ...row, name: event.target.value })
+                      }
                     />
                   </td>
                   <td>
@@ -1349,6 +1494,9 @@ export default function RegistersSection({
                       value={row.priority}
                       onChange={(event) =>
                         updateIncidentCodeRow(row.id, "priority", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveIncidentCodeRow({ ...row, priority: event.target.value })
                       }
                     >
                       {INCIDENT_CODE_PRIORITY_OPTIONS.map((priority) => (
@@ -1362,14 +1510,20 @@ export default function RegistersSection({
                     <input
                       type="checkbox"
                       checked={row.active}
-                      onChange={(event) =>
-                        updateIncidentCodeRow(row.id, "active", event.target.checked)
-                      }
+                      onChange={(event) => {
+                        const nextRow = { ...row, active: event.target.checked };
+                        updateIncidentCodeRow(row.id, "active", event.target.checked);
+                        saveIncidentCodeRow(nextRow);
+                      }}
                     />
                   </td>
                   <td>
-                    {/* Local draft delete only; future persistence should call the register API DELETE endpoint. */}
-                    <button onClick={() => deleteIncidentCodeRow(row.id)}>Delete</button>
+                    <button
+                      disabled={incidentCodeSavingIds.includes(row.id)}
+                      onClick={() => deleteIncidentCodeRow(row.id)}
+                    >
+                      {incidentCodeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                    </button>
                   </td>
                 </tr>
               ))}
