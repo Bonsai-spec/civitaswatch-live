@@ -37,6 +37,28 @@ function canUsePatrol(patrol, user) {
   return (patrol.crew || []).some((crewMember) => crewMember.userId === user.id);
 }
 
+const incidentCodeSelect = {
+  id: true,
+  code: true,
+  name: true,
+  priority: true,
+};
+
+const incidentSubcodeSelect = {
+  id: true,
+  subcode: true,
+  name: true,
+};
+
+const incidentClassificationInclude = {
+  incidentCodeRef: {
+    select: incidentCodeSelect,
+  },
+  incidentSubcodeRef: {
+    select: incidentSubcodeSelect,
+  },
+};
+
 router.post(
   "/",
   requireAuth,
@@ -49,6 +71,9 @@ router.post(
         incidentId,
         type,
         incidentCode,
+        incidentCodeId,
+        incidentSubcodeId,
+        incidentType,
         description,
         assistance,
         sceneActive,
@@ -96,6 +121,8 @@ router.post(
           select: {
             id: true,
             incidentCode: true,
+            incidentCodeId: true,
+            incidentSubcodeId: true,
             linkedPatrolId: true,
           },
         });
@@ -129,6 +156,9 @@ router.post(
         let patrolStatus = patrol.status;
         let nextSceneActive =
           typeof sceneActive === "boolean" ? sceneActive : null;
+        const normalizedIncidentCodeId = toNullableString(incidentCodeId);
+        const normalizedIncidentSubcodeId = toNullableString(incidentSubcodeId);
+        const normalizedIncidentType = toNullableString(incidentType);
 
         if (cleanType === "NOTIFIED") {
           patrolStatus = "NOTIFIED";
@@ -175,6 +205,28 @@ router.post(
           });
         }
 
+        if (
+          linkedIncident &&
+          (incidentCodeId !== undefined ||
+            incidentSubcodeId !== undefined ||
+            incidentType !== undefined)
+        ) {
+          await tx.incident.update({
+            where: { id: linkedIncident.id },
+            data: {
+              ...(incidentCodeId !== undefined
+                ? { incidentCodeId: normalizedIncidentCodeId }
+                : {}),
+              ...(incidentSubcodeId !== undefined
+                ? { incidentSubcodeId: normalizedIncidentSubcodeId }
+                : {}),
+              ...(incidentType !== undefined
+                ? { incidentType: normalizedIncidentType }
+                : {}),
+            },
+          });
+        }
+
         if (linkedIncident && cleanType === "ON_SCENE") {
           await tx.incident.update({
             where: { id: linkedIncident.id },
@@ -201,6 +253,9 @@ router.post(
             incidentCode: linkedIncident
               ? linkedIncident.incidentCode
               : toNullableString(incidentCode),
+            incidentCodeId: normalizedIncidentCodeId || linkedIncident?.incidentCodeId || null,
+            incidentSubcodeId:
+              normalizedIncidentSubcodeId || linkedIncident?.incidentSubcodeId || null,
             description: toNullableString(description),
             // Emergency Assistance must persist here. Control Room reads this
             // same field for its Assistance Requests queue.
@@ -208,7 +263,10 @@ router.post(
             sceneActive: nextSceneActive,
           },
           include: {
-            incident: true,
+            incident: {
+              include: incidentClassificationInclude,
+            },
+            ...incidentClassificationInclude,
             patrol: true,
           },
         });
@@ -218,6 +276,12 @@ router.post(
 
       return res.status(201).json(event);
     } catch (error) {
+      if (error.code === "P2003") {
+        return res.status(400).json({
+          error: "Invalid incidentCodeId or incidentSubcodeId.",
+        });
+      }
+
       console.error("POST /patrol-events failed:", error);
       return res.status(500).json({
         error: "Failed to create patrol event",
@@ -254,10 +318,19 @@ router.get(
             select: {
               id: true,
               incidentCode: true,
+              incidentCodeId: true,
+              incidentSubcodeId: true,
+              incidentCodeRef: {
+                select: incidentCodeSelect,
+              },
+              incidentSubcodeRef: {
+                select: incidentSubcodeSelect,
+              },
               title: true,
               status: true,
             },
           },
+          ...incidentClassificationInclude,
           patrol: {
             include: {
               user: {
@@ -318,7 +391,10 @@ router.get(
           type: "STAND_DOWN",
         },
         include: {
-          incident: true,
+          incident: {
+            include: incidentClassificationInclude,
+          },
+          ...incidentClassificationInclude,
           patrol: {
             include: {
               user: {
@@ -429,7 +505,10 @@ router.get(
       const events = await prisma.patrolEvent.findMany({
         where: { patrolId },
         include: {
-          incident: true,
+          incident: {
+            include: incidentClassificationInclude,
+          },
+          ...incidentClassificationInclude,
         },
         orderBy: {
           createdAt: "asc",

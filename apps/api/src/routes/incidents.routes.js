@@ -54,6 +54,19 @@ function buildIncidentCode() {
   return `INC-${yyyy}${mm}${dd}-${hh}${mi}${ss}-${rand}`;
 }
 
+const incidentCodeSelect = {
+  id: true,
+  code: true,
+  name: true,
+  priority: true,
+};
+
+const incidentSubcodeSelect = {
+  id: true,
+  subcode: true,
+  name: true,
+};
+
 const incidentInclude = {
   createdBy: {
     select: {
@@ -87,10 +100,24 @@ const incidentInclude = {
       assistance: true,
       sceneActive: true,
       createdAt: true,
+      incidentCodeId: true,
+      incidentSubcodeId: true,
+      incidentCodeRef: {
+        select: incidentCodeSelect,
+      },
+      incidentSubcodeRef: {
+        select: incidentSubcodeSelect,
+      },
     },
     orderBy: {
       createdAt: "desc",
     },
+  },
+  incidentCodeRef: {
+    select: incidentCodeSelect,
+  },
+  incidentSubcodeRef: {
+    select: incidentSubcodeSelect,
   },
 };
 
@@ -106,6 +133,9 @@ router.post("/report", requireAuth, async (req, res) => {
       source,
       linkedPatrolId,
       occurredAt,
+      incidentType,
+      incidentCodeId,
+      incidentSubcodeId,
     } = req.body;
 
     const normalizedTitle = toNullableString(title);
@@ -157,6 +187,9 @@ router.post("/report", requireAuth, async (req, res) => {
           severity: normalizedSeverity,
           status: normalizedStatus,
           source: normalizedSource,
+          incidentType: toNullableString(incidentType),
+          incidentCodeId: toNullableString(incidentCodeId),
+          incidentSubcodeId: toNullableString(incidentSubcodeId),
           linkedPatrolId: linkedPatrolId || null,
           createdByUserId: req.user.id,
           reportedAt: new Date(),
@@ -172,6 +205,8 @@ router.post("/report", requireAuth, async (req, res) => {
             incidentId: createdIncident.id,
             type: "INCIDENT_REPORTED",
             incidentCode: createdIncident.incidentCode,
+            incidentCodeId: createdIncident.incidentCodeId,
+            incidentSubcodeId: createdIncident.incidentSubcodeId,
             description: createdIncident.title,
             sceneActive: true,
           },
@@ -183,6 +218,10 @@ router.post("/report", requireAuth, async (req, res) => {
 
     return res.status(201).json(incident);
   } catch (error) {
+    if (error.code === "P2003") {
+      return badRequest(res, "Invalid incidentCodeId or incidentSubcodeId.");
+    }
+
     console.error("POST /incidents/report failed:", error);
     return res.status(500).json({ error: "Failed to create incident." });
   }
@@ -313,6 +352,9 @@ router.patch("/:id", requireAuth, async (req, res) => {
       source,
       linkedPatrolId,
       occurredAt,
+      incidentType,
+      incidentCodeId,
+      incidentSubcodeId,
     } = req.body;
 
     const data = {};
@@ -327,6 +369,18 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (description !== undefined) {
       data.description = toNullableString(description);
+    }
+
+    if (incidentType !== undefined) {
+      data.incidentType = toNullableString(incidentType);
+    }
+
+    if (incidentCodeId !== undefined) {
+      data.incidentCodeId = toNullableString(incidentCodeId);
+    }
+
+    if (incidentSubcodeId !== undefined) {
+      data.incidentSubcodeId = toNullableString(incidentSubcodeId);
     }
 
     if (sector !== undefined) {
@@ -392,6 +446,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     return res.json(incident);
   } catch (error) {
+    if (error.code === "P2003") {
+      return badRequest(res, "Invalid incidentCodeId or incidentSubcodeId.");
+    }
+
     console.error("PATCH /incidents/:id failed:", error);
     return res.status(500).json({ error: "Failed to update incident." });
   }

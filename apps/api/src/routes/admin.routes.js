@@ -59,9 +59,28 @@ const patrolInclude = {
   },
 };
 
+const incidentCodeSelect = {
+  id: true,
+  code: true,
+  name: true,
+  priority: true,
+};
+
+const incidentSubcodeSelect = {
+  id: true,
+  subcode: true,
+  name: true,
+};
+
 const incidentInclude = {
   linkedPatrol: {
     include: patrolInclude,
+  },
+  incidentCodeRef: {
+    select: incidentCodeSelect,
+  },
+  incidentSubcodeRef: {
+    select: incidentSubcodeSelect,
   },
 };
 
@@ -998,6 +1017,8 @@ router.post("/incidents", async (req, res) => {
       severity,
       date,
       time,
+      incidentCodeId,
+      incidentSubcodeId,
     } = req.body;
 
     if (!title || !incidentType || !street || !suburb || !sector || !severity || !date || !time) {
@@ -1034,6 +1055,8 @@ router.post("/incidents", async (req, res) => {
         title: cleanText(title),
         description: cleanText(description),
         incidentType: cleanText(incidentType),
+        incidentCodeId: cleanText(incidentCodeId),
+        incidentSubcodeId: cleanText(incidentSubcodeId),
         street: cleanText(street),
         suburb: cleanText(suburb),
         sector: cleanText(sector),
@@ -1049,6 +1072,10 @@ router.post("/incidents", async (req, res) => {
 
     res.status(201).json(incident);
   } catch (err) {
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid incidentCodeId or incidentSubcodeId." });
+    }
+
     console.error("POST /admin/incidents failed:", err);
     res.status(500).json({ error: "Failed to create incident." });
   }
@@ -1070,12 +1097,16 @@ router.patch("/incidents/:id", async (req, res) => {
       date,
       time,
       linkedPatrolId,
+      incidentCodeId,
+      incidentSubcodeId,
     } = req.body;
 
     const data = {};
 
     if (title !== undefined) data.title = cleanText(title);
     if (incidentType !== undefined) data.incidentType = cleanText(incidentType);
+    if (incidentCodeId !== undefined) data.incidentCodeId = cleanText(incidentCodeId);
+    if (incidentSubcodeId !== undefined) data.incidentSubcodeId = cleanText(incidentSubcodeId);
     if (street !== undefined) data.street = cleanText(street);
     if (suburb !== undefined) data.suburb = cleanText(suburb);
     if (description !== undefined) data.description = cleanText(description);
@@ -1122,6 +1153,10 @@ router.patch("/incidents/:id", async (req, res) => {
 
     res.json(incident);
   } catch (err) {
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid incidentCodeId or incidentSubcodeId." });
+    }
+
     console.error("PATCH /admin/incidents/:id failed:", err);
     res.status(500).json({ error: "Failed to update incident." });
   }
