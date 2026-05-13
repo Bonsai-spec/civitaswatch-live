@@ -12,9 +12,9 @@ const router = express.Router();
 // configuration registers and operational data, while Master Admin and Central
 // Intelligence retain cross-sector oversight.
 //
-// Incident Codes, Incident Subcodes, and Service Types are implemented below as
-// the first persistent master registers. Repeat the same CRUD pattern for:
-// - /api/admin/infrastructure-types
+// Incident Codes, Incident Subcodes, Service Types, and Infrastructure Types are
+// implemented below as the first persistent master registers. Repeat the same
+// CRUD pattern for:
 // - /api/admin/emergency-contact-types
 //
 // These endpoints should be sector-scoped. Master Admin may manage shared
@@ -585,6 +585,172 @@ router.delete("/service-types/:id", async (req, res) => {
 
     console.error("DELETE /admin/service-types/:id failed:", err);
     res.status(500).json({ error: "Failed to delete service type." });
+  }
+});
+
+router.get("/infrastructure-types", async (req, res) => {
+  try {
+    const { sectorId, active, requiresLocation, riskLevel } = req.query;
+    const where = {};
+
+    if (sectorId !== undefined) where.sectorId = cleanText(sectorId);
+    if (riskLevel !== undefined) where.riskLevel = cleanText(riskLevel);
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      where.active = parsedActive;
+    }
+
+    if (requiresLocation !== undefined) {
+      const parsedRequiresLocation = parseOptionalBoolean(requiresLocation);
+      if (parsedRequiresLocation === null) {
+        return res.status(400).json({ error: "requiresLocation must be true or false." });
+      }
+      where.requiresLocation = parsedRequiresLocation;
+    }
+
+    const infrastructureTypes = await prisma.infrastructureType.findMany({
+      where,
+      orderBy: { type: "asc" },
+    });
+
+    res.json(infrastructureTypes);
+  } catch (err) {
+    console.error("GET /admin/infrastructure-types failed:", err);
+    res.status(500).json({ error: "Failed to fetch infrastructure types." });
+  }
+});
+
+router.post("/infrastructure-types", async (req, res) => {
+  try {
+    const { sectorId, type, riskLevel, requiresLocation, active, templateSourceId } = req.body;
+    const cleanType = cleanText(type);
+
+    if (!cleanType) {
+      return res.status(400).json({ error: "type is required." });
+    }
+
+    const parsedRequiresLocation = parseOptionalBoolean(requiresLocation);
+    if (parsedRequiresLocation === null) {
+      return res.status(400).json({ error: "requiresLocation must be true or false." });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const infrastructureType = await prisma.infrastructureType.create({
+      data: {
+        sectorId: cleanText(sectorId),
+        type: cleanType,
+        riskLevel: cleanText(riskLevel) || "Medium",
+        requiresLocation: parsedRequiresLocation === undefined ? true : parsedRequiresLocation,
+        active: parsedActive === undefined ? true : parsedActive,
+        templateSourceId: cleanText(templateSourceId),
+      },
+    });
+
+    res.status(201).json(infrastructureType);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({
+        error: "Infrastructure Type already exists for this sector.",
+      });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("POST /admin/infrastructure-types failed:", err);
+    res.status(500).json({ error: "Failed to create infrastructure type." });
+  }
+});
+
+router.patch("/infrastructure-types/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sectorId, type, riskLevel, requiresLocation, active, templateSourceId } = req.body;
+    const data = {};
+
+    if (sectorId !== undefined) data.sectorId = nullableText(sectorId);
+
+    if (type !== undefined) {
+      const cleanType = cleanText(type);
+      if (!cleanType) {
+        return res.status(400).json({ error: "type cannot be empty." });
+      }
+      data.type = cleanType;
+    }
+
+    if (riskLevel !== undefined) data.riskLevel = cleanText(riskLevel) || "Medium";
+
+    if (requiresLocation !== undefined) {
+      const parsedRequiresLocation = parseOptionalBoolean(requiresLocation);
+      if (parsedRequiresLocation === null) {
+        return res.status(400).json({ error: "requiresLocation must be true or false." });
+      }
+      data.requiresLocation = parsedRequiresLocation;
+    }
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    if (templateSourceId !== undefined) {
+      data.templateSourceId = nullableText(templateSourceId);
+    }
+
+    const infrastructureType = await prisma.infrastructureType.update({
+      where: { id },
+      data,
+    });
+
+    res.json(infrastructureType);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Infrastructure Type not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({
+        error: "Infrastructure Type already exists for this sector.",
+      });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("PATCH /admin/infrastructure-types/:id failed:", err);
+    res.status(500).json({ error: "Failed to update infrastructure type." });
+  }
+});
+
+router.delete("/infrastructure-types/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.infrastructureType.delete({
+      where: { id },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Infrastructure Type not found." });
+    }
+
+    console.error("DELETE /admin/infrastructure-types/:id failed:", err);
+    res.status(500).json({ error: "Failed to delete infrastructure type." });
   }
 });
 
