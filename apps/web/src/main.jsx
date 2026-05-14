@@ -276,6 +276,21 @@ function getPatrolCrewSummary(patrol) {
   return `${names.length} crew: ${names.join(", ")}`;
 }
 
+function getPatrolStatusLabel(patrol) {
+  const status = String(patrol?.status || "").trim().toUpperCase();
+
+  if (patrol?.endTime || status === "COMPLETED" || status === "ENDED") {
+    return "LOGGED_OFF / ENDED";
+  }
+
+  if (status === "ACTIVE") return "ON_PATROL";
+  if (status === "MOBILE") return "RESUME_PATROL / MOBILE";
+  if (["NOTIFIED", "EN_ROUTE", "ON_SCENE", "STAND_DOWN"].includes(status)) return status;
+  if (status === "RESUME_PATROL") return "RESUME_PATROL / MOBILE";
+
+  return status || "ON_PATROL";
+}
+
 function getLatestActivityItems({ assistanceRequests, activePatrols, incidents }) {
   return [
     ...assistanceRequests.map((request) => ({
@@ -708,14 +723,15 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         {activePatrols.map((patrol) => (
           <div key={patrol.id} className="item">
             <div>
-              <strong>{getPatrolCallSign(patrol)}</strong>
+              <strong>Call Sign: {getPatrolCallSign(patrol)}</strong>
               <div>Driver: {getDisplayName(patrol)}</div>
               <div>Crew: {getPatrolCrewSummary(patrol)}</div>
               <div>Vehicle: {getOperationalVehicleLabel(patrol)}</div>
               <div>Sector: {patrol.sector || "-"}</div>
+              <div>Patrol Status: {getPatrolStatusLabel(patrol)}</div>
               <div>Last update: {formatOperationalTime(patrol.updatedAt || patrol.startTime || patrol.createdAt)}</div>
             </div>
-            <span className="badge">{patrol.status || "ACTIVE"}</span>
+            <span className="badge">{getPatrolStatusLabel(patrol)}</span>
           </div>
         ))}
       </div>

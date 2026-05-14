@@ -18,16 +18,8 @@ const INCIDENT_RESPONSE_TYPES = [
 ];
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
-
-const EMERGENCY_SERVICE_OPTIONS = [
-  "Ambulance",
-  "Fire",
-  "Police/SAPS",
-  "Security Backup",
-  "Traffic",
-  "Tow Truck",
-  "Control Room Urgent",
-];
+const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
+const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
 
 const INITIAL_START_FORM = {
   vehicleId: "",
@@ -43,6 +35,9 @@ const INITIAL_EVENT_FORM = {
   incidentCodeId: "",
   incidentSubcodeId: "",
   incidentType: "",
+  serviceTypeId: "",
+  infrastructureTypeId: "",
+  infrastructureType: "",
   description: "",
   assistance: "",
   streetNumber: "",
@@ -56,7 +51,7 @@ const INITIAL_EVENT_FORM = {
 const PATROL_ACTIONS = {
   emergency: {
     type: "MOBILE",
-    description: "Emergency assistance request",
+    description: "",
     formTitle: "Emergency Assistance",
     submitLabel: "Request Assistance",
   },
@@ -68,13 +63,13 @@ const PATROL_ACTIONS = {
   },
   observation: {
     type: "MOBILE",
-    description: "Observation",
+    description: "",
     formTitle: "Report Observation",
     submitLabel: "Submit Observation",
   },
   infrastructure: {
     type: "INFRASTRUCTURE",
-    description: "Infrastructure",
+    description: "",
     formTitle: "Report Infrastructure",
     submitLabel: "Submit Infrastructure",
   },
@@ -167,7 +162,11 @@ function buildLocationLines(form) {
 
 function buildDescriptionWithLocation(form) {
   const locationLines = buildLocationLines(form);
-  const description = form.description || "";
+  const descriptionLines = [
+    form.infrastructureType ? `Infrastructure Type: ${form.infrastructureType}` : null,
+    form.description || null,
+  ].filter(Boolean);
+  const description = descriptionLines.join("\n\n");
 
   if (!locationLines.length) return description;
 
@@ -189,12 +188,17 @@ export default function PatrolOperationsSection({
   const [startForm, setStartForm] = useState(INITIAL_START_FORM);
   const [eventForm, setEventForm] = useState(INITIAL_EVENT_FORM);
   const [endForm, setEndForm] = useState({ endKm: "", summary: "" });
-  const [emergencyServices, setEmergencyServices] = useState([]);
   const [incidentCodes, setIncidentCodes] = useState([]);
   const [incidentSubcodes, setIncidentSubcodes] = useState([]);
+  const [serviceTypes, setServiceTypes] = useState([]);
+  const [infrastructureTypes, setInfrastructureTypes] = useState([]);
   const [incidentCodesLoading, setIncidentCodesLoading] = useState(false);
   const [incidentSubcodesLoading, setIncidentSubcodesLoading] = useState(false);
+  const [serviceTypesLoading, setServiceTypesLoading] = useState(false);
+  const [infrastructureTypesLoading, setInfrastructureTypesLoading] = useState(false);
   const [incidentRegisterError, setIncidentRegisterError] = useState("");
+  const [serviceTypeError, setServiceTypeError] = useState("");
+  const [infrastructureTypeError, setInfrastructureTypeError] = useState("");
   const [selectedPatrolAction, setSelectedPatrolAction] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -287,6 +291,18 @@ export default function PatrolOperationsSection({
     }
   }, [showIncidentResponseForm, token, incidentCodes.length, incidentCodesLoading]);
 
+  useEffect(() => {
+    if (showEmergencyForm && token && serviceTypes.length === 0 && !serviceTypesLoading) {
+      loadServiceTypes();
+    }
+  }, [showEmergencyForm, token, serviceTypes.length, serviceTypesLoading]);
+
+  useEffect(() => {
+    if (showInfrastructureForm && token && infrastructureTypes.length === 0 && !infrastructureTypesLoading) {
+      loadInfrastructureTypes();
+    }
+  }, [showInfrastructureForm, token, infrastructureTypes.length, infrastructureTypesLoading]);
+
   async function loadIncidentCodes() {
     try {
       setIncidentCodesLoading(true);
@@ -330,6 +346,40 @@ export default function PatrolOperationsSection({
     }
   }
 
+  async function loadServiceTypes() {
+    try {
+      setServiceTypesLoading(true);
+      setServiceTypeError("");
+
+      const json = await loadJson(`${SERVICE_TYPES_ENDPOINT}?active=true&controlRoomManaged=true`, {
+        headers: getAuthHeaders(),
+      });
+
+      setServiceTypes(Array.isArray(json) ? json : []);
+    } catch (error) {
+      setServiceTypeError(error.message || "Failed to load service types.");
+    } finally {
+      setServiceTypesLoading(false);
+    }
+  }
+
+  async function loadInfrastructureTypes() {
+    try {
+      setInfrastructureTypesLoading(true);
+      setInfrastructureTypeError("");
+
+      const json = await loadJson(`${INFRASTRUCTURE_TYPES_ENDPOINT}?active=true`, {
+        headers: getAuthHeaders(),
+      });
+
+      setInfrastructureTypes(Array.isArray(json) ? json : []);
+    } catch (error) {
+      setInfrastructureTypeError(error.message || "Failed to load infrastructure types.");
+    } finally {
+      setInfrastructureTypesLoading(false);
+    }
+  }
+
   function updateStartForm(field, value) {
     setStartForm((current) => ({
       ...current,
@@ -342,14 +392,6 @@ export default function PatrolOperationsSection({
       current.includes(memberId)
         ? current.filter((id) => id !== memberId)
         : [...current, memberId]
-    );
-  }
-
-  function toggleEmergencyService(service) {
-    setEmergencyServices((current) =>
-      current.includes(service)
-        ? current.filter((item) => item !== service)
-        : [...current, service]
     );
   }
 
@@ -370,6 +412,26 @@ export default function PatrolOperationsSection({
     }
   }
 
+  function updateServiceTypeSelection(serviceTypeId) {
+    const selectedServiceType = serviceTypes.find((item) => item.id === serviceTypeId);
+
+    setEventForm((current) => ({
+      ...current,
+      serviceTypeId,
+      assistance: selectedServiceType?.type || "",
+    }));
+  }
+
+  function updateInfrastructureTypeSelection(infrastructureTypeId) {
+    const selectedInfrastructureType = infrastructureTypes.find((item) => item.id === infrastructureTypeId);
+
+    setEventForm((current) => ({
+      ...current,
+      infrastructureTypeId,
+      infrastructureType: selectedInfrastructureType?.type || "",
+    }));
+  }
+
   function selectPatrolAction(action) {
     setSelectedPatrolAction(action.id);
     setMessage("");
@@ -384,8 +446,17 @@ export default function PatrolOperationsSection({
       incidentCodeId: "",
       incidentSubcodeId: "",
       incidentType: "",
+      serviceTypeId: "",
+      infrastructureTypeId: "",
+      infrastructureType: "",
       description: action.description,
-      assistance: action.id === "incidentResponse" ? current.assistance : "",
+      assistance: "",
+      streetNumber: "",
+      streetName: "",
+      suburb: "",
+      locationNotes: "",
+      latitude: "",
+      longitude: "",
     }));
     setIncidentSubcodes([]);
   }
@@ -453,6 +524,9 @@ export default function PatrolOperationsSection({
           : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
       const referenceNumber = eventForm.referenceNumber.trim();
       const description = buildDescriptionWithLocation(eventForm);
+      const assistance = selectedPatrolAction === "emergency"
+        ? eventForm.assistance || "Emergency Assistance"
+        : eventForm.assistance || null;
 
       await loadJson(PATROL_ENDPOINTS.events, {
         method: "POST",
@@ -468,16 +542,13 @@ export default function PatrolOperationsSection({
           description: description || eventType,
           // Emergency Assistance must write to PatrolEvent.assistance, the same
           // source Control Room reads for its assistance queue.
-          assistance:
-            selectedPatrolAction === "emergency"
-              ? emergencyServices.join(", ") || "Emergency Assistance"
-              : eventForm.assistance || null,
+          // TODO: Persist Service Type and Infrastructure Type IDs when PatrolEvent supports structured refs.
+          assistance,
           sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(eventType),
         }),
       });
 
       setEventForm(INITIAL_EVENT_FORM);
-      setEmergencyServices([]);
       setSelectedPatrolAction("");
       setMessage("Patrol event submitted.");
       await loadPatrolOperations();
@@ -742,19 +813,26 @@ export default function PatrolOperationsSection({
             {showEmergencyForm && (
             <form id="patrol-event-form" className="patrol-step-card patrol-mobile-form" onSubmit={submitPatrolEvent}>
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
-              {/* External services are requested through Control Room by recording assistance here. */}
-              <div className="patrol-service-options">
-                {EMERGENCY_SERVICE_OPTIONS.map((service) => (
-                  <label key={service} className="patrol-check-option">
-                    <input
-                      type="checkbox"
-                      checked={emergencyServices.includes(service)}
-                      onChange={() => toggleEmergencyService(service)}
-                    />
-                    {service}
-                  </label>
-                ))}
-              </div>
+              {serviceTypesLoading && (
+                <p className="patrol-muted">Loading service types...</p>
+              )}
+              {serviceTypeError && (
+                <div className="patrol-message">{serviceTypeError}</div>
+              )}
+              <label>
+                Assistance / Service Type
+                <select
+                  value={eventForm.serviceTypeId}
+                  onChange={(event) => updateServiceTypeSelection(event.target.value)}
+                >
+                  <option value="">Select service type</option>
+                  {serviceTypes.map((serviceType) => (
+                    <option key={serviceType.id} value={serviceType.id}>
+                      {serviceType.type} {serviceType.category ? `- ${serviceType.category}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 Description
                 <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
@@ -870,6 +948,27 @@ export default function PatrolOperationsSection({
             {showInfrastructureForm && (
             <form id="patrol-event-form" className="patrol-step-card patrol-mobile-form" onSubmit={submitPatrolEvent}>
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
+              {infrastructureTypesLoading && (
+                <p className="patrol-muted">Loading infrastructure types...</p>
+              )}
+              {infrastructureTypeError && (
+                <div className="patrol-message">{infrastructureTypeError}</div>
+              )}
+              <label>
+                Infrastructure Type
+                <select
+                  value={eventForm.infrastructureTypeId}
+                  onChange={(event) => updateInfrastructureTypeSelection(event.target.value)}
+                  required
+                >
+                  <option value="">Select infrastructure type</option>
+                  {infrastructureTypes.map((infrastructureType) => (
+                    <option key={infrastructureType.id} value={infrastructureType.id}>
+                      {infrastructureType.type} {infrastructureType.riskLevel ? `- ${infrastructureType.riskLevel}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 Reference Number
                 <input value={eventForm.referenceNumber} onChange={(event) => updateEventForm("referenceNumber", event.target.value)} />
