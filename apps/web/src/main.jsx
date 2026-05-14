@@ -234,11 +234,30 @@ function getCrewMemberName(crewMember) {
   );
 }
 
+function getPatrolDriverName(patrol) {
+  const driverCrew = (patrol?.crew || []).find((crewMember) => crewMember.role === "DRIVER");
+
+  if (driverCrew) return getCrewMemberName(driverCrew);
+
+  return (
+    patrol?.user?.fullName ||
+    [patrol?.user?.member?.firstName, patrol?.user?.member?.surname]
+      .filter(Boolean)
+      .join(" ") ||
+    patrol?.user?.email ||
+    patrol?.driverName ||
+    "Driver not set"
+  );
+}
+
 function getPatrolCallSign(patrol) {
   const driverCrew = (patrol?.crew || []).find((crewMember) => crewMember.role === "DRIVER");
 
   return (
     patrol?.callSign ||
+    patrol?.callsign ||
+    patrol?.patrolCallSign ||
+    patrol?.radioCallSign ||
     patrol?.tempVehicleCallSign ||
     driverCrew?.member?.callSign ||
     patrol?.user?.member?.callSign ||
@@ -724,7 +743,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           <div key={patrol.id} className="item">
             <div>
               <strong>Call Sign: {getPatrolCallSign(patrol)}</strong>
-              <div>Driver: {getDisplayName(patrol)}</div>
+              <div>Driver: {getPatrolDriverName(patrol)}</div>
               <div>Crew: {getPatrolCrewSummary(patrol)}</div>
               <div>Vehicle: {getOperationalVehicleLabel(patrol)}</div>
               <div>Sector: {patrol.sector || "-"}</div>
