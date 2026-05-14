@@ -1047,10 +1047,6 @@ export default function PatrolOperationsSection({
                 <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
               </label>
               {renderLocationFields()}
-              <label>
-                Assistance
-                <input value={eventForm.assistance} onChange={(event) => updateEventForm("assistance", event.target.value)} />
-              </label>
               <button className="patrol-primary-action" type="submit" disabled={loading}>
                 {currentPatrolAction.submitLabel}
               </button>
@@ -1094,10 +1090,6 @@ export default function PatrolOperationsSection({
                     </option>
                   ))}
                 </select>
-              </label>
-              <label>
-                Reference Number
-                <input value={eventForm.referenceNumber} onChange={(event) => updateEventForm("referenceNumber", event.target.value)} />
               </label>
               <label>
                 Description
