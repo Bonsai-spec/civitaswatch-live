@@ -7,14 +7,23 @@ import {
 } from "../../core/endpoints";
 
 const ACTIVE_PATROL_STATUSES = ["ACTIVE", "NOTIFIED", "EN_ROUTE", "ON_SCENE", "STAND_DOWN", "MOBILE"];
-// Keep status changes compatible with the Control Room lifecycle:
-// NOTIFIED -> EN_ROUTE -> ON_SCENE -> STAND_DOWN -> RESUME_PATROL.
-const INCIDENT_RESPONSE_TYPES = [
-  "NOTIFIED",
-  "EN_ROUTE",
-  "ON_SCENE",
-  "STAND_DOWN",
-  "RESUME_PATROL",
+const INCIDENT_STATUS_ACTIONS = [
+  {
+    label: "En Route",
+    type: "EN_ROUTE",
+  },
+  {
+    label: "On Scene",
+    type: "ON_SCENE",
+  },
+  {
+    label: "Stand Down",
+    type: "STAND_DOWN",
+  },
+  {
+    label: "Resume Patrol",
+    type: "RESUME_PATROL",
+  },
 ];
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
@@ -185,6 +194,8 @@ export default function PatrolOperationsSection({
   const [vehicles, setVehicles] = useState([]);
   const [patrollers, setPatrollers] = useState(members || []);
   const [selectedCrewIds, setSelectedCrewIds] = useState([]);
+  const [crewPickerOpen, setCrewPickerOpen] = useState(false);
+  const [crewSearch, setCrewSearch] = useState("");
   const [startForm, setStartForm] = useState(INITIAL_START_FORM);
   const [eventForm, setEventForm] = useState(INITIAL_EVENT_FORM);
   const [endForm, setEndForm] = useState({ endKm: "", summary: "" });
@@ -215,7 +226,7 @@ export default function PatrolOperationsSection({
   const showInfrastructureForm = selectedPatrolAction === "infrastructure";
   const showEndForm = selectedPatrolAction === "end";
   const assignedIncident = (activePatrol?.incidents || []).find((incident) => incident?.id) || null;
-  const showLifecycleStatusControls = showIncidentResponseForm && Boolean(assignedIncident?.id);
+  const showIncidentStatusPanel = showIncidentResponseForm && Boolean(assignedIncident?.id);
   const displayMessage = /incident not found/i.test(message) ? "" : message;
 
   const availableCrewMembers = useMemo(() => {
@@ -229,6 +240,33 @@ export default function PatrolOperationsSection({
       return true;
     });
   }, [activePatrol, patrollers, user?.id]);
+
+  const selectedCrewMembers = useMemo(
+    () => selectedCrewIds
+      .map((id) => availableCrewMembers.find((member) => member.id === id))
+      .filter(Boolean),
+    [availableCrewMembers, selectedCrewIds]
+  );
+
+  const filteredCrewMembers = useMemo(() => {
+    const query = crewSearch.trim().toLowerCase();
+    if (!query) return [];
+
+    return availableCrewMembers.filter((member) => {
+      if (selectedCrewIds.includes(member.id)) return false;
+      const haystack = [
+        getMemberName(member),
+        member.callSign,
+        member.callsign,
+        member.user?.fullName,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [availableCrewMembers, crewSearch, selectedCrewIds]);
 
   async function loadJson(url, options = {}) {
     const res = await fetch(url, options);
@@ -387,12 +425,15 @@ export default function PatrolOperationsSection({
     }));
   }
 
-  function toggleCrewMember(memberId) {
-    setSelectedCrewIds((current) =>
-      current.includes(memberId)
-        ? current.filter((id) => id !== memberId)
-        : [...current, memberId]
-    );
+  function addCrewMember(memberId) {
+    setSelectedCrewIds((current) => (
+      current.includes(memberId) ? current : [...current, memberId]
+    ));
+    setCrewSearch("");
+  }
+
+  function removeCrewMember(memberId) {
+    setSelectedCrewIds((current) => current.filter((id) => id !== memberId));
   }
 
   function updateIncidentCodeSelection(incidentCodeId) {
@@ -440,7 +481,7 @@ export default function PatrolOperationsSection({
 
     setEventForm((current) => ({
       ...current,
-      type: action.id === "incidentResponse" && !assignedIncident?.id ? "MOBILE" : action.type,
+      type: action.id === "incidentResponse" ? "MOBILE" : action.type,
       referenceNumber: "",
       incidentCode: "",
       incidentCodeId: "",
@@ -491,6 +532,8 @@ export default function PatrolOperationsSection({
 
       setStartForm(INITIAL_START_FORM);
       setSelectedCrewIds([]);
+      setCrewPickerOpen(false);
+      setCrewSearch("");
       setMessage("Patrol started.");
       await loadPatrolOperations();
     } catch (error) {
@@ -517,11 +560,9 @@ export default function PatrolOperationsSection({
         return;
       }
 
-      const eventType = showLifecycleStatusControls
-        ? eventForm.type
-        : selectedPatrolAction === "incidentResponse"
-          ? "MOBILE"
-          : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
+      const eventType = selectedPatrolAction === "incidentResponse"
+        ? "MOBILE"
+        : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
       const referenceNumber = eventForm.referenceNumber.trim();
       const description = buildDescriptionWithLocation(eventForm);
       const assistance = selectedPatrolAction === "emergency"
@@ -534,7 +575,7 @@ export default function PatrolOperationsSection({
         body: JSON.stringify({
           patrolId: activePatrol.id,
           type: eventType,
-          incidentId: showLifecycleStatusControls ? assignedIncident.id : null,
+          incidentId: null,
           incidentCode: referenceNumber || eventForm.incidentCode || null,
           incidentCodeId: eventForm.incidentCodeId || null,
           incidentSubcodeId: eventForm.incidentSubcodeId || null,
@@ -583,6 +624,34 @@ export default function PatrolOperationsSection({
       await loadPatrolOperations();
     } catch (error) {
       setMessage(error.message || "Failed to end patrol");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function submitIncidentStatus(type) {
+    if (!activePatrol?.id || !assignedIncident?.id) return;
+
+    try {
+      setLoading(true);
+      setMessage("");
+
+      await loadJson(PATROL_ENDPOINTS.events, {
+        method: "POST",
+        headers: getJsonAuthHeaders(),
+        body: JSON.stringify({
+          patrolId: activePatrol.id,
+          incidentId: assignedIncident.id,
+          type,
+          description: `Incident status: ${type}`,
+          sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(type),
+        }),
+      });
+
+      setMessage("Incident status updated.");
+      await loadPatrolOperations();
+    } catch (error) {
+      setMessage(error.message || "Failed to update incident status");
     } finally {
       setLoading(false);
     }
@@ -691,22 +760,73 @@ export default function PatrolOperationsSection({
 
             <div className="patrol-step-card">
               <div className="patrol-step-label">Crew</div>
+              <p className="patrol-muted">
+                {selectedCrewMembers.length
+                  ? `${selectedCrewMembers.length} selected: ${selectedCrewMembers.map(getMemberName).join(", ")}`
+                  : "No crew selected. Driver-only patrol is allowed."}
+              </p>
+
+              <button
+                type="button"
+                className="patrol-refresh-btn"
+                onClick={() => setCrewPickerOpen((current) => !current)}
+                disabled={loading || availableCrewMembers.length === 0}
+              >
+                {crewPickerOpen ? "Close Crew" : "Add Crew"}
+              </button>
+
               {availableCrewMembers.length === 0 && (
                 <p className="patrol-muted">No crew register is available to this console session.</p>
               )}
-              {availableCrewMembers.map((member) => (
-                <label key={member.id} className="patrol-list-item">
-                  <span>
-                    <strong>{getMemberName(member)}</strong>
-                    <span className="patrol-muted"> {member.callSign || member.user?.email || member.email || ""}</span>
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={selectedCrewIds.includes(member.id)}
-                    onChange={() => toggleCrewMember(member.id)}
-                  />
-                </label>
-              ))}
+
+              {crewPickerOpen && (
+                <div className="patrol-field-stack">
+                  {selectedCrewMembers.length > 0 && (
+                    <div className="patrol-service-options">
+                      {selectedCrewMembers.map((member) => (
+                        <button
+                          key={member.id}
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() => removeCrewMember(member.id)}
+                          disabled={loading}
+                        >
+                          Remove {getMemberName(member)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <label>
+                    Search Crew
+                    <input
+                      value={crewSearch}
+                      onChange={(event) => setCrewSearch(event.target.value)}
+                      placeholder="Name or call sign"
+                    />
+                  </label>
+
+                  {crewSearch.trim() && filteredCrewMembers.length === 0 && (
+                    <p className="patrol-muted">No matching crew found.</p>
+                  )}
+
+                  {filteredCrewMembers.map((member) => (
+                    <button
+                      key={member.id}
+                      type="button"
+                      className="patrol-list-item"
+                      onClick={() => addCrewMember(member.id)}
+                      disabled={loading}
+                    >
+                      <span>
+                        <strong>{getMemberName(member)}</strong>
+                        <span className="patrol-muted"> {member.callSign || member.callsign || ""}</span>
+                      </span>
+                      <span className="badge">Add</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button className="patrol-primary-action" type="submit" disabled={loading}>
@@ -810,6 +930,25 @@ export default function PatrolOperationsSection({
               </div>
             </div>
 
+            {showIncidentStatusPanel && (
+              <div className="patrol-step-card">
+                <div className="patrol-step-label">Incident Status</div>
+                <div className="patrol-action-grid">
+                  {INCIDENT_STATUS_ACTIONS.map((action) => (
+                    <button
+                      key={action.type}
+                      type="button"
+                      className="patrol-action-btn"
+                      onClick={() => submitIncidentStatus(action.type)}
+                      disabled={loading}
+                    >
+                      <span>{action.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {showEmergencyForm && (
             <form id="patrol-event-form" className="patrol-step-card patrol-mobile-form" onSubmit={submitPatrolEvent}>
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
@@ -851,19 +990,6 @@ export default function PatrolOperationsSection({
             {showIncidentResponseForm && (
             <form id="patrol-event-form" className="patrol-step-card patrol-mobile-form" onSubmit={submitPatrolEvent}>
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
-              {showLifecycleStatusControls && (
-                <label>
-                  Status
-                  <select
-                    value={eventForm.type}
-                    onChange={(event) => updateEventForm("type", event.target.value)}
-                  >
-                    {INCIDENT_RESPONSE_TYPES.map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
               <label>
                 Reference Number
                 <input
