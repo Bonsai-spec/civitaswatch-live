@@ -8,26 +8,17 @@ const router = express.Router();
 
 const ADMIN_ROLES = ["ADMIN", "MASTER_ADMIN"];
 const PATROL_CREW_LOOKUP_ROLES = ["PATROL", "PATROLLER"];
-const CREW_LOOKUP_MEMBER_SELECT = {
-  id: true,
-  firstName: true,
-  surname: true,
-  callSign: true,
-  userId: true,
-  user: {
-    select: {
-      id: true,
-      fullName: true,
-    },
-  },
-};
 
 function getMemberFullName(member) {
   return [member.firstName, member.surname].filter(Boolean).join(" ").trim();
 }
 
 function isAdminRole(role) {
-  return ADMIN_ROLES.includes(role);
+  return ADMIN_ROLES.includes(String(role || "").trim().toUpperCase());
+}
+
+function isPatrolCrewLookupRole(role) {
+  return PATROL_CREW_LOOKUP_ROLES.includes(String(role || "").trim().toUpperCase());
 }
 
 function formatCrewLookupMember(member) {
@@ -41,13 +32,10 @@ function formatCrewLookupMember(member) {
     name,
     callSign: member.callSign,
     callsign: member.callSign,
+    radioCallSign: member.callSign,
+    status: member.patrolStatus,
+    sector: member.sector,
     userId: member.userId,
-    user: member.user
-      ? {
-          id: member.user.id,
-          fullName: member.user.fullName,
-        }
-      : null,
   };
 }
 
@@ -103,10 +91,28 @@ function cleanMemberPayload(body) {
 router.get(
   "/",
   requireAuth,
-  requireRole(...ADMIN_ROLES, ...PATROL_CREW_LOOKUP_ROLES),
   async (req, res) => {
     try {
-      if (!isAdminRole(req.user.role)) {
+      if (isAdminRole(req.user.role)) {
+        const members = await prisma.member.findMany({
+          include: {
+            user: {
+              select: {
+                id: true,
+                fullName: true,
+                email: true,
+                role: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: [{ sector: "asc" }, { surname: "asc" }, { firstName: "asc" }],
+        });
+
+        return res.json(members);
+      }
+
+      if (isPatrolCrewLookupRole(req.user.role)) {
         const members = await prisma.member.findMany({
           where: {
             isActive: true,
@@ -116,29 +122,22 @@ router.get(
               { patrolTraining: true },
             ],
           },
-          select: CREW_LOOKUP_MEMBER_SELECT,
+          select: {
+            id: true,
+            firstName: true,
+            surname: true,
+            sector: true,
+            patrolStatus: true,
+            callSign: true,
+            userId: true,
+          },
           orderBy: [{ patrolStatus: "asc" }, { surname: "asc" }, { firstName: "asc" }],
         });
 
         return res.json(members.map(formatCrewLookupMember));
       }
 
-      const members = await prisma.member.findMany({
-        include: {
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              email: true,
-              role: true,
-              isActive: true,
-            },
-          },
-        },
-        orderBy: [{ sector: "asc" }, { surname: "asc" }, { firstName: "asc" }],
-      });
-
-      res.json(members);
+      return res.status(403).json({ error: "Forbidden: insufficient role" });
     } catch (error) {
       console.error("Load members error:", error);
       res.status(500).json({ error: "Failed to load members" });

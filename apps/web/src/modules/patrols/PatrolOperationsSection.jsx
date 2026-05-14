@@ -192,6 +192,7 @@ export default function PatrolOperationsSection({
   const [selectedCrewIds, setSelectedCrewIds] = useState([]);
   const [crewPickerOpen, setCrewPickerOpen] = useState(false);
   const [crewSearch, setCrewSearch] = useState("");
+  const [crewLoadError, setCrewLoadError] = useState("");
   const [startForm, setStartForm] = useState(INITIAL_START_FORM);
   const [eventForm, setEventForm] = useState(INITIAL_EVENT_FORM);
   const [endForm, setEndForm] = useState({ endKm: "", summary: "" });
@@ -281,22 +282,30 @@ export default function PatrolOperationsSection({
     try {
       setLoading(true);
       setMessage("");
+      setCrewLoadError("");
 
-      const [activeJson, vehicleJson, patrollerJson] = await Promise.all([
+      const [activeJson, vehicleJson] = await Promise.all([
         loadJson(PATROL_ENDPOINTS.myActive, {
           headers: getAuthHeaders(),
         }),
         loadJson(VEHICLE_ENDPOINTS.list, {
           headers: getAuthHeaders(),
         }).catch(() => []),
-        loadJson(MEMBER_ENDPOINTS.list, {
-          headers: getAuthHeaders(),
-        }).catch(() => members || []),
       ]);
 
       const nextActivePatrols = Array.isArray(activeJson) ? activeJson : activeJson ? [activeJson] : [];
       const nextVehicles = Array.isArray(vehicleJson) ? vehicleJson : [];
-      const nextPatrollers = Array.isArray(patrollerJson) ? patrollerJson : members || [];
+      let nextPatrollers = members || [];
+
+      try {
+        const patrollerJson = await loadJson(MEMBER_ENDPOINTS.list, {
+          headers: getAuthHeaders(),
+        });
+
+        nextPatrollers = Array.isArray(patrollerJson) ? patrollerJson : [];
+      } catch (memberError) {
+        setCrewLoadError("Crew list unavailable. Contact Control Room or Admin.");
+      }
 
       setActivePatrols(nextActivePatrols);
       setVehicles(nextVehicles);
@@ -764,6 +773,7 @@ export default function PatrolOperationsSection({
                   ? `${selectedCrewMembers.length} selected: ${selectedCrewMembers.map(getMemberName).join(", ")}`
                   : "No crew selected. Driver-only patrol is allowed."}
               </p>
+              {crewLoadError && <div className="patrol-message">{crewLoadError}</div>}
 
               <button
                 type="button"
