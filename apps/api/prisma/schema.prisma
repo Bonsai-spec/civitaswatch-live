@@ -75,6 +75,7 @@ model PatrolSession {
   userId                  String
   vehicleId               String?
   checklistId             String?
+  callSign                String?
   sector                  String
   startTime               DateTime            @default(now())
   endTime                 DateTime?

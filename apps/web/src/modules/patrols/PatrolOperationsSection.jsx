@@ -30,19 +30,10 @@ const EMERGENCY_SERVICE_OPTIONS = [
 ];
 
 const INITIAL_START_FORM = {
-  vehicleMode: "REGISTERED",
   vehicleId: "",
+  callSign: "",
   sector: "Sector 1",
   startKm: "",
-  tempVehicleRegistration: "",
-  tempVehicleMake: "",
-  tempVehicleModel: "",
-  tempVehicleColour: "",
-  tempVehicleType: "",
-  tempVehicleCallSign: "",
-  tempVehicleOwnerName: "",
-  tempVehicleOwnerPhone: "",
-  tempVehicleNotes: "",
 };
 
 const INITIAL_EVENT_FORM = {
@@ -381,26 +372,20 @@ export default function PatrolOperationsSection({
       setLoading(true);
       setMessage("");
 
+      const callSign = startForm.callSign.trim();
+
+      if (!callSign) {
+        setMessage("Call Sign is required.");
+        return;
+      }
+
       const payload = {
-        vehicleMode: startForm.vehicleMode,
+        vehicleId: startForm.vehicleId,
+        callSign,
         sector: startForm.sector,
         startKm: startForm.startKm,
-        crewMemberIds: selectedCrewIds,
+        crewIds: selectedCrewIds,
       };
-
-      if (startForm.vehicleMode === "REGISTERED") {
-        payload.vehicleId = startForm.vehicleId;
-      } else {
-        payload.tempVehicleRegistration = startForm.tempVehicleRegistration;
-        payload.tempVehicleMake = startForm.tempVehicleMake;
-        payload.tempVehicleModel = startForm.tempVehicleModel;
-        payload.tempVehicleColour = startForm.tempVehicleColour;
-        payload.tempVehicleType = startForm.tempVehicleType;
-        payload.tempVehicleCallSign = startForm.tempVehicleCallSign;
-        payload.tempVehicleOwnerName = startForm.tempVehicleOwnerName;
-        payload.tempVehicleOwnerPhone = startForm.tempVehicleOwnerPhone;
-        payload.tempVehicleNotes = startForm.tempVehicleNotes;
-      }
 
       await loadJson(PATROL_ENDPOINTS.start, {
         method: "POST",
@@ -512,78 +497,30 @@ export default function PatrolOperationsSection({
               <div className="patrol-step-label">Start Patrol</div>
 
               <label>
-                Vehicle Mode
+                Registered Vehicle
                 <select
-                  value={startForm.vehicleMode}
-                  onChange={(event) => updateStartForm("vehicleMode", event.target.value)}
+                  value={startForm.vehicleId}
+                  onChange={(event) => updateStartForm("vehicleId", event.target.value)}
+                  required
                 >
-                  <option value="REGISTERED">REGISTERED</option>
-                  <option value="TEMPORARY">TEMPORARY</option>
+                  <option value="">Select vehicle</option>
+                  {vehicles.map((vehicle) => (
+                    <option key={vehicle.id} value={vehicle.id}>
+                      {vehicle.registration} {vehicle.make ? `- ${vehicle.make}` : ""}
+                    </option>
+                  ))}
                 </select>
               </label>
 
-              {startForm.vehicleMode === "REGISTERED" && (
-                <label>
-                  Registered Vehicle
-                  <select
-                    value={startForm.vehicleId}
-                    onChange={(event) => updateStartForm("vehicleId", event.target.value)}
-                    required
-                  >
-                    <option value="">Select vehicle</option>
-                    {vehicles.map((vehicle) => (
-                      <option key={vehicle.id} value={vehicle.id}>
-                        {vehicle.registration} {vehicle.make ? `- ${vehicle.make}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-
-              {startForm.vehicleMode === "TEMPORARY" && (
-                <div className="patrol-field-stack">
-                  <label>
-                    Temporary Registration
-                    <input
-                      value={startForm.tempVehicleRegistration}
-                      onChange={(event) => updateStartForm("tempVehicleRegistration", event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    Make
-                    <input value={startForm.tempVehicleMake} onChange={(event) => updateStartForm("tempVehicleMake", event.target.value)} />
-                  </label>
-                  <label>
-                    Model
-                    <input value={startForm.tempVehicleModel} onChange={(event) => updateStartForm("tempVehicleModel", event.target.value)} />
-                  </label>
-                  <label>
-                    Colour
-                    <input value={startForm.tempVehicleColour} onChange={(event) => updateStartForm("tempVehicleColour", event.target.value)} />
-                  </label>
-                  <label>
-                    Type
-                    <input value={startForm.tempVehicleType} onChange={(event) => updateStartForm("tempVehicleType", event.target.value)} />
-                  </label>
-                  <label>
-                    Call Sign
-                    <input value={startForm.tempVehicleCallSign} onChange={(event) => updateStartForm("tempVehicleCallSign", event.target.value)} />
-                  </label>
-                  <label>
-                    Owner Name
-                    <input value={startForm.tempVehicleOwnerName} onChange={(event) => updateStartForm("tempVehicleOwnerName", event.target.value)} />
-                  </label>
-                  <label>
-                    Owner Phone
-                    <input value={startForm.tempVehicleOwnerPhone} onChange={(event) => updateStartForm("tempVehicleOwnerPhone", event.target.value)} />
-                  </label>
-                  <label>
-                    Temporary Vehicle Notes
-                    <textarea value={startForm.tempVehicleNotes} onChange={(event) => updateStartForm("tempVehicleNotes", event.target.value)} />
-                  </label>
-                </div>
-              )}
+              <label>
+                Call Sign
+                <input
+                  type="text"
+                  value={startForm.callSign}
+                  onChange={(event) => updateStartForm("callSign", event.target.value)}
+                  required
+                />
+              </label>
 
               <label>
                 Sector
@@ -637,6 +574,10 @@ export default function PatrolOperationsSection({
               </div>
               <div className="patrol-status-title">{getVehicleLabel(activePatrol)}</div>
               <div className="patrol-facts">
+                <div>
+                  <span>Call Sign</span>
+                  <strong>{activePatrol.callSign || "-"}</strong>
+                </div>
                 <div>
                   <span>Sector</span>
                   <strong>{activePatrol.sector || "-"}</strong>

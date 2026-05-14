@@ -93,6 +93,7 @@ function addVehicleLabel(patrol) {
 
   return {
     ...patrol,
+    driver: patrol.driver || patrol.user || null,
     vehicleLabel:
       patrol.vehicle?.registration ||
       getTemporaryVehicleLabel(patrol) ||
@@ -276,8 +277,10 @@ router.post("/start", requireAuth, async (req, res) => {
     const {
       vehicleId,
       vehicleMode,
+      callSign,
       sector,
       startKm,
+      crewIds,
       crewMemberIds,
       tempVehicleRegistration,
       tempVehicleMake,
@@ -292,7 +295,14 @@ router.post("/start", requireAuth, async (req, res) => {
 
     const mode = normalizeVehicleMode(vehicleMode);
     const cleanVehicleId = cleanText(vehicleId);
+    const cleanCallSign = cleanText(callSign);
     const cleanTempVehicleRegistration = cleanText(tempVehicleRegistration);
+
+    if (!cleanCallSign) {
+      return res.status(400).json({
+        error: "callSign required",
+      });
+    }
 
     if (!sector || startKm === undefined) {
       return res.status(400).json({
@@ -349,6 +359,7 @@ router.post("/start", requireAuth, async (req, res) => {
         data: {
           userId: user.id,
           vehicleId: mode === "REGISTERED" ? cleanVehicleId : null,
+          callSign: cleanCallSign,
           sector,
           startKm: start,
           status: "ACTIVE",
@@ -376,7 +387,7 @@ router.post("/start", requireAuth, async (req, res) => {
         tx,
         patrolId: created.id,
         driverUserId: user.id,
-        crewMemberIds,
+        crewMemberIds: crewIds || crewMemberIds,
       });
 
       if (crewRows.length) {
