@@ -531,6 +531,8 @@ router.patch("/:id/resolve", requireAuth, async (req, res) => {
             incidentId: updated.id,
             type: "STAND_DOWN",
             incidentCode: updated.incidentCode,
+            incidentCodeId: updated.incidentCodeId,
+            incidentSubcodeId: updated.incidentSubcodeId,
             description: `Incident resolved: ${updated.title}`,
             sceneActive: false,
           },
