@@ -38,13 +38,19 @@ const INITIAL_START_FORM = {
 
 const INITIAL_EVENT_FORM = {
   type: "MOBILE",
-  incidentId: "",
+  referenceNumber: "",
   incidentCode: "",
   incidentCodeId: "",
   incidentSubcodeId: "",
   incidentType: "",
   description: "",
   assistance: "",
+  streetNumber: "",
+  streetName: "",
+  suburb: "",
+  locationNotes: "",
+  latitude: "",
+  longitude: "",
 };
 
 const PATROL_ACTIONS = {
@@ -58,7 +64,7 @@ const PATROL_ACTIONS = {
     type: "NOTIFIED",
     description: "",
     formTitle: "Incident Response",
-    submitLabel: "Submit Status",
+    submitLabel: "Submit Incident Response",
   },
   observation: {
     type: "MOBILE",
@@ -147,8 +153,26 @@ function getVehicleLabel(patrol) {
   );
 }
 
-function getEventNeedsIncident(type) {
-  return ["NOTIFIED", "EN_ROUTE", "ON_SCENE", "STAND_DOWN"].includes(type);
+function buildLocationLines(form) {
+  const street = [form.streetNumber, form.streetName].filter(Boolean).join(" ");
+
+  return [
+    street ? `Street: ${street}` : null,
+    form.suburb ? `Suburb: ${form.suburb}` : null,
+    form.locationNotes ? `Location Notes: ${form.locationNotes}` : null,
+    form.latitude ? `Latitude: ${form.latitude}` : null,
+    form.longitude ? `Longitude: ${form.longitude}` : null,
+  ].filter(Boolean);
+}
+
+function buildDescriptionWithLocation(form) {
+  const locationLines = buildLocationLines(form);
+  const description = form.description || "";
+
+  if (!locationLines.length) return description;
+
+  // TODO: Persist location fields as structured PatrolEvent metadata when the API supports it.
+  return [description, `Location: ${locationLines.join("; ")}`].filter(Boolean).join("\n\n");
 }
 
 export default function PatrolOperationsSection({
@@ -186,7 +210,8 @@ export default function PatrolOperationsSection({
   const showObservationForm = selectedPatrolAction === "observation";
   const showInfrastructureForm = selectedPatrolAction === "infrastructure";
   const showEndForm = selectedPatrolAction === "end";
-  const showReferenceNumber = getEventNeedsIncident(eventForm.type);
+  const assignedIncident = (activePatrol?.incidents || []).find((incident) => incident?.id) || null;
+  const showLifecycleStatusControls = showIncidentResponseForm && Boolean(assignedIncident?.id);
   const displayMessage = /incident not found/i.test(message) ? "" : message;
 
   const availableCrewMembers = useMemo(() => {
@@ -353,8 +378,8 @@ export default function PatrolOperationsSection({
 
     setEventForm((current) => ({
       ...current,
-      type: action.type,
-      incidentId: action.id === "incidentResponse" ? current.incidentId : "",
+      type: action.id === "incidentResponse" && !assignedIncident?.id ? "MOBILE" : action.type,
+      referenceNumber: "",
       incidentCode: "",
       incidentCodeId: "",
       incidentSubcodeId: "",
@@ -413,25 +438,41 @@ export default function PatrolOperationsSection({
       setLoading(true);
       setMessage("");
 
+      const needsLocation = ["emergency", "incidentResponse", "observation", "infrastructure"].includes(selectedPatrolAction);
+      const hasLocationAnchor = Boolean(eventForm.streetName.trim() || eventForm.locationNotes.trim());
+
+      if (needsLocation && !hasLocationAnchor) {
+        setMessage("Street Name or Landmark / Location Notes is required.");
+        return;
+      }
+
+      const eventType = showLifecycleStatusControls
+        ? eventForm.type
+        : selectedPatrolAction === "incidentResponse"
+          ? "MOBILE"
+          : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
+      const referenceNumber = eventForm.referenceNumber.trim();
+      const description = buildDescriptionWithLocation(eventForm);
+
       await loadJson(PATROL_ENDPOINTS.events, {
         method: "POST",
         headers: getJsonAuthHeaders(),
         body: JSON.stringify({
           patrolId: activePatrol.id,
-          type: eventForm.type,
-          incidentId: selectedPatrolAction === "incidentResponse" ? eventForm.incidentId || null : null,
-          incidentCode: eventForm.incidentCode || null,
+          type: eventType,
+          incidentId: showLifecycleStatusControls ? assignedIncident.id : null,
+          incidentCode: referenceNumber || eventForm.incidentCode || null,
           incidentCodeId: eventForm.incidentCodeId || null,
           incidentSubcodeId: eventForm.incidentSubcodeId || null,
           incidentType: eventForm.incidentType || eventForm.incidentCode || null,
-          description: eventForm.description || eventForm.type,
+          description: description || eventType,
           // Emergency Assistance must write to PatrolEvent.assistance, the same
           // source Control Room reads for its assistance queue.
           assistance:
             selectedPatrolAction === "emergency"
               ? emergencyServices.join(", ") || "Emergency Assistance"
               : eventForm.assistance || null,
-          sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(eventForm.type),
+          sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(eventType),
         }),
       });
 
@@ -474,6 +515,44 @@ export default function PatrolOperationsSection({
     } finally {
       setLoading(false);
     }
+  }
+
+  function updateEventForm(field, value) {
+    setEventForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  function renderLocationFields() {
+    return (
+      <>
+        <label>
+          Street Number
+          <input value={eventForm.streetNumber} onChange={(event) => updateEventForm("streetNumber", event.target.value)} />
+        </label>
+        <label>
+          Street Name
+          <input value={eventForm.streetName} onChange={(event) => updateEventForm("streetName", event.target.value)} />
+        </label>
+        <label>
+          Suburb
+          <input value={eventForm.suburb} onChange={(event) => updateEventForm("suburb", event.target.value)} />
+        </label>
+        <label>
+          Landmark / Location Notes
+          <textarea value={eventForm.locationNotes} onChange={(event) => updateEventForm("locationNotes", event.target.value)} />
+        </label>
+        <label>
+          Latitude
+          <input inputMode="decimal" value={eventForm.latitude} onChange={(event) => updateEventForm("latitude", event.target.value)} />
+        </label>
+        <label>
+          Longitude
+          <input inputMode="decimal" value={eventForm.longitude} onChange={(event) => updateEventForm("longitude", event.target.value)} />
+        </label>
+      </>
+    );
   }
 
   return (
@@ -678,12 +757,13 @@ export default function PatrolOperationsSection({
               </div>
               <label>
                 Description
-                <textarea value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} />
+                <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
               </label>
               <label>
                 Reference Number
-                <input value={eventForm.incidentCode} onChange={(event) => setEventForm({ ...eventForm, incidentCode: event.target.value })} />
+                <input value={eventForm.referenceNumber} onChange={(event) => updateEventForm("referenceNumber", event.target.value)} />
               </label>
+              {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
                 {currentPatrolAction.submitLabel}
               </button>
@@ -693,28 +773,27 @@ export default function PatrolOperationsSection({
             {showIncidentResponseForm && (
             <form id="patrol-event-form" className="patrol-step-card patrol-mobile-form" onSubmit={submitPatrolEvent}>
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
-              <label>
-                Status
-                <select
-                  value={eventForm.type}
-                  onChange={(event) => setEventForm({ ...eventForm, type: event.target.value })}
-                >
-                  {INCIDENT_RESPONSE_TYPES.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </label>
-
-              {showReferenceNumber && (
+              {showLifecycleStatusControls && (
                 <label>
-                  Reference Number
-                  <input
-                    value={eventForm.incidentId}
-                    onChange={(event) => setEventForm({ ...eventForm, incidentId: event.target.value })}
-                    required
-                  />
+                  Status
+                  <select
+                    value={eventForm.type}
+                    onChange={(event) => updateEventForm("type", event.target.value)}
+                  >
+                    {INCIDENT_RESPONSE_TYPES.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
                 </label>
               )}
+              <label>
+                Reference Number
+                <input
+                  value={eventForm.referenceNumber}
+                  onChange={(event) => updateEventForm("referenceNumber", event.target.value)}
+                />
+                <span className="patrol-muted">SAPS, EMS, Control Room, or internal reference if available.</span>
+              </label>
 
               {incidentCodesLoading && (
                 <p className="patrol-muted">Loading incident codes...</p>
@@ -742,7 +821,7 @@ export default function PatrolOperationsSection({
                 <select
                   value={eventForm.incidentSubcodeId}
                   onChange={(event) =>
-                    setEventForm({ ...eventForm, incidentSubcodeId: event.target.value })
+                    updateEventForm("incidentSubcodeId", event.target.value)
                   }
                   disabled={!eventForm.incidentCodeId || incidentSubcodesLoading}
                 >
@@ -761,11 +840,12 @@ export default function PatrolOperationsSection({
               )}
               <label>
                 Description
-                <textarea value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} />
+                <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
               </label>
+              {renderLocationFields()}
               <label>
                 Assistance
-                <input value={eventForm.assistance} onChange={(event) => setEventForm({ ...eventForm, assistance: event.target.value })} />
+                <input value={eventForm.assistance} onChange={(event) => updateEventForm("assistance", event.target.value)} />
               </label>
               <button className="patrol-primary-action" type="submit" disabled={loading}>
                 {currentPatrolAction.submitLabel}
@@ -778,8 +858,9 @@ export default function PatrolOperationsSection({
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
               <label>
                 Description
-                <textarea value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} />
+                <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
               </label>
+              {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
                 {currentPatrolAction.submitLabel}
               </button>
@@ -791,12 +872,13 @@ export default function PatrolOperationsSection({
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
               <label>
                 Reference Number
-                <input value={eventForm.incidentCode} onChange={(event) => setEventForm({ ...eventForm, incidentCode: event.target.value })} />
+                <input value={eventForm.referenceNumber} onChange={(event) => updateEventForm("referenceNumber", event.target.value)} />
               </label>
               <label>
                 Description
-                <textarea value={eventForm.description} onChange={(event) => setEventForm({ ...eventForm, description: event.target.value })} />
+                <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
               </label>
+              {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
                 {currentPatrolAction.submitLabel}
               </button>
