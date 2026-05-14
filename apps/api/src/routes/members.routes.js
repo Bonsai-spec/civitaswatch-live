@@ -8,6 +8,19 @@ const router = express.Router();
 
 const ADMIN_ROLES = ["ADMIN", "MASTER_ADMIN"];
 const PATROL_CREW_LOOKUP_ROLES = ["PATROL", "PATROLLER"];
+const CREW_LOOKUP_MEMBER_SELECT = {
+  id: true,
+  firstName: true,
+  surname: true,
+  callSign: true,
+  userId: true,
+  user: {
+    select: {
+      id: true,
+      fullName: true,
+    },
+  },
+};
 
 function getMemberFullName(member) {
   return [member.firstName, member.surname].filter(Boolean).join(" ").trim();
@@ -29,15 +42,10 @@ function formatCrewLookupMember(member) {
     callSign: member.callSign,
     callsign: member.callSign,
     userId: member.userId,
-    patrolStatus: member.patrolStatus,
-    patrolApproved: member.patrolApproved,
-    isActive: member.isActive,
     user: member.user
       ? {
           id: member.user.id,
           fullName: member.user.fullName,
-          role: member.user.role,
-          isActive: member.user.isActive,
         }
       : null,
   };
@@ -108,24 +116,7 @@ router.get(
               { patrolTraining: true },
             ],
           },
-          select: {
-            id: true,
-            firstName: true,
-            surname: true,
-            callSign: true,
-            userId: true,
-            patrolStatus: true,
-            patrolApproved: true,
-            isActive: true,
-            user: {
-              select: {
-                id: true,
-                fullName: true,
-                role: true,
-                isActive: true,
-              },
-            },
-          },
+          select: CREW_LOOKUP_MEMBER_SELECT,
           orderBy: [{ patrolStatus: "asc" }, { surname: "asc" }, { firstName: "asc" }],
         });
 
