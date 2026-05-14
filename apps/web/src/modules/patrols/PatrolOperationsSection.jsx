@@ -171,11 +171,7 @@ function buildLocationLines(form) {
 
 function buildDescriptionWithLocation(form) {
   const locationLines = buildLocationLines(form);
-  const descriptionLines = [
-    form.infrastructureType ? `Infrastructure Type: ${form.infrastructureType}` : null,
-    form.description || null,
-  ].filter(Boolean);
-  const description = descriptionLines.join("\n\n");
+  const description = form.description || "";
 
   if (!locationLines.length) return description;
 
@@ -576,14 +572,17 @@ export default function PatrolOperationsSection({
           patrolId: activePatrol.id,
           type: eventType,
           incidentId: null,
-          incidentCode: referenceNumber || eventForm.incidentCode || null,
+          referenceNumber: referenceNumber || null,
+          serviceTypeId: eventForm.serviceTypeId || null,
           incidentCodeId: eventForm.incidentCodeId || null,
           incidentSubcodeId: eventForm.incidentSubcodeId || null,
+          infrastructureTypeId: eventForm.infrastructureTypeId || null,
+          incidentCode: eventForm.incidentCode || null,
           incidentType: eventForm.incidentType || eventForm.incidentCode || null,
           description: description || eventType,
           // Emergency Assistance must write to PatrolEvent.assistance, the same
           // source Control Room reads for its assistance queue.
-          // TODO: Persist Service Type and Infrastructure Type IDs when PatrolEvent supports structured refs.
+          // TODO: Persist referenceNumber, serviceTypeId, and infrastructureTypeId when the API supports them.
           assistance,
           sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(eventType),
         }),
