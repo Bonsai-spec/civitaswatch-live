@@ -38,6 +38,14 @@ const PATROL_STATUS_ACTIONS = [
     label: "On Scene",
     type: "ON_SCENE",
   },
+  {
+    label: "Stand Down",
+    type: "STAND_DOWN",
+  },
+  {
+    label: "Resume Patrol",
+    type: "MOBILE",
+  },
 ];
 
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
@@ -657,7 +665,7 @@ export default function PatrolOperationsSection({
           incidentId: null,
           type,
           description: `Patrol status: ${selectedStatus?.label || type}`,
-          sceneActive: type === "ON_SCENE",
+          sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(type),
         }),
       });
 

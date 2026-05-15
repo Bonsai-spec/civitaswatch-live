@@ -80,6 +80,7 @@ export default function IncidentsSection({
   showIncidentList = true,
   showSelectedIncidentServices = true,
   assistancePanelClassName = "panel",
+  onResolveAssistanceRequest,
 }) {
   const assistanceRequests = data.assistanceRequests || [];
   const showAssistanceRequests =
@@ -129,6 +130,16 @@ export default function IncidentsSection({
               </div>
 
               <span className="badge">{formatSubmittedTime(request.createdAt)}</span>
+              {onResolveAssistanceRequest && (
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={() => onResolveAssistanceRequest(request)}
+                  disabled={loading}
+                >
+                  Resolve
+                </button>
+              )}
             </div>
           ))}
         </div>

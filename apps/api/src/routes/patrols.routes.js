@@ -599,7 +599,7 @@ router.get("/report/all", requireAuth, async (req, res) => {
       orderBy: {
         startTime: "desc",
       },
-      include: PATROL_INCLUDE,
+      include: PATROL_DETAIL_INCLUDE,
     });
 
     res.json(addVehicleLabels(reports));

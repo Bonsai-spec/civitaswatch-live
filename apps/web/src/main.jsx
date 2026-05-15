@@ -11,6 +11,7 @@ import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
 } from "./core/http.utils";
+import { PATROL_ENDPOINTS } from "./core/endpoints";
 import { useAdminData } from "./hooks/useAdminData";
 import { useAuth } from "./hooks/useAuth";
 import { useIncidents } from "./hooks/useIncidents";
@@ -633,6 +634,36 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
     }
   }
 
+  async function resolveAssistanceRequest(request) {
+    if (!request?.id) return;
+
+    try {
+      setControlRoomRefreshing(true);
+      const res = await fetch(`${PATROL_ENDPOINTS.assistanceRequests}/${request.id}/resolve`, {
+        method: "POST",
+        headers: getJsonAuthHeaders(),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(json.error || "Failed to resolve assistance request");
+        return;
+      }
+
+      await loadDashboard();
+      await loadWorkload();
+
+      if (canUseControlRoomReports) {
+        await loadPatrolReports();
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to resolve assistance request");
+    } finally {
+      setControlRoomRefreshing(false);
+    }
+  }
+
   function renderIncidentsSection(options = {}, sectionChildren = null) {
     const sectionData = isControlRoomUser ? controlRoomData : data;
     const sectionSelectedIncident = isControlRoomUser
@@ -692,6 +723,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         onArchiveIncident={archiveIncident}
         onDeleteIncident={deleteIncident}
         onSelectIncident={setSelectedIncident}
+        onResolveAssistanceRequest={isControlRoomUser ? resolveAssistanceRequest : undefined}
         {...options}
       >
         {sectionChildren}

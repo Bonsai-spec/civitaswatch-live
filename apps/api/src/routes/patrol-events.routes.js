@@ -143,7 +143,7 @@ router.post(
         }
       }
 
-      if (["NOTIFIED", "STAND_DOWN"].includes(cleanType) && !linkedIncident) {
+      if (cleanType === "NOTIFIED" && !linkedIncident) {
         return res.status(400).json({
           error: `${cleanType} requires incidentId`,
         });
@@ -308,6 +308,9 @@ router.get(
                 not: "",
               },
             },
+            {
+              sceneActive: true,
+            },
           ],
         },
         include: {
@@ -372,6 +375,85 @@ router.get(
       console.error("GET /patrol-events/assistance/requests failed:", error);
       return res.status(500).json({
         error: "Failed to fetch assistance requests",
+      });
+    }
+  }
+);
+
+router.post(
+  "/assistance/requests/:id/resolve",
+  requireAuth,
+  requireRole("CONTROL_ROOM", "ADMIN", "MASTER_ADMIN"),
+  async (req, res) => {
+    try {
+      const event = await prisma.patrolEvent.findUnique({
+        where: {
+          id: req.params.id,
+        },
+        select: {
+          id: true,
+          assistance: true,
+        },
+      });
+
+      if (!event || !event.assistance) {
+        return res.status(404).json({
+          error: "Assistance request not found",
+        });
+      }
+
+      const updatedEvent = await prisma.patrolEvent.update({
+        where: {
+          id: req.params.id,
+        },
+        data: {
+          sceneActive: false,
+        },
+        include: {
+          incident: {
+            include: incidentClassificationInclude,
+          },
+          ...incidentClassificationInclude,
+          patrol: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  email: true,
+                },
+              },
+              vehicle: {
+                select: {
+                  id: true,
+                  registration: true,
+                  make: true,
+                  colour: true,
+                  type: true,
+                },
+              },
+              crew: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      fullName: true,
+                      email: true,
+                    },
+                  },
+                  member: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return res.json(updatedEvent);
+    } catch (error) {
+      console.error("POST /patrol-events/assistance/requests/:id/resolve failed:", error);
+      return res.status(500).json({
+        error: "Failed to resolve assistance request",
       });
     }
   }
