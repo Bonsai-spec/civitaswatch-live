@@ -143,10 +143,7 @@ router.post(
         }
       }
 
-      if (
-        ["NOTIFIED", "STAND_DOWN", "EN_ROUTE", "ON_SCENE"].includes(cleanType) &&
-        !linkedIncident
-      ) {
+      if (["NOTIFIED", "STAND_DOWN"].includes(cleanType) && !linkedIncident) {
         return res.status(400).json({
           error: `${cleanType} requires incidentId`,
         });
