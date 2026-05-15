@@ -23,6 +23,19 @@ const router = express.Router();
 const VALID_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "ARCHIVED"];
 const VALID_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
+const incidentCodeSelect = {
+  id: true,
+  code: true,
+  name: true,
+  priority: true,
+};
+
+const incidentSubcodeSelect = {
+  id: true,
+  subcode: true,
+  name: true,
+};
+
 const patrolInclude = {
   user: {
     select: {
@@ -57,19 +70,30 @@ const patrolInclude = {
       joinedAt: "asc",
     },
   },
-};
-
-const incidentCodeSelect = {
-  id: true,
-  code: true,
-  name: true,
-  priority: true,
-};
-
-const incidentSubcodeSelect = {
-  id: true,
-  subcode: true,
-  name: true,
+  patrolEvents: {
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 5,
+    include: {
+      incident: {
+        select: {
+          id: true,
+          incidentCode: true,
+          incidentCodeId: true,
+          incidentSubcodeId: true,
+          title: true,
+          status: true,
+        },
+      },
+      incidentCodeRef: {
+        select: incidentCodeSelect,
+      },
+      incidentSubcodeRef: {
+        select: incidentSubcodeSelect,
+      },
+    },
+  },
 };
 
 const incidentInclude = {

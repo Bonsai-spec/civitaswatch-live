@@ -311,6 +311,53 @@ function getPatrolStatusLabel(patrol) {
   return status || "ON_PATROL";
 }
 
+function getLatestPatrolOperationalEvent(patrol) {
+  const events = getPatrolTimelineEvents(patrol)
+    .slice()
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+  return events.find((event) => !/^Patrol status:/i.test(event?.description || "")) || events[0] || null;
+}
+
+function getPatrolEventTitle(event) {
+  if (!event) return "No patrol events logged";
+  if (event.assistance) return "Assistance Request";
+  if (event.type === "INFRASTRUCTURE") return "Infrastructure";
+  if (event.incidentCode || event.incidentCodeId || event.incidentCodeRef) return "Incident Response";
+  if (event.type === "MOBILE") return "Observation";
+  return event.type || "Patrol Event";
+}
+
+function getPatrolEventDescriptionSummary(event) {
+  const description = String(event?.description || "").trim();
+  if (!description) return "";
+
+  return description
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .find((line) => !/^Location:/i.test(line)) || "";
+}
+
+function getPatrolEventLocationSummary(event) {
+  const description = String(event?.description || "");
+  const locationLine = description
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => /^Location:/i.test(line));
+
+  return locationLine ? locationLine.replace(/^Location:\s*/i, "") : "";
+}
+
+function getPatrolEventClassificationSummary(event) {
+  const parts = [
+    event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode,
+    event?.incidentSubcodeRef?.subcode || event?.incident?.incidentSubcodeRef?.subcode,
+  ].filter(Boolean);
+
+  return parts.join(" / ");
+}
+
 function getLatestActivityItems({ assistanceRequests, activePatrols, incidents }) {
   return [
     ...assistanceRequests.map((request) => ({
@@ -766,25 +813,42 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
   function renderPatrolWorkloadPanel() {
     return (
-      <div className="panel">
+      <div className="panel active-patrols-panel">
         <h2>Active Patrols</h2>
 
         {activePatrols.length === 0 && <p>No active patrols to show yet.</p>}
 
-        {activePatrols.map((patrol) => (
-          <div key={patrol.id} className="item">
-            <div>
-              <strong>Call Sign: {getPatrolCallSign(patrol)}</strong>
-              <div>Driver: {getPatrolDriverName(patrol)}</div>
-              <div>Crew: {getPatrolCrewSummary(patrol)}</div>
-              <div>Vehicle: {getOperationalVehicleLabel(patrol)}</div>
-              <div>Sector: {patrol.sector || "-"}</div>
-              <div>Patrol Status: {getPatrolStatusLabel(patrol)}</div>
-              <div>Last update: {formatOperationalTime(patrol.updatedAt || patrol.startTime || patrol.createdAt)}</div>
+        {activePatrols.map((patrol) => {
+          const latestEvent = getLatestPatrolOperationalEvent(patrol);
+          const classification = getPatrolEventClassificationSummary(latestEvent);
+          const description = getPatrolEventDescriptionSummary(latestEvent);
+          const location = getPatrolEventLocationSummary(latestEvent);
+
+          return (
+            <div key={patrol.id} className="item">
+              <div>
+                <strong>Call Sign: {getPatrolCallSign(patrol)}</strong>
+                <div>Driver: {getPatrolDriverName(patrol)}</div>
+                <div>Crew: {getPatrolCrewSummary(patrol)}</div>
+                <div>Vehicle: {getOperationalVehicleLabel(patrol)}</div>
+                <div>Sector: {patrol.sector || "-"}</div>
+                <div>Patrol Status: {getPatrolStatusLabel(patrol)}</div>
+                <div>Last update: {formatOperationalTime(patrol.updatedAt || patrol.startTime || patrol.createdAt)}</div>
+                {latestEvent && (
+                  <div className="patrol-latest-event">
+                    <div><strong>Latest Event:</strong> {getPatrolEventTitle(latestEvent)}</div>
+                    {classification && <div>Code/Subcode: {classification}</div>}
+                    {description && <div>Description: {description}</div>}
+                    {location && <div>Location: {location}</div>}
+                    {latestEvent.referenceNumber && <div>Reference number: {latestEvent.referenceNumber}</div>}
+                    <div>Event time: {formatOperationalTime(latestEvent.createdAt)}</div>
+                  </div>
+                )}
+              </div>
+              <span className="badge">{getPatrolStatusLabel(patrol)}</span>
             </div>
-            <span className="badge">{getPatrolStatusLabel(patrol)}</span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   }
@@ -918,6 +982,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           </div>
 
           <div className="control-room-overview-grid">
+            {canViewPatrols && renderPatrolWorkloadPanel()}
             {renderIncidentsSection(
               {
                 showStatusFilter: false,
@@ -928,8 +993,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                 assistancePanelClassName: "panel assistance-queue-panel",
               }
             )}
-            {canViewPatrols && renderPatrolWorkloadPanel()}
-            {renderPatrolReportsOverviewPanel()}
             {renderLatestActivityPanel()}
           </div>
         </>
