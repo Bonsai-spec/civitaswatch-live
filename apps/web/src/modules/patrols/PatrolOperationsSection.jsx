@@ -25,6 +25,21 @@ const INCIDENT_STATUS_ACTIONS = [
     type: "RESUME_PATROL",
   },
 ];
+const PATROL_STATUS_ACTIONS = [
+  {
+    label: "Started Patrol",
+    type: "RESUME_PATROL",
+  },
+  {
+    label: "En Route",
+    type: "EN_ROUTE",
+  },
+  {
+    label: "On Scene",
+    type: "ON_SCENE",
+  },
+];
+
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
@@ -247,10 +262,11 @@ export default function PatrolOperationsSection({
 
   const filteredCrewMembers = useMemo(() => {
     const query = crewSearch.trim().toLowerCase();
-    if (!query) return [];
+    const selectableMembers = availableCrewMembers.filter((member) => !selectedCrewIds.includes(member.id));
 
-    return availableCrewMembers.filter((member) => {
-      if (selectedCrewIds.includes(member.id)) return false;
+    if (!query) return selectableMembers.slice(0, 25);
+
+    return selectableMembers.filter((member) => {
       const haystack = [
         getMemberName(member),
         member.callSign,
@@ -301,10 +317,23 @@ export default function PatrolOperationsSection({
         const patrollerJson = await loadJson(MEMBER_ENDPOINTS.list, {
           headers: getAuthHeaders(),
         });
+        const loadedPatrollers = Array.isArray(patrollerJson) ? patrollerJson : [];
 
-        nextPatrollers = Array.isArray(patrollerJson) ? patrollerJson : [];
+        // Keep the parent dashboard/register data as a fallback if the crew lookup
+        // endpoint returns an empty list for this role/session. This prevents the
+        // mobile crew picker from disappearing when Admin has eligible members.
+        nextPatrollers = loadedPatrollers.length ? loadedPatrollers : members || [];
+
+        if (!loadedPatrollers.length && (members || []).length) {
+          setCrewLoadError("Crew lookup returned no members. Showing available register members from the current session.");
+        }
       } catch (memberError) {
-        setCrewLoadError("Crew list unavailable. Contact Control Room or Admin.");
+        nextPatrollers = members || [];
+        setCrewLoadError(
+          (members || []).length
+            ? "Crew lookup unavailable. Showing available register members from the current session."
+            : "Crew list unavailable. Contact Control Room or Admin."
+        );
       }
 
       setActivePatrols(nextActivePatrols);
@@ -609,6 +638,36 @@ export default function PatrolOperationsSection({
     }
   }
 
+  async function submitPatrolStatus(type) {
+    if (!activePatrol?.id) return;
+
+    const selectedStatus = PATROL_STATUS_ACTIONS.find((action) => action.type === type);
+
+    try {
+      setLoading(true);
+      setMessage("");
+
+      await loadJson(PATROL_ENDPOINTS.events, {
+        method: "POST",
+        headers: getJsonAuthHeaders(),
+        body: JSON.stringify({
+          patrolId: activePatrol.id,
+          incidentId: null,
+          type,
+          description: `Patrol status: ${selectedStatus?.label || type}`,
+          sceneActive: type === "ON_SCENE",
+        }),
+      });
+
+      setMessage("Patrol status updated.");
+      await loadPatrolOperations();
+    } catch (error) {
+      setMessage(error.message || "Failed to update patrol status");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function endPatrol(event) {
     event.preventDefault();
 
@@ -779,13 +838,13 @@ export default function PatrolOperationsSection({
                 type="button"
                 className="patrol-refresh-btn"
                 onClick={() => setCrewPickerOpen((current) => !current)}
-                disabled={loading || availableCrewMembers.length === 0}
+                disabled={loading}
               >
                 {crewPickerOpen ? "Close Crew" : "Add Crew"}
               </button>
 
               {availableCrewMembers.length === 0 && (
-                <p className="patrol-muted">No crew register is available to this console session.</p>
+                <p className="patrol-muted">No eligible crew members are loaded yet. Open Add Crew or press Refresh to retry.</p>
               )}
 
               {crewPickerOpen && (
@@ -815,8 +874,12 @@ export default function PatrolOperationsSection({
                     />
                   </label>
 
-                  {crewSearch.trim() && filteredCrewMembers.length === 0 && (
-                    <p className="patrol-muted">No matching crew found.</p>
+                  {filteredCrewMembers.length === 0 && (
+                    <p className="patrol-muted">
+                      {crewSearch.trim()
+                        ? "No matching crew found."
+                        : "No eligible crew members are available from the crew register for this session."}
+                    </p>
                   )}
 
                   {filteredCrewMembers.map((member) => (
@@ -925,6 +988,27 @@ export default function PatrolOperationsSection({
                   <span className="patrol-action-icon">{ACTION_ICONS.infrastructure}</span>
                   <span>Infrastructure</span>
                 </button>
+                <label className="patrol-action-btn patrol-action-status">
+                  <span className="patrol-action-icon">▾</span>
+                  <span>Status</span>
+                  <select
+                    value=""
+                    onChange={(event) => {
+                      const nextStatus = event.target.value;
+                      if (nextStatus) submitPatrolStatus(nextStatus);
+                    }}
+                    disabled={loading || !isDriver}
+                    title={isDriver ? "Update patrol status" : "Driver-only control"}
+                    aria-label="Update patrol status"
+                  >
+                    <option value="">Select status</option>
+                    {PATROL_STATUS_ACTIONS.map((action) => (
+                      <option key={action.type} value={action.type}>
+                        {action.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
                   className={`patrol-action-btn patrol-action-end ${selectedPatrolAction === "end" ? "active" : ""}`}
