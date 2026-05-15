@@ -76,6 +76,68 @@ function normalizeIdList(value) {
   );
 }
 
+function normalizeCrewCallSigns(value) {
+  const rawValues = Array.isArray(value)
+    ? value
+    : String(value || "").split(/[,\s]+/);
+
+  const seen = new Set();
+  const callSigns = [];
+
+  rawValues.forEach((item) => {
+    const callSign = cleanText(item);
+    const key = callSign?.toUpperCase();
+
+    if (!callSign || seen.has(key)) return;
+
+    seen.add(key);
+    callSigns.push(callSign);
+  });
+
+  return callSigns;
+}
+
+async function resolveCrewCallSignMemberIds({ tx, crewCallSigns }) {
+  const callSigns = normalizeCrewCallSigns(crewCallSigns);
+
+  if (!callSigns.length) {
+    return {
+      memberIds: [],
+      unresolvedCallSigns: [],
+    };
+  }
+
+  const members = await tx.member.findMany({
+    where: {
+      isActive: true,
+      OR: callSigns.map((callSign) => ({
+        callSign: {
+          equals: callSign,
+          mode: "insensitive",
+        },
+      })),
+    },
+    select: {
+      id: true,
+      callSign: true,
+    },
+  });
+  const membersByCallSign = new Map(
+    members
+      .filter((member) => member.callSign)
+      .map((member) => [member.callSign.toUpperCase(), member])
+  );
+  const unresolvedCallSigns = callSigns.filter((callSign) => !membersByCallSign.has(callSign.toUpperCase()));
+  const memberIds = callSigns
+    .map((callSign) => membersByCallSign.get(callSign.toUpperCase())?.id)
+    .filter(Boolean);
+
+  return {
+    memberIds,
+    unresolvedCallSigns,
+  };
+}
+
 function getTemporaryVehicleLabel(patrol) {
   return [
     patrol.tempVehicleRegistration,
@@ -282,6 +344,7 @@ router.post("/start", requireAuth, async (req, res) => {
       startKm,
       crewIds,
       crewMemberIds,
+      crewCallSigns,
       tempVehicleRegistration,
       tempVehicleMake,
       tempVehicleModel,
@@ -355,6 +418,18 @@ router.post("/start", requireAuth, async (req, res) => {
     }
 
     const patrol = await prisma.$transaction(async (tx) => {
+      const resolvedCrew = await resolveCrewCallSignMemberIds({
+        tx,
+        crewCallSigns,
+      });
+
+      if (resolvedCrew.unresolvedCallSigns.length) {
+        const error = new Error("Unresolved crew call signs");
+        error.statusCode = 400;
+        error.unresolvedCallSigns = resolvedCrew.unresolvedCallSigns;
+        throw error;
+      }
+
       const created = await tx.patrolSession.create({
         data: {
           userId: user.id,
@@ -387,7 +462,10 @@ router.post("/start", requireAuth, async (req, res) => {
         tx,
         patrolId: created.id,
         driverUserId: user.id,
-        crewMemberIds: crewIds || crewMemberIds,
+        crewMemberIds: [
+          ...normalizeIdList(crewIds || crewMemberIds),
+          ...resolvedCrew.memberIds,
+        ],
       });
 
       if (crewRows.length) {
@@ -407,6 +485,13 @@ router.post("/start", requireAuth, async (req, res) => {
 
     res.status(201).json(addVehicleLabel(patrol));
   } catch (err) {
+    if (err.statusCode === 400 && err.unresolvedCallSigns) {
+      return res.status(400).json({
+        error: "Unresolved crew call signs",
+        unresolvedCallSigns: err.unresolvedCallSigns,
+      });
+    }
+
     console.error("START patrol error:", err);
     res.status(500).json({ error: "Failed to start patrol" });
   }

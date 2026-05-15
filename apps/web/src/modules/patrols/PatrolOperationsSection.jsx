@@ -50,6 +50,7 @@ const INITIAL_START_FORM = {
   callSign: "",
   sector: "Sector 1",
   startKm: "",
+  crewCallSigns: "",
 };
 
 const INITIAL_EVENT_FORM = {
@@ -556,6 +557,7 @@ export default function PatrolOperationsSection({
         sector: startForm.sector,
         startKm: startForm.startKm,
         crewIds: selectedCrewIds,
+        crewCallSigns: startForm.crewCallSigns,
       };
 
       await loadJson(PATROL_ENDPOINTS.start, {
@@ -833,6 +835,16 @@ export default function PatrolOperationsSection({
                   : "No crew selected. Driver-only patrol is allowed."}
               </p>
               {crewLoadError && <div className="patrol-message">{crewLoadError}</div>}
+
+              <label>
+                Crew Call Signs
+                <textarea
+                  value={startForm.crewCallSigns}
+                  onChange={(event) => updateStartForm("crewCallSigns", event.target.value)}
+                  placeholder="WW75, WC22, WW83"
+                  rows="3"
+                />
+              </label>
 
               <button
                 type="button"
