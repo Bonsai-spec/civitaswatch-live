@@ -5,7 +5,9 @@ import { requireRole } from "../middleware/roles.js";
 
 const router = express.Router();
 
-const ADMIN_ROLES = ["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"];
+const READ_ROLES = ["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"];
+const WRITE_ROLES = ["ADMIN", "MASTER_ADMIN"];
+const OPERATION_ROLES = ["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"];
 
 const SERVICE_TYPES = [
   "AMBULANCE",
@@ -65,7 +67,7 @@ function timestampData(status, existing = null) {
 router.get(
   "/",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const { type, sector, includeInactive } = req.query;
@@ -104,7 +106,7 @@ router.get(
 router.post(
   "/",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { name, type, phone, radio, sector, isActive } = req.body;
@@ -144,7 +146,7 @@ router.post(
 router.patch(
   "/:id",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const { name, type, phone, radio, sector, isActive } = req.body;
@@ -189,7 +191,7 @@ router.patch(
 router.delete(
   "/:id",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...WRITE_ROLES),
   async (req, res) => {
     try {
       const service = await prisma.service.update({
@@ -208,7 +210,7 @@ router.delete(
 router.get(
   "/incident/:incidentId",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...READ_ROLES),
   async (req, res) => {
     try {
       const logs = await prisma.incidentServiceLog.findMany({
@@ -243,7 +245,7 @@ router.get(
 router.get(
   "/incident-logs/report",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...OPERATION_ROLES),
   async (req, res) => {
     try {
       const limit = Math.min(Number(req.query.limit || 250), 1000);
@@ -280,7 +282,7 @@ router.get(
 router.post(
   "/incident/:incidentId/logs",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...OPERATION_ROLES),
   async (req, res) => {
     try {
       const { serviceId, status, refNumber, notes } = req.body;
@@ -393,7 +395,7 @@ router.post(
 router.patch(
   "/incident-logs/:id",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...OPERATION_ROLES),
   async (req, res) => {
     try {
       const { status, refNumber, notes } = req.body;
@@ -454,7 +456,7 @@ router.patch(
 router.delete(
   "/incident-logs/:id",
   requireAuth,
-  requireRole(...ADMIN_ROLES),
+  requireRole(...OPERATION_ROLES),
   async (req, res) => {
     try {
       const log = await prisma.incidentServiceLog.delete({

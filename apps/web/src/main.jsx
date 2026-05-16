@@ -98,7 +98,7 @@ const CONTROL_ROOM_TABS = [
   "Incident Codes Reference",
   "Active Patrols",
   "Patroller Directory",
-  "Service Directory",
+  "Emergency Services",
   "Selected Incident Services",
   "Patrol Reports",
   "Selected Patrol Timeline",
@@ -141,7 +141,11 @@ function formatClassificationRecord(record, valueKey) {
   const value = record[valueKey] || record.code || record.subcode || record.type;
   if (!value) return null;
 
-  return [value, record.name].filter(Boolean).join(" — ");
+  return [value, record.name].filter(Boolean).join(" - ");
+}
+
+function formatPatrolEventClassificationRecord(record, valueKey) {
+  return formatClassificationRecord(record, valueKey);
 }
 
 function getIncidentClassificationLines(item) {
@@ -434,9 +438,17 @@ function getPatrolEventLocationSummary(event) {
 }
 
 function getPatrolEventClassificationSummary(event) {
+  const incidentCode = formatPatrolEventClassificationRecord(
+    event?.incidentCodeRef || event?.incident?.incidentCodeRef,
+    "code"
+  );
+  const incidentSubcode = formatPatrolEventClassificationRecord(
+    event?.incidentSubcodeRef || event?.incident?.incidentSubcodeRef,
+    "subcode"
+  );
   const parts = [
-    event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode,
-    event?.incidentSubcodeRef?.subcode || event?.incident?.incidentSubcodeRef?.subcode,
+    incidentCode || event?.incidentCode,
+    incidentSubcode,
     event?.serviceTypeRef?.type,
     event?.infrastructureTypeRef?.type,
   ].filter(Boolean);
@@ -877,7 +889,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   }
 
   useEffect(() => {
-    if (isControlRoomUser && controlRoomTab === "Service Directory") {
+    if (isControlRoomUser && controlRoomTab === "Emergency Services") {
       loadControlRoomDirectory();
     }
   }, [isControlRoomUser, controlRoomTab, token]);
@@ -1204,11 +1216,18 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
   function renderControlRoomDirectoryPanel() {
     const { services, serviceTypes, emergencyContactTypes } = controlRoomDirectory;
+    const groupedServices = services.reduce((groups, service) => {
+      const key = service.type || "OTHER";
+      return {
+        ...groups,
+        [key]: [...(groups[key] || []), service],
+      };
+    }, {});
 
     return (
       <div className="panel">
         <div className="details-header">
-          <h2>Service Directory / Emergency Contacts</h2>
+          <h2>Emergency Services / Service Directory</h2>
           <button
             className="secondary-btn"
             type="button"
@@ -1246,36 +1265,41 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           </div>
         </div>
 
-        <h3>Services / Contacts</h3>
+        <h3>Emergency Services / Contacts</h3>
         {services.length === 0 ? (
           <p>No active services or contacts available.</p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Phone</th>
-                <th>Radio</th>
-                <th>Sector / Area</th>
-                <th>Notes</th>
-                <th>Active</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map((service) => (
-                <tr key={service.id}>
-                  <td>{service.name || "-"}</td>
-                  <td>{service.type || "-"}</td>
-                  <td>{service.phone || "-"}</td>
-                  <td>{service.radio || "-"}</td>
-                  <td>{service.sector || "-"}</td>
-                  <td>{service.notes || "-"}</td>
-                  <td>{service.isActive ? "Yes" : "No"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          Object.entries(groupedServices).map(([type, rows]) => (
+            <div key={type} className="table-group">
+              <h4>{type}</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Primary Phone</th>
+                    <th>Radio</th>
+                    <th>Sector / Area</th>
+                    <th>Notes</th>
+                    <th>Active</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((service) => (
+                    <tr key={service.id}>
+                      <td>{service.name || "-"}</td>
+                      <td>{service.type || "-"}</td>
+                      <td>{service.phone || "-"}</td>
+                      <td>{service.radio || "-"}</td>
+                      <td>{service.sector || "-"}</td>
+                      <td>{service.notes || "-"}</td>
+                      <td>{service.isActive ? "Yes" : "No"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))
         )}
 
         <h3>Service Types</h3>
@@ -1611,7 +1635,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       return renderControlRoomPatrollerDirectoryPanel();
     }
 
-    if (controlRoomTab === "Service Directory") {
+    if (controlRoomTab === "Emergency Services") {
       return renderControlRoomDirectoryPanel();
     }
 
