@@ -22,6 +22,7 @@ export const INCIDENT_ENDPOINTS = {
 
 export const MEMBER_ENDPOINTS = {
   list: `${API}/members`,
+  patrollers: `${API}/members/patrollers`,
   detail: (id) => `${API}/members/${id}`,
   createPatrollerLogin: (id) => `${API}/members/${id}/create-patroller-login`,
   patrollerStatus: (id) => `${API}/members/${id}/patroller-status`,
@@ -39,6 +40,8 @@ export const PATROL_ENDPOINTS = {
 };
 
 export const ADMIN_REGISTER_ENDPOINTS = {
+  incidentCodes: `${API}/admin/incident-codes`,
+  incidentSubcodes: `${API}/admin/incident-subcodes`,
   serviceTypes: `${API}/admin/service-types`,
   emergencyContactTypes: `${API}/admin/emergency-contact-types`,
 };

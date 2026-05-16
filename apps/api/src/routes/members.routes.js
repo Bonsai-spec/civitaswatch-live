@@ -7,6 +7,7 @@ import { requireRole } from "../middleware/roles.js";
 const router = express.Router();
 
 const ADMIN_ROLES = ["ADMIN", "MASTER_ADMIN"];
+const PATROLLER_DIRECTORY_ROLES = ["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"];
 const PATROL_CREW_LOOKUP_ROLES = ["PATROL", "PATROLLER"];
 
 function getMemberFullName(member) {
@@ -145,7 +146,7 @@ router.get(
   }
 );
 
-router.get("/patrollers", requireAuth, requireRole(...ADMIN_ROLES), async (req, res) => {
+router.get("/patrollers", requireAuth, requireRole(...PATROLLER_DIRECTORY_ROLES), async (req, res) => {
   try {
     const patrollers = await prisma.member.findMany({
       where: {

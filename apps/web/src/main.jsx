@@ -13,6 +13,7 @@ import {
 } from "./core/http.utils";
 import {
   ADMIN_REGISTER_ENDPOINTS,
+  MEMBER_ENDPOINTS,
   PATROL_ENDPOINTS,
   SERVICE_ENDPOINTS,
 } from "./core/endpoints";
@@ -94,7 +95,9 @@ const CONTROL_ROOM_TABS = [
   "Live Overview",
   "Assistance Requests",
   "Incidents",
+  "Incident Codes Reference",
   "Active Patrols",
+  "Patroller Directory",
   "Service Directory",
   "Selected Incident Services",
   "Patrol Reports",
@@ -491,6 +494,20 @@ function App() {
   });
   const [controlRoomDirectoryLoading, setControlRoomDirectoryLoading] = useState(false);
   const [controlRoomDirectoryError, setControlRoomDirectoryError] = useState("");
+  const [controlRoomIncidentReference, setControlRoomIncidentReference] = useState({
+    incidentCodes: [],
+    incidentSubcodes: [],
+  });
+  const [controlRoomIncidentCodeFilter, setControlRoomIncidentCodeFilter] = useState("ALL");
+  const [controlRoomIncidentReferenceLoading, setControlRoomIncidentReferenceLoading] =
+    useState(false);
+  const [controlRoomIncidentReferenceError, setControlRoomIncidentReferenceError] =
+    useState("");
+  const [controlRoomPatrollerDirectory, setControlRoomPatrollerDirectory] = useState([]);
+  const [controlRoomPatrollerDirectoryLoading, setControlRoomPatrollerDirectoryLoading] =
+    useState(false);
+  const [controlRoomPatrollerDirectoryError, setControlRoomPatrollerDirectoryError] =
+    useState("");
 
   const {
     userRole,
@@ -862,6 +879,88 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   useEffect(() => {
     if (isControlRoomUser && controlRoomTab === "Service Directory") {
       loadControlRoomDirectory();
+    }
+  }, [isControlRoomUser, controlRoomTab, token]);
+
+  async function loadControlRoomIncidentReference() {
+    if (!token || !isControlRoomUser) return;
+
+    try {
+      setControlRoomIncidentReferenceLoading(true);
+      setControlRoomIncidentReferenceError("");
+
+      const [incidentCodesRes, incidentSubcodesRes] = await Promise.all([
+        fetch(`${ADMIN_REGISTER_ENDPOINTS.incidentCodes}?active=true`, {
+          headers: getAuthHeaders(),
+        }),
+        fetch(`${ADMIN_REGISTER_ENDPOINTS.incidentSubcodes}?active=true`, {
+          headers: getAuthHeaders(),
+        }),
+      ]);
+
+      const [incidentCodesJson, incidentSubcodesJson] = await Promise.all([
+        incidentCodesRes.json().catch(() => null),
+        incidentSubcodesRes.json().catch(() => null),
+      ]);
+
+      if (!incidentCodesRes.ok) {
+        throw new Error(incidentCodesJson?.error || "Failed to load incident codes.");
+      }
+
+      if (!incidentSubcodesRes.ok) {
+        throw new Error(incidentSubcodesJson?.error || "Failed to load incident subcodes.");
+      }
+
+      setControlRoomIncidentReference({
+        incidentCodes: Array.isArray(incidentCodesJson) ? incidentCodesJson : [],
+        incidentSubcodes: Array.isArray(incidentSubcodesJson) ? incidentSubcodesJson : [],
+      });
+    } catch (error) {
+      console.error(error);
+      setControlRoomIncidentReferenceError(
+        error.message || "Failed to load incident code reference."
+      );
+    } finally {
+      setControlRoomIncidentReferenceLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isControlRoomUser && controlRoomTab === "Incident Codes Reference") {
+      loadControlRoomIncidentReference();
+    }
+  }, [isControlRoomUser, controlRoomTab, token]);
+
+  async function loadControlRoomPatrollerDirectory() {
+    if (!token || !isControlRoomUser) return;
+
+    try {
+      setControlRoomPatrollerDirectoryLoading(true);
+      setControlRoomPatrollerDirectoryError("");
+
+      const res = await fetch(MEMBER_ENDPOINTS.patrollers, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load patroller directory.");
+      }
+
+      setControlRoomPatrollerDirectory(Array.isArray(json) ? json : []);
+    } catch (error) {
+      console.error(error);
+      setControlRoomPatrollerDirectoryError(
+        error.message || "Failed to load patroller directory."
+      );
+    } finally {
+      setControlRoomPatrollerDirectoryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isControlRoomUser && controlRoomTab === "Patroller Directory") {
+      loadControlRoomPatrollerDirectory();
     }
   }, [isControlRoomUser, controlRoomTab, token]);
 
@@ -1242,6 +1341,191 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
     );
   }
 
+  function renderControlRoomIncidentCodesReferencePanel() {
+    const { incidentCodes, incidentSubcodes } = controlRoomIncidentReference;
+    const visibleSubcodes =
+      controlRoomIncidentCodeFilter === "ALL"
+        ? incidentSubcodes
+        : incidentSubcodes.filter(
+            (subcode) => subcode.incidentCodeId === controlRoomIncidentCodeFilter
+          );
+
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Incident Codes Reference</h2>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={loadControlRoomIncidentReference}
+            disabled={controlRoomIncidentReferenceLoading}
+          >
+            {controlRoomIncidentReferenceLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {controlRoomIncidentReferenceError && (
+          <p className="error-text">{controlRoomIncidentReferenceError}</p>
+        )}
+
+        <p className="card-detail">
+          Read-only SAPS/master classification lookup for operators. Live operational
+          incident records remain in the Incidents tab.
+        </p>
+
+        {incidentCodes.length === 0 ? (
+          <p>No active incident codes available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {incidentCodes.map((incidentCode) => (
+                <tr key={incidentCode.id}>
+                  <td>{incidentCode.code || "-"}</td>
+                  <td>{incidentCode.name || "-"}</td>
+                  <td>
+                    {incidentCode.description ||
+                      (incidentCode.code && incidentCode.name
+                        ? `SAPS incident code ${incidentCode.code} - ${incidentCode.name}`
+                        : "-")}
+                  </td>
+                  <td>{incidentCode.active ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <div className="filter-bar">
+          <label>
+            Filter subcodes by incident code
+            <select
+              value={controlRoomIncidentCodeFilter}
+              onChange={(event) => setControlRoomIncidentCodeFilter(event.target.value)}
+            >
+              <option value="ALL">All Incident Codes</option>
+              {incidentCodes.map((incidentCode) => (
+                <option key={incidentCode.id} value={incidentCode.id}>
+                  {[incidentCode.code, incidentCode.name].filter(Boolean).join(" - ")}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <h3>Incident Subcodes</h3>
+        {visibleSubcodes.length === 0 ? (
+          <p>No active subcodes available for the selected incident code.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Parent Code</th>
+                <th>Subcode</th>
+                <th>Name</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleSubcodes.map((subcode) => (
+                <tr key={subcode.id}>
+                  <td>
+                    {[subcode.incidentCode?.code, subcode.incidentCode?.name]
+                      .filter(Boolean)
+                      .join(" - ") || "-"}
+                  </td>
+                  <td>{subcode.subcode || "-"}</td>
+                  <td>{subcode.name || "-"}</td>
+                  <td>{subcode.active ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
+  function getPatrollerActivePatrolLabel(member) {
+    const userId = member?.userId || member?.user?.id;
+    const activePatrol = activePatrols.find((patrol) => patrol.userId === userId);
+
+    if (!activePatrol) return "No";
+
+    return getPatrolCallSign(activePatrol);
+  }
+
+  function renderControlRoomPatrollerDirectoryPanel() {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Patroller Directory</h2>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={loadControlRoomPatrollerDirectory}
+            disabled={controlRoomPatrollerDirectoryLoading}
+          >
+            {controlRoomPatrollerDirectoryLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {controlRoomPatrollerDirectoryError && (
+          <p className="error-text">{controlRoomPatrollerDirectoryError}</p>
+        )}
+
+        <p className="card-detail">
+          Read-only operational patroller lookup for Control Room. Admin maintains member
+          and patroller records in Registers.
+        </p>
+
+        {controlRoomPatrollerDirectory.length === 0 ? (
+          <p>No patrollers available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Call Sign</th>
+                <th>Sector</th>
+                <th>Patrol Status</th>
+                <th>Active</th>
+                <th>Contact Number</th>
+                <th>Active Patrol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {controlRoomPatrollerDirectory.map((member) => (
+                <tr key={member.id}>
+                  <td>
+                    {[member.firstName, member.surname].filter(Boolean).join(" ") ||
+                      member.name ||
+                      member.user?.fullName ||
+                      member.email ||
+                      "-"}
+                  </td>
+                  <td>{member.callSign || "-"}</td>
+                  <td>{member.sector || "-"}</td>
+                  <td>{member.patrolStatus || member.status || "-"}</td>
+                  <td>{member.isActive === false ? "No" : "Yes"}</td>
+                  <td>{member.cellNumber || "-"}</td>
+                  <td>{getPatrollerActivePatrolLabel(member)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
   function renderControlRoomTab() {
     if (controlRoomTab === "Live Overview") {
       return (
@@ -1315,8 +1599,16 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       });
     }
 
+    if (controlRoomTab === "Incident Codes Reference") {
+      return renderControlRoomIncidentCodesReferencePanel();
+    }
+
     if (controlRoomTab === "Active Patrols") {
       return renderPatrolWorkloadPanel();
+    }
+
+    if (controlRoomTab === "Patroller Directory") {
+      return renderControlRoomPatrollerDirectoryPanel();
     }
 
     if (controlRoomTab === "Service Directory") {
