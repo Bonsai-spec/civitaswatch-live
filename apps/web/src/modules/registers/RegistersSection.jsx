@@ -60,19 +60,12 @@ export default function RegistersSection({
   registerSearch,
   onRegisterSearchChange,
   onClearRegisterSearch,
-  registerTabs,
   registerTab,
-  onRegisterTabChange,
-  filteredRegisterIncidents,
   filteredRegisterVehicles,
   filteredRegisterResidents,
   filteredRegisterMembers,
   filteredRegisterPatrollers,
-  filteredRegisterPatrols,
   filteredRegisterOrganisations,
-  viewIncident,
-  editIncident,
-  deleteIncident,
   onViewVehicle,
   onEditVehicle,
   canManageMembers,
@@ -93,8 +86,6 @@ export default function RegistersSection({
   memberRoles,
   roleMarker,
   getMemberRoles,
-  getDisplayName,
-  getVehicleLabel,
 }) {
   // These five master registers are the canonical configuration taxonomy for
   // CivitasWatch: Incident Codes, Incident Subcodes, Service Types,
@@ -1102,7 +1093,7 @@ export default function RegistersSection({
 
   return (
     <div className="panel">
-      <h2>Registers</h2>
+      <h2>{registerTab}</h2>
 
       <div className="filter-bar">
         <label>
@@ -1117,28 +1108,7 @@ export default function RegistersSection({
         <button onClick={onClearRegisterSearch}>Clear</button>
       </div>
 
-      <div className="action-row">
-        {registerTabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => onRegisterTabChange(tab)}
-            className={registerTab === tab ? "primary-btn" : "secondary-btn"}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
       <div className="cards">
-        <div className="card">
-          {/* The internal "Incidents" tab key currently means operational incident reports. */}
-          <div className="card-title">Incident Reports</div>
-          <div className="card-value">{data.incidents.length}</div>
-          <div className="card-detail">
-            Operational incident and response records captured by patrols and Control Room.
-          </div>
-        </div>
-
         <div className="card">
           <div className="card-title">Vehicle Register</div>
           <div className="card-value">{data.vehicles.length}</div>
@@ -1164,62 +1134,11 @@ export default function RegistersSection({
         </div>
 
         <div className="card">
-          <div className="card-title">Patrol Register</div>
-          <div className="card-value">{data.patrols.length}</div>
-          <div className="card-detail">Patrollers / patrol sessions</div>
-        </div>
-
-        <div className="card">
           <div className="card-title">Organisation Register</div>
           <div className="card-value">{data.organisations.length}</div>
           <div className="card-detail">Linked organisations</div>
         </div>
       </div>
-
-      {/*
-        Keep the "Incidents" tab key for now because navigation/state logic may
-        depend on it. Visible UI says "Incident Reports" to avoid confusion with
-        future Incident Code/Subcode master registers, which should be separate.
-        This remains the operational incident/response view for live and
-        historical records.
-      */}
-      {registerTab === "Incidents" && (
-        <>
-          <h3>Incident Reports</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Code</th>
-                <th>Title</th>
-                <th>Type</th>
-                <th>Sector</th>
-                <th>Status</th>
-                <th>Severity</th>
-                <th>Address</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRegisterIncidents.map((incident) => (
-                <tr key={incident.id}>
-                  <td>{incident.incidentCode || "-"}</td>
-                  <td>{incident.title || "-"}</td>
-                  <td>{incident.incidentType || "-"}</td>
-                  <td>{incident.sector || "-"}</td>
-                  <td>{incident.status || "-"}</td>
-                  <td>{incident.severity || "-"}</td>
-                  <td>{[incident.street, incident.suburb].filter(Boolean).join(", ") || "-"}</td>
-                  <td>
-                    <button onClick={() => viewIncident(incident)}>View</button>
-                    <button onClick={() => editIncident(incident)}>Edit</button>
-                    <button onClick={() => deleteIncident(incident.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
 
       {registerTab === "Vehicles" && (
         <>
@@ -1898,38 +1817,6 @@ export default function RegistersSection({
                       <button onClick={() => createPatrollerLogin(member)}>Create Login</button>
                     )}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-
-      {registerTab === "Patrols" && (
-        <>
-          <h3>Patrol / Patroller Register</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Patroller</th>
-                <th>Vehicle</th>
-                <th>Sector</th>
-                <th>Status</th>
-                <th>Start KM</th>
-                <th>End KM</th>
-                <th>Total KM</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRegisterPatrols.map((patrol) => (
-                <tr key={patrol.id}>
-                  <td>{patrol.user?.fullName || patrol.user?.email || getDisplayName(patrol)}</td>
-                  <td>{patrol.vehicle?.registration || getVehicleLabel(patrol.vehicle)}</td>
-                  <td>{patrol.sector || "-"}</td>
-                  <td>{patrol.status || "-"}</td>
-                  <td>{patrol.startKm ?? "-"}</td>
-                  <td>{patrol.endKm ?? "-"}</td>
-                  <td>{patrol.totalKm ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

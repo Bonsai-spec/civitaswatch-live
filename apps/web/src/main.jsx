@@ -49,7 +49,6 @@ import {
   getDisplayName,
   getVehicleLabel,
 } from "./modules/vehicles/vehicle.utils";
-import OrganisationsSection from "./modules/organisations/OrganisationsSection";
 import {
   getPatrolOptionLabel,
   getPatrolVehicleLabel,
@@ -61,13 +60,13 @@ import {
   filterRegisterMembers,
   filterRegisterOrganisations,
   filterRegisterPatrollers,
-  filterRegisterPatrols,
   filterRegisterResidents,
   filterRegisterVehicles,
 } from "./modules/registers/register.utils";
 import { REGISTER_TABS } from "./modules/registers/register.constants";
 import RegistersSection from "./modules/registers/RegistersSection";
 import {
+  REPORT_CATEGORIES,
   REPORT_SECTOR_FILTER_OPTIONS,
   REPORT_STATUS_FILTER_OPTIONS,
 } from "./modules/reports/report.constants";
@@ -476,7 +475,7 @@ function App() {
 
   const [active, setActive] = useState("Dashboard");
   const [controlRoomTab, setControlRoomTab] = useState("Live Overview");
-  const [registerTab, setRegisterTab] = useState("Incidents");
+  const [registerTab, setRegisterTab] = useState("Members");
   const [registerSearch, setRegisterSearch] = useState("");
   const [controlRoomRefreshing, setControlRoomRefreshing] = useState(false);
 
@@ -490,7 +489,6 @@ function App() {
     canViewRegisters,
     canManageMembers,
     canViewReports,
-    canViewOrganisations,
     canViewIntelligence,
     isAdmin,
     isPatrol,
@@ -577,11 +575,17 @@ function App() {
 
   const isControlRoomUser = userRole === SYSTEM_ROLES.CONTROL_ROOM;
   const canUseControlRoomReports = canViewReports || isControlRoomUser;
+  const isRegisterRoute = REGISTER_TABS.includes(active);
+  const isReportRoute = REPORT_CATEGORIES.includes(active);
+  const activeRegisterTab = isRegisterRoute ? active : registerTab;
+  const activeReportCategory = isReportRoute ? active : "Patrol Reports";
   // Control Room report summaries are part of the local overview, so loading follows
   // the active local tab instead of the global Reports route.
   const reportActiveRoute =
     isControlRoomUser &&
     ["Live Overview", "Patrol Reports", "Selected Patrol Timeline"].includes(controlRoomTab)
+      ? "Reports"
+      : isReportRoute
       ? "Reports"
       : active;
 
@@ -679,11 +683,11 @@ function App() {
     resetIntelligence();
   }
 
-useEffect(() => {
-  if (active === "Registers") {
-    setRegisterTab("Incidents");
-  }
-}, [active]);
+  useEffect(() => {
+    if (isRegisterRoute) {
+      setRegisterTab(active);
+    }
+  }, [active, isRegisterRoute]);
 
   useEffect(() => {
     if (token && userRole) {
@@ -701,7 +705,6 @@ const registerSearchText = registerSearch.toLowerCase();
 
 const filteredRegisterIncidents = filterRegisterIncidents(data.incidents, registerSearchText);
 const filteredRegisterVehicles = filterRegisterVehicles(data.vehicles, registerSearchText);
-const filteredRegisterPatrols = filterRegisterPatrols(data.patrols, registerSearchText);
 const filteredRegisterMembers = filterRegisterMembers(data.members, registerSearchText);
 const filteredRegisterResidents = filterRegisterResidents(data.members, registerSearchText);
 const filteredRegisterPatrollers = filterRegisterPatrollers(data.members, registerSearchText);
@@ -1312,35 +1315,18 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           />
         )}
 
-{active === "Registers" && !isControlRoomUser && canViewRegisters && (
-          /*
-            Current Incident Register rows are operational incident reports and
-            responses. Future master registers should stay separate from
-            operational data such as incidents, patrol reports, and assistance
-            requests. Planned configuration registers include Incident Codes,
-            Incident Subcodes, Service Types, Infrastructure Types, and
-            Emergency Contact Types. Sector isolation will eventually scope all
-            Admin and operational data, while Master Admin and Central
-            Intelligence retain cross-sector oversight.
-          */
+        {isRegisterRoute && !isControlRoomUser && canViewRegisters && (
           <RegistersSection
             data={data}
             registerSearch={registerSearch}
             onRegisterSearchChange={setRegisterSearch}
             onClearRegisterSearch={() => setRegisterSearch("")}
-            registerTabs={REGISTER_TABS}
-            registerTab={registerTab}
-            onRegisterTabChange={setRegisterTab}
-            filteredRegisterIncidents={filteredRegisterIncidents}
+            registerTab={activeRegisterTab}
             filteredRegisterVehicles={filteredRegisterVehicles}
             filteredRegisterResidents={filteredRegisterResidents}
             filteredRegisterMembers={filteredRegisterMembers}
             filteredRegisterPatrollers={filteredRegisterPatrollers}
-            filteredRegisterPatrols={filteredRegisterPatrols}
             filteredRegisterOrganisations={filteredRegisterOrganisations}
-            viewIncident={viewIncident}
-            editIncident={editIncident}
-            deleteIncident={deleteIncident}
             onViewVehicle={(vehicle) => alert(vehicle.registration)}
             onEditVehicle={() => alert("Edit vehicle")}
             canManageMembers={canManageMembers}
@@ -1364,8 +1350,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             memberRoles={MEMBER_ROLES}
             roleMarker={ROLE_MARKER}
             getMemberRoles={getMemberRoles}
-            getDisplayName={getDisplayName}
-            getVehicleLabel={getVehicleLabel}
           />
         )}
 
@@ -1412,13 +1396,15 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           />
         )}
 
-        {active === "Reports" && !isControlRoomUser && canViewReports && (
+        {isReportRoute && !isControlRoomUser && canViewReports && (
           <ReportsSection
             data={data}
+            reportCategory={activeReportCategory}
             reportFilters={reportFilters}
             onReportFiltersChange={setReportFilters}
             onClearReportFilters={clearReportFilters}
             onRefreshReports={loadPatrolReports}
+            onRefreshOperationalData={loadDashboard}
             sectorFilterOptions={REPORT_SECTOR_FILTER_OPTIONS}
             statusFilterOptions={REPORT_STATUS_FILTER_OPTIONS}
             patrollerFilterOptions={patrollerFilterOptions}
@@ -1437,11 +1423,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             onLoadPatrolReportAudit={loadPatrolReportAudit}
             onCloseActivePatrol={closeActivePatrol}
             getVehicleLabel={getVehicleLabel}
+            filteredIncidentReports={filteredRegisterIncidents}
+            onViewIncidentReport={viewIncident}
+            onEditIncidentReport={editIncident}
+            onDeleteIncidentReport={deleteIncident}
           />
-        )}
-
-        {active === "Organisations" && !isControlRoomUser && canViewOrganisations && (
-          <OrganisationsSection organisations={data.organisations} />
         )}
     </AppShell>
   );

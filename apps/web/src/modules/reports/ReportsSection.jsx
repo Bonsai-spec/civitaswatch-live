@@ -32,12 +32,38 @@ function formatEventLocation(event) {
   return [street, event?.suburb, event?.locationNotes, coordinates].filter(Boolean).join(" - ");
 }
 
+function getAssistancePatrolLabel(request) {
+  return (
+    request?.patrol?.callSign ||
+    request?.patrol?.user?.fullName ||
+    request?.patrol?.user?.email ||
+    request?.patrol?.id ||
+    "-"
+  );
+}
+
+function getAssistanceVehicleLabel(request) {
+  return (
+    request?.patrol?.vehicle?.registration ||
+    request?.patrol?.vehicleRegistration ||
+    request?.vehicle?.registration ||
+    "-"
+  );
+}
+
+function getAssistanceLocationLabel(request) {
+  const street = [request?.streetNumber, request?.streetName].filter(Boolean).join(" ");
+  return [street, request?.suburb, request?.locationNotes].filter(Boolean).join(" - ") || "-";
+}
+
 export default function ReportsSection({
   data,
+  reportCategory = "Patrol Reports",
   reportFilters,
   onReportFiltersChange,
   onClearReportFilters,
   onRefreshReports,
+  onRefreshOperationalData,
   sectorFilterOptions,
   statusFilterOptions,
   patrollerFilterOptions,
@@ -56,18 +82,199 @@ export default function ReportsSection({
   onLoadPatrolReportAudit,
   onCloseActivePatrol,
   getVehicleLabel,
+  filteredIncidentReports = [],
+  onViewIncidentReport,
+  onEditIncidentReport,
+  onDeleteIncidentReport,
   showFilters = true,
   showSummaryCards = true,
   showSelectedPatrolReport = true,
   showReportTable = true,
 }) {
+  const assistanceRequests = data.assistanceRequests || [];
+  const vehicles = data.vehicles || [];
+  const refreshHandler =
+    reportCategory === "Patrol Reports" ? onRefreshReports : onRefreshOperationalData || onRefreshReports;
+
+  if (reportCategory === "Incident Reports") {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Incident Reports</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+
+        <div className="cards">
+          <div className="card">
+            <div className="card-title">Incident Reports</div>
+            <div className="card-value">{filteredIncidentReports.length}</div>
+            <div className="card-detail">Operational incident and response history</div>
+          </div>
+        </div>
+
+        {filteredIncidentReports.length === 0 ? (
+          <p>No incident reports available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Sector</th>
+                <th>Status</th>
+                <th>Severity</th>
+                <th>Address</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredIncidentReports.map((incident) => (
+                <tr key={incident.id}>
+                  <td>{incident.incidentCode || "-"}</td>
+                  <td>{incident.title || "-"}</td>
+                  <td>{incident.incidentType || "-"}</td>
+                  <td>{incident.sector || "-"}</td>
+                  <td>{incident.status || "-"}</td>
+                  <td>{incident.severity || "-"}</td>
+                  <td>{[incident.street, incident.suburb].filter(Boolean).join(", ") || "-"}</td>
+                  <td>
+                    {onViewIncidentReport && (
+                      <button onClick={() => onViewIncidentReport(incident)}>View</button>
+                    )}
+                    {onEditIncidentReport && (
+                      <button onClick={() => onEditIncidentReport(incident)}>Edit</button>
+                    )}
+                    {onDeleteIncidentReport && (
+                      <button onClick={() => onDeleteIncidentReport(incident.id)}>Delete</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
+  if (reportCategory === "Assistance Requests") {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Assistance Request Reports</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+
+        <div className="cards">
+          <div className="card">
+            <div className="card-title">Assistance Requests</div>
+            <div className="card-value">{assistanceRequests.length}</div>
+            <div className="card-detail">History sourced from Patrol assistance events</div>
+          </div>
+        </div>
+
+        {assistanceRequests.length === 0 ? (
+          <p>No assistance request history available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Patrol</th>
+                <th>Vehicle</th>
+                <th>Sector</th>
+                <th>Location</th>
+                <th>Description</th>
+                <th>Requested</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assistanceRequests.map((request) => (
+                <tr key={request.id}>
+                  <td>{formatEventService(request) || "-"}</td>
+                  <td>{getAssistancePatrolLabel(request)}</td>
+                  <td>{getAssistanceVehicleLabel(request)}</td>
+                  <td>{request?.patrol?.sector || request?.sector || "-"}</td>
+                  <td>{getAssistanceLocationLabel(request)}</td>
+                  <td>{request.description || "-"}</td>
+                  <td>{request.createdAt ? new Date(request.createdAt).toLocaleString() : "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
+  if (reportCategory === "Vehicle Reports") {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Vehicle Reports</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+
+        <div className="cards">
+          <div className="card">
+            <div className="card-title">Vehicles</div>
+            <div className="card-value">{vehicles.length}</div>
+            <div className="card-detail">Vehicle register records available for reporting</div>
+          </div>
+        </div>
+
+        {vehicles.length === 0 ? (
+          <p>No vehicle records available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Registration</th>
+                <th>Make</th>
+                <th>Type</th>
+                <th>Colour</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vehicles.map((vehicle) => (
+                <tr key={vehicle.id}>
+                  <td>{vehicle.registration || getVehicleLabel(vehicle)}</td>
+                  <td>{vehicle.make || "-"}</td>
+                  <td>{vehicle.type || "-"}</td>
+                  <td>{vehicle.colour || "-"}</td>
+                  <td>{vehicle.isActive ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="panel">
       <div className="details-header">
-        <h2>Patrol / KM Reports</h2>
-        <button className="secondary-btn" onClick={onRefreshReports}>
-          Refresh
-        </button>
+        <h2>Patrol Reports</h2>
+        {refreshHandler && (
+          <button className="secondary-btn" onClick={refreshHandler}>
+            Refresh
+          </button>
+        )}
       </div>
 
       {showFilters && (

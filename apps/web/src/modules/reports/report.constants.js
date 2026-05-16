@@ -7,6 +7,13 @@ export const DEFAULT_REPORT_FILTERS = {
   status: "ALL",
 };
 
+export const REPORT_CATEGORIES = [
+  "Incident Reports",
+  "Patrol Reports",
+  "Assistance Requests",
+  "Vehicle Reports",
+];
+
 export const REPORT_SECTOR_FILTER_OPTIONS = [
   { value: "ALL", label: "All Sectors" },
   { value: "Sector 1", label: "Sector 1" },

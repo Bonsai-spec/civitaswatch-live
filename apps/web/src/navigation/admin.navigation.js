@@ -16,25 +16,31 @@ export const ADMIN_NAV_SECTIONS = [
   {
     label: "Registers",
     items: [
-      { label: "Registers", permission: "VIEW_REGISTERS" },
+      { label: "Members", permission: "VIEW_REGISTERS" },
+      { label: "Patrollers", permission: "VIEW_REGISTERS" },
+      { label: "Vehicles", permission: "VIEW_REGISTERS" },
+      { label: "Residents", permission: "VIEW_REGISTERS" },
+      { label: "Organisations", permission: "VIEW_REGISTERS" },
+      { label: "Incident Codes", permission: "VIEW_REGISTERS" },
+      { label: "Incident Subcodes", permission: "VIEW_REGISTERS" },
+      { label: "Service Types", permission: "VIEW_REGISTERS" },
+      { label: "Infrastructure Types", permission: "VIEW_REGISTERS" },
+      { label: "Emergency Contact Types", permission: "VIEW_REGISTERS" },
     ],
   },
   {
     label: "Reports",
     items: [
-      { label: "Reports", permission: "VIEW_REPORTS" },
+      { label: "Incident Reports", permission: "VIEW_REPORTS" },
+      { label: "Patrol Reports", permission: "VIEW_REPORTS" },
+      { label: "Assistance Requests", permission: "VIEW_REPORTS" },
+      { label: "Vehicle Reports", permission: "VIEW_REPORTS" },
     ],
   },
   {
     label: "Intelligence",
     items: [
       { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
-    ],
-  },
-  {
-    label: "Administration",
-    items: [
-      { label: "Organisations", permission: "VIEW_ORGANISATIONS" },
     ],
   },
   {
