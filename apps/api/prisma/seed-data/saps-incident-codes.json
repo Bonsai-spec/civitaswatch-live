@@ -1,0 +1,441 @@
+{
+  "incidentCodes": [
+    {
+      "code": "001",
+      "name": "Back in Contact",
+      "description": "SAPS incident code 001 - Back in Contact",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "002",
+      "name": "Contact Commander",
+      "description": "SAPS incident code 002 - Contact Commander",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "003",
+      "name": "Location",
+      "description": "SAPS incident code 003 - Location",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "004",
+      "name": "SITRAP",
+      "description": "SAPS incident code 004 - SITRAP",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "005",
+      "name": "Deliver Message",
+      "description": "SAPS incident code 005 - Deliver Message",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "006",
+      "name": "Prepare for Lookout",
+      "description": "SAPS incident code 006 - Prepare for Lookout",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "007",
+      "name": "Prepare for Complaint",
+      "description": "SAPS incident code 007 - Prepare for Complaint",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "008",
+      "name": "Result",
+      "description": "SAPS incident code 008 - Result",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "009",
+      "name": "Murder",
+      "description": "SAPS incident code 009 - Murder",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "010",
+      "name": "Assault GBH",
+      "description": "SAPS incident code 010 - Assault GBH",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "011",
+      "name": "Assault",
+      "description": "SAPS incident code 011 - Assault",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "012",
+      "name": "Fighting",
+      "description": "SAPS incident code 012 - Fighting",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "013",
+      "name": "Theft",
+      "description": "SAPS incident code 013 - Theft",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "014",
+      "name": "House Breaking",
+      "description": "SAPS incident code 014 - House Breaking",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "015",
+      "name": "Theft of Vehicle",
+      "description": "SAPS incident code 015 - Theft of Vehicle",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "016",
+      "name": "Theft out of Vehicle",
+      "description": "SAPS incident code 016 - Theft out of Vehicle",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "017",
+      "name": "Malicious damage",
+      "description": "SAPS incident code 017 - Malicious damage",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "018",
+      "name": "Use Vehicle No Consent",
+      "description": "SAPS incident code 018 - Use Vehicle No Consent",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "019",
+      "name": "Shooting",
+      "description": "SAPS incident code 019 - Shooting",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "020",
+      "name": "Hostage Situation",
+      "description": "SAPS incident code 020 - Hostage Situation",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "021",
+      "name": "Rape",
+      "description": "SAPS incident code 021 - Rape",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "023",
+      "name": "Armed Robbery",
+      "description": "SAPS incident code 023 - Armed Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "024",
+      "name": "Robbery",
+      "description": "SAPS incident code 024 - Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "027",
+      "name": "Child Abuse",
+      "description": "SAPS incident code 027 - Child Abuse",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "028",
+      "name": "Trespassing",
+      "description": "SAPS incident code 028 - Trespassing",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "029",
+      "name": "Disturbing the Peace",
+      "description": "SAPS incident code 029 - Disturbing the Peace",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "030",
+      "name": "Stone Throwing",
+      "description": "SAPS incident code 030 - Stone Throwing",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "031",
+      "name": "Bomb Exploding",
+      "description": "SAPS incident code 031 - Bomb Exploding",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "032",
+      "name": "Bomb Threat",
+      "description": "SAPS incident code 032 - Bomb Threat",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "033",
+      "name": "Intimidation",
+      "description": "SAPS incident code 033 - Intimidation",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "034",
+      "name": "Fraud",
+      "description": "SAPS incident code 034 - Fraud",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "035",
+      "name": "Fire",
+      "description": "SAPS incident code 035 - Fire",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "036",
+      "name": "Arson",
+      "description": "SAPS incident code 036 - Arson",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "037",
+      "name": "Burglar Alarm",
+      "description": "SAPS incident code 037 - Burglar Alarm",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "038",
+      "name": "Suspicious Person",
+      "description": "SAPS incident code 038 - Suspicious Person",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "039",
+      "name": "Suspicious Vehicle",
+      "description": "SAPS incident code 039 - Suspicious Vehicle",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "040",
+      "name": "Suspicious Parcel",
+      "description": "SAPS incident code 040 - Suspicious Parcel",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "053",
+      "name": "Stock Theft",
+      "description": "SAPS incident code 053 - Stock Theft",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "054",
+      "name": "Possess / Deal in Drugs",
+      "description": "SAPS incident code 054 - Possess / Deal in Drugs",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "055",
+      "name": "Suicide",
+      "description": "SAPS incident code 055 - Suicide",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "059",
+      "name": "SAPS in Danger - Need Help",
+      "description": "SAPS incident code 059 - SAPS in Danger - Need Help",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "067",
+      "name": "Panic Alarm",
+      "description": "SAPS incident code 067 - Panic Alarm",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "076",
+      "name": "Patrols Required",
+      "description": "SAPS incident code 076 - Patrols Required",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "079",
+      "name": "Sudden Death",
+      "description": "SAPS incident code 079 - Sudden Death",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "080",
+      "name": "Drowning",
+      "description": "SAPS incident code 080 - Drowning",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "092",
+      "name": "Domestic Violence",
+      "description": "SAPS incident code 092 - Domestic Violence",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "095",
+      "name": "Collision Serious",
+      "description": "SAPS incident code 095 - Collision Serious",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "096",
+      "name": "Collision Damage",
+      "description": "SAPS incident code 096 - Collision Damage",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "097",
+      "name": "Collision Fatal",
+      "description": "SAPS incident code 097 - Collision Fatal",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "100",
+      "name": "Car Jacking",
+      "description": "SAPS incident code 100 - Car Jacking",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "101",
+      "name": "Hi-Jacking of Truck",
+      "description": "SAPS incident code 101 - Hi-Jacking of Truck",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "102",
+      "name": "Business Robbery",
+      "description": "SAPS incident code 102 - Business Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "103",
+      "name": "House Robbery",
+      "description": "SAPS incident code 103 - House Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "104",
+      "name": "Bank Robbery",
+      "description": "SAPS incident code 104 - Bank Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "105",
+      "name": "Cash in Transit Robbery",
+      "description": "SAPS incident code 105 - Cash in Transit Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "106",
+      "name": "ATM Robbery",
+      "description": "SAPS incident code 106 - ATM Robbery",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "107",
+      "name": "Armed Robbery Person",
+      "description": "SAPS incident code 107 - Armed Robbery Person",
+      "source": "SAPS incident code sheet",
+      "active": true
+    },
+    {
+      "code": "108",
+      "name": "Armed Robbery from Person",
+      "description": "SAPS incident code 108 - Armed Robbery from Person",
+      "source": "SAPS incident code sheet",
+      "active": true
+    }
+  ],
+  "abcModifiers": [
+    {
+      "code": "A",
+      "name": "In Progress / Still Happening"
+    },
+    {
+      "code": "B",
+      "name": "Taken Place"
+    },
+    {
+      "code": "C",
+      "name": "Attempted"
+    }
+  ],
+  "manualReview": {
+    "required": true,
+    "reason": "Uploaded SAPS photos were not available in the workspace context during drafting; entries are based on visible examples supplied in the request.",
+    "missingCodeRanges": [
+      "022",
+      "025-026",
+      "041-052",
+      "056-058",
+      "060-066",
+      "068-075",
+      "077-078",
+      "081-091",
+      "093-094",
+      "098-099"
+    ],
+    "duplicatesDetected": []
+  }
+}
