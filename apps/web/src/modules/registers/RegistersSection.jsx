@@ -2181,7 +2181,7 @@ export default function RegistersSection({
             <p className="card-detail">{emergencyContactTypesError}</p>
           )}
 
-          <table>
+          <table className={isEmergencyServicesRegister ? "emergency-services-register-table" : ""}>
             <thead>
               <tr>
                 {MASTER_REGISTER_PLACEHOLDERS[registerTab].columns.map((column) => (
@@ -2396,8 +2396,9 @@ export default function RegistersSection({
 
               {isEmergencyServicesRegister && serviceRows.map((row) => (
                 <tr key={row.id}>
-                  <td>
+                  <td className="service-name-cell">
                     <input
+                      className="service-field service-name-input"
                       value={row.name}
                       placeholder="South African Police Service"
                       onChange={(event) =>
@@ -2408,8 +2409,9 @@ export default function RegistersSection({
                       }
                     />
                   </td>
-                  <td>
+                  <td className="service-type-cell">
                     <select
+                      className="service-field service-type-input"
                       value={row.type}
                       onChange={(event) =>
                         updateServiceRow(row.id, "type", event.target.value)
@@ -2425,8 +2427,9 @@ export default function RegistersSection({
                       ))}
                     </select>
                   </td>
-                  <td>
+                  <td className="service-phone-cell">
                     <input
+                      className="service-field service-phone-input"
                       value={row.phone || ""}
                       placeholder="10111"
                       onChange={(event) =>
@@ -2437,10 +2440,12 @@ export default function RegistersSection({
                       }
                     />
                   </td>
-                  <td>
-                    <input
+                  <td className="service-notes-cell">
+                    <textarea
+                      className="service-field service-notes-input"
                       value={row.radio || ""}
                       placeholder="Other numbers / notes"
+                      rows={3}
                       onChange={(event) =>
                         updateServiceRow(row.id, "radio", event.target.value)
                       }
@@ -2449,8 +2454,9 @@ export default function RegistersSection({
                       }
                     />
                   </td>
-                  <td>
+                  <td className="service-sector-cell">
                     <input
+                      className="service-field service-sector-input"
                       value={row.sector || ""}
                       placeholder="All sectors"
                       onChange={(event) =>

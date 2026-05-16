@@ -1254,7 +1254,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           Object.entries(groupedServices).map(([type, rows]) => (
             <div key={type} className="table-group">
               <h4>{type}</h4>
-              <table>
+              <table className="emergency-services-directory-table">
                 <thead>
                   <tr>
                     <th>Name</th>
@@ -1268,11 +1268,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                 <tbody>
                   {rows.map((service) => (
                     <tr key={service.id}>
-                      <td>{service.name || "-"}</td>
+                      <td className="wrap-cell service-name-cell">{service.name || "-"}</td>
                       <td>{formatServiceTypeLabel(service.type)}</td>
-                      <td>{service.phone || "-"}</td>
-                      <td>{service.radio || "-"}</td>
-                      <td>{service.sector || "-"}</td>
+                      <td className="wrap-cell service-phone-cell">{service.phone || "-"}</td>
+                      <td className="wrap-cell service-notes-cell">{service.radio || "-"}</td>
+                      <td className="wrap-cell service-sector-cell">{service.sector || "-"}</td>
                       <td>{service.isActive ? "Yes" : "No"}</td>
                     </tr>
                   ))}

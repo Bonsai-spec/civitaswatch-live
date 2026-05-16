@@ -778,6 +778,65 @@ table {
   overflow: hidden;
 }
 
+.emergency-services-register-table,
+.emergency-services-directory-table {
+  table-layout: auto;
+  min-width: 1120px;
+  overflow: visible;
+}
+
+.emergency-services-register-table th,
+.emergency-services-register-table td,
+.emergency-services-directory-table th,
+.emergency-services-directory-table td {
+  vertical-align: top;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.emergency-services-register-table .service-name-cell,
+.emergency-services-directory-table .service-name-cell {
+  min-width: 240px;
+}
+
+.emergency-services-register-table .service-phone-cell,
+.emergency-services-directory-table .service-phone-cell {
+  min-width: 150px;
+}
+
+.emergency-services-register-table .service-notes-cell,
+.emergency-services-directory-table .service-notes-cell {
+  min-width: 340px;
+}
+
+.emergency-services-register-table .service-sector-cell,
+.emergency-services-directory-table .service-sector-cell {
+  min-width: 180px;
+}
+
+.emergency-services-register-table .service-field {
+  width: 100%;
+  min-width: 0;
+}
+
+.emergency-services-register-table .service-notes-input {
+  line-height: 1.35;
+  min-height: 84px;
+}
+
+.emergency-services-register-table .service-name-input,
+.emergency-services-register-table .service-phone-input,
+.emergency-services-register-table .service-sector-input,
+.emergency-services-register-table .service-type-input {
+  min-height: 42px;
+}
+
+.wrap-cell {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 th,
 td {
   padding: 16px;
