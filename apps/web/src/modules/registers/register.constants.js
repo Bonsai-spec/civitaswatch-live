@@ -9,6 +9,7 @@ export const REGISTER_TABS = [
   "Incident Codes",
   "Incident Subcodes",
   "Service Types",
+  "Emergency Services",
   "Infrastructure Types",
   "Emergency Contact Types",
 ];

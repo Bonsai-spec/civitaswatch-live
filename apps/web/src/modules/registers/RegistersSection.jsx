@@ -17,9 +17,22 @@ const SERVICE_TYPE_CATEGORY_OPTIONS = [
   "Community",
   "Other",
 ];
+const SERVICE_RECORD_TYPE_OPTIONS = [
+  "AMBULANCE",
+  "POLICE",
+  "FIRE",
+  "METRO",
+  "TRAFFIC",
+  "TOWING",
+  "SECURITY_BACKUP",
+  "CONTROL_ROOM",
+  "MEDICAL_AID",
+  "OTHER",
+];
 const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
+const SERVICES_ENDPOINT = `${API}/services`;
 const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
 const EMERGENCY_CONTACT_TYPES_ENDPOINT = `${API}/admin/emergency-contact-types`;
 
@@ -41,6 +54,11 @@ const MASTER_REGISTER_PLACEHOLDERS = {
     description: "External and internal service categories coordinated by Control Room.",
     addLabel: "Add Service Type",
     columns: ["Type", "Category", "Control Room Managed", "Active"],
+  },
+  "Emergency Services": {
+    description: "Actual emergency service and operational contact records.",
+    addLabel: "Add Emergency Service",
+    columns: ["Name", "Type", "Phone", "Other Numbers / Notes", "Sector / Area", "Active"],
   },
   "Infrastructure Types": {
     description: "Types of critical infrastructure and assets.",
@@ -144,6 +162,11 @@ export default function RegistersSection({
   const [serviceTypesLoaded, setServiceTypesLoaded] = useState(false);
   const [serviceTypesError, setServiceTypesError] = useState("");
   const [serviceTypeSavingIds, setServiceTypeSavingIds] = useState([]);
+  const [serviceRows, setServiceRows] = useState([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesLoaded, setServicesLoaded] = useState(false);
+  const [servicesError, setServicesError] = useState("");
+  const [serviceSavingIds, setServiceSavingIds] = useState([]);
   // Infrastructure Types classify monitored assets and critical infrastructure.
   // Risk Level supports prioritisation and future intelligence analysis.
   // Future mapping: infrastructureTypes -> InfrastructureType model via
@@ -169,12 +192,14 @@ export default function RegistersSection({
   const isIncidentCodesRegister = registerTab === "Incident Codes";
   const isIncidentSubcodesRegister = registerTab === "Incident Subcodes";
   const isServiceTypesRegister = registerTab === "Service Types";
+  const isEmergencyServicesRegister = registerTab === "Emergency Services";
   const isInfrastructureTypesRegister = registerTab === "Infrastructure Types";
   const isEmergencyContactTypesRegister = registerTab === "Emergency Contact Types";
   const isEditableMasterRegister =
     isIncidentCodesRegister ||
     isIncidentSubcodesRegister ||
     isServiceTypesRegister ||
+    isEmergencyServicesRegister ||
     isInfrastructureTypesRegister ||
     isEmergencyContactTypesRegister;
 
@@ -205,6 +230,12 @@ export default function RegistersSection({
       loadServiceTypes();
     }
   }, [isServiceTypesRegister, serviceTypesLoaded, serviceTypesLoading]);
+
+  useEffect(() => {
+    if (isEmergencyServicesRegister && !servicesLoaded && !servicesLoading) {
+      loadServices();
+    }
+  }, [isEmergencyServicesRegister, servicesLoaded, servicesLoading]);
 
   useEffect(() => {
     if (
@@ -263,6 +294,10 @@ export default function RegistersSection({
     return String(row?.id || "").startsWith("service-type-draft-");
   }
 
+  function isDraftService(row) {
+    return String(row?.id || "").startsWith("service-draft-");
+  }
+
   function isDraftInfrastructureType(row) {
     return String(row?.id || "").startsWith("infrastructure-type-draft-");
   }
@@ -287,6 +322,13 @@ export default function RegistersSection({
 
   function setServiceTypeSaving(id, isSaving) {
     setServiceTypeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function setServiceSaving(id, isSaving) {
+    setServiceSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
@@ -357,6 +399,29 @@ export default function RegistersSection({
       controlRoomManaged: Boolean(row.controlRoomManaged),
       active: Boolean(row.active),
       templateSourceId: row.templateSourceId || null,
+    };
+  }
+
+  function normalizeService(row) {
+    return {
+      ...row,
+      name: row.name || "",
+      type: row.type || "OTHER",
+      phone: row.phone || "",
+      radio: row.radio || "",
+      sector: row.sector || "",
+      isActive: row.isActive ?? true,
+    };
+  }
+
+  function servicePayload(row) {
+    return {
+      name: String(row.name || "").trim(),
+      type: String(row.type || "OTHER").trim() || "OTHER",
+      phone: String(row.phone || "").trim() || null,
+      radio: String(row.radio || "").trim() || null,
+      sector: String(row.sector || "").trim() || null,
+      isActive: Boolean(row.isActive),
     };
   }
 
@@ -629,6 +694,78 @@ export default function RegistersSection({
     }
   }
 
+  function isServiceComplete(row) {
+    return hasText(row?.name) && hasText(row?.type);
+  }
+
+  async function loadServices() {
+    setServicesLoading(true);
+    setServicesError("");
+
+    try {
+      const res = await fetch(`${SERVICES_ENDPOINT}?includeInactive=true`, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load emergency services.");
+      }
+
+      setServiceRows(Array.isArray(json) ? json.map((row) => normalizeService(row)) : []);
+      setServicesLoaded(true);
+    } catch (err) {
+      console.error("Failed to load emergency services", err);
+      setServicesError(err.message || "Failed to load emergency services.");
+      setServicesLoaded(true);
+    } finally {
+      setServicesLoading(false);
+    }
+  }
+
+  async function saveServiceRow(row) {
+    if (!row || serviceSavingIds.includes(row.id)) return;
+
+    if (!isServiceComplete(row)) {
+      setMasterRegisterValidationTab("Emergency Services");
+      return;
+    }
+
+    const isDraft = isDraftService(row);
+    const endpoint = isDraft ? SERVICES_ENDPOINT : `${SERVICES_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setServiceSaving(row.id, true);
+    setServicesError("");
+    setMasterRegisterSuccessTab("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(servicePayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save emergency service.");
+      }
+
+      const nextRow = normalizeService(json);
+
+      setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Emergency Services");
+      setServiceRows((current) =>
+        current.map((item) => (item.id === row.id ? nextRow : item))
+      );
+    } catch (err) {
+      console.error("Failed to save emergency service", err);
+      setServicesError(err.message || "Failed to save emergency service.");
+    } finally {
+      setServiceSaving(row.id, false);
+    }
+  }
+
   function isInfrastructureTypeComplete(row) {
     return hasText(row?.type);
   }
@@ -798,6 +935,10 @@ export default function RegistersSection({
 
     if (tab === "Service Types") {
       return latestRowIsIncomplete(serviceTypeRows, isServiceTypeComplete);
+    }
+
+    if (tab === "Emergency Services") {
+      return latestRowIsIncomplete(serviceRows, isServiceComplete);
     }
 
     if (tab === "Infrastructure Types") {
@@ -977,6 +1118,67 @@ export default function RegistersSection({
     } catch (err) {
       console.error("Failed to delete service type", err);
       setServiceTypesError(err.message || "Failed to delete service type.");
+    }
+  }
+
+  function addServiceRow() {
+    if (hasLatestIncompleteMasterRow("Emergency Services")) {
+      setMasterRegisterValidationTab("Emergency Services");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setServiceRows((current) => [
+      ...current,
+      {
+        id: `service-draft-${Date.now()}-${current.length}`,
+        name: "",
+        type: "OTHER",
+        phone: "",
+        radio: "",
+        sector: "",
+        isActive: true,
+      },
+    ]);
+  }
+
+  function updateServiceRow(id, field, value) {
+    setServiceRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  async function deleteServiceRow(id) {
+    const row = serviceRows.find((item) => item.id === id);
+
+    if (!row || isDraftService(row)) {
+      setServiceRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setServicesError("");
+    setMasterRegisterSuccessTab("");
+
+    try {
+      const res = await fetch(`${SERVICES_ENDPOINT}/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to deactivate emergency service.");
+      }
+
+      const nextRow = normalizeService(json);
+
+      setServiceRows((current) =>
+        current.map((item) => (item.id === id ? nextRow : item))
+      );
+      setMasterRegisterSuccessTab("Emergency Services");
+    } catch (err) {
+      console.error("Failed to deactivate emergency service", err);
+      setServicesError(err.message || "Failed to deactivate emergency service.");
     }
   }
 
@@ -1913,6 +2115,7 @@ export default function RegistersSection({
               !isIncidentCodesRegister &&
               !isIncidentSubcodesRegister &&
               !isServiceTypesRegister &&
+              !isEmergencyServicesRegister &&
               !isInfrastructureTypesRegister &&
               !isEmergencyContactTypesRegister
             }
@@ -1923,11 +2126,13 @@ export default function RegistersSection({
                   ? addIncidentSubcodeRow
                   : isServiceTypesRegister
                     ? addServiceTypeRow
-                    : isInfrastructureTypesRegister
-                      ? addInfrastructureTypeRow
-                      : isEmergencyContactTypesRegister
-                        ? addEmergencyContactTypeRow
-                        : undefined
+                    : isEmergencyServicesRegister
+                      ? addServiceRow
+                      : isInfrastructureTypesRegister
+                        ? addInfrastructureTypeRow
+                        : isEmergencyContactTypesRegister
+                          ? addEmergencyContactTypeRow
+                          : undefined
             }
           >
             {MASTER_REGISTER_PLACEHOLDERS[registerTab].addLabel}
@@ -1956,6 +2161,12 @@ export default function RegistersSection({
           )}
           {isServiceTypesRegister && serviceTypesError && (
             <p className="card-detail">{serviceTypesError}</p>
+          )}
+          {isEmergencyServicesRegister && servicesLoading && (
+            <p className="card-detail">Loading emergency services...</p>
+          )}
+          {isEmergencyServicesRegister && servicesError && (
+            <p className="card-detail">{servicesError}</p>
           )}
           {isInfrastructureTypesRegister && infrastructureTypesLoading && (
             <p className="card-detail">Loading infrastructure types...</p>
@@ -2183,6 +2394,95 @@ export default function RegistersSection({
                 </tr>
               ))}
 
+              {isEmergencyServicesRegister && serviceRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      value={row.name}
+                      placeholder="South African Police Service"
+                      onChange={(event) =>
+                        updateServiceRow(row.id, "name", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveServiceRow({ ...row, name: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.type}
+                      onChange={(event) =>
+                        updateServiceRow(row.id, "type", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveServiceRow({ ...row, type: event.target.value })
+                      }
+                    >
+                      {SERVICE_RECORD_TYPE_OPTIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      value={row.phone || ""}
+                      placeholder="10111"
+                      onChange={(event) =>
+                        updateServiceRow(row.id, "phone", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveServiceRow({ ...row, phone: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={row.radio || ""}
+                      placeholder="Other numbers / notes"
+                      onChange={(event) =>
+                        updateServiceRow(row.id, "radio", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveServiceRow({ ...row, radio: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={row.sector || ""}
+                      placeholder="All sectors"
+                      onChange={(event) =>
+                        updateServiceRow(row.id, "sector", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveServiceRow({ ...row, sector: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={row.isActive}
+                      onChange={(event) => {
+                        const nextRow = { ...row, isActive: event.target.checked };
+                        updateServiceRow(row.id, "isActive", event.target.checked);
+                        saveServiceRow(nextRow);
+                      }}
+                    />
+                  </td>
+                  <td>
+                    <button
+                      disabled={serviceSavingIds.includes(row.id)}
+                      onClick={() => deleteServiceRow(row.id)}
+                    >
+                      {serviceSavingIds.includes(row.id) ? "Saving..." : "Deactivate"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
               {isInfrastructureTypesRegister && infrastructureTypeRows.map((row) => (
                 <tr key={row.id}>
                   <td>
@@ -2338,11 +2638,13 @@ export default function RegistersSection({
               {((!isIncidentCodesRegister &&
                 !isIncidentSubcodesRegister &&
                 !isServiceTypesRegister &&
+                !isEmergencyServicesRegister &&
                 !isInfrastructureTypesRegister &&
                 !isEmergencyContactTypesRegister) ||
                 (isIncidentCodesRegister && incidentCodeRows.length === 0) ||
                 (isIncidentSubcodesRegister && incidentSubcodeRows.length === 0) ||
                 (isServiceTypesRegister && serviceTypeRows.length === 0) ||
+                (isEmergencyServicesRegister && serviceRows.length === 0) ||
                 (isInfrastructureTypesRegister && infrastructureTypeRows.length === 0) ||
                 (isEmergencyContactTypesRegister && emergencyContactTypeRows.length === 0)) && (
                 <tr>

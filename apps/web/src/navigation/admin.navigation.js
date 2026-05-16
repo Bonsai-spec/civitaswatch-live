@@ -24,6 +24,7 @@ export const ADMIN_NAV_SECTIONS = [
       { label: "Incident Codes", permission: "VIEW_REGISTERS" },
       { label: "Incident Subcodes", permission: "VIEW_REGISTERS" },
       { label: "Service Types", permission: "VIEW_REGISTERS" },
+      { label: "Emergency Services", permission: "VIEW_REGISTERS" },
       { label: "Infrastructure Types", permission: "VIEW_REGISTERS" },
       { label: "Emergency Contact Types", permission: "VIEW_REGISTERS" },
     ],

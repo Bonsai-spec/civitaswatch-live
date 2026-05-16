@@ -858,44 +858,19 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       setControlRoomDirectoryLoading(true);
       setControlRoomDirectoryError("");
 
-      const [servicesRes, serviceTypesRes, emergencyContactTypesRes] = await Promise.all([
-        fetch(SERVICE_ENDPOINTS.list, {
-          headers: getAuthHeaders(),
-        }),
-        fetch(`${ADMIN_REGISTER_ENDPOINTS.serviceTypes}?active=true&controlRoomManaged=true`, {
-          headers: getAuthHeaders(),
-        }),
-        fetch(`${ADMIN_REGISTER_ENDPOINTS.emergencyContactTypes}?active=true`, {
-          headers: getAuthHeaders(),
-        }),
-      ]);
-
-      const [servicesJson, serviceTypesJson, emergencyContactTypesJson] = await Promise.all([
-        servicesRes.json().catch(() => null),
-        serviceTypesRes.json().catch(() => null),
-        emergencyContactTypesRes.json().catch(() => null),
-      ]);
+      const servicesRes = await fetch(SERVICE_ENDPOINTS.list, {
+        headers: getAuthHeaders(),
+      });
+      const servicesJson = await servicesRes.json().catch(() => null);
 
       if (!servicesRes.ok) {
         throw new Error(servicesJson?.error || "Failed to load services.");
       }
 
-      if (!serviceTypesRes.ok) {
-        throw new Error(serviceTypesJson?.error || "Failed to load service types.");
-      }
-
-      if (!emergencyContactTypesRes.ok) {
-        throw new Error(
-          emergencyContactTypesJson?.error || "Failed to load emergency contact types."
-        );
-      }
-
       setControlRoomDirectory({
         services: Array.isArray(servicesJson) ? servicesJson : [],
-        serviceTypes: Array.isArray(serviceTypesJson) ? serviceTypesJson : [],
-        emergencyContactTypes: Array.isArray(emergencyContactTypesJson)
-          ? emergencyContactTypesJson
-          : [],
+        serviceTypes: [],
+        emergencyContactTypes: [],
       });
     } catch (error) {
       console.error(error);
@@ -1232,7 +1207,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   }
 
   function renderControlRoomDirectoryPanel() {
-    const { services, serviceTypes, emergencyContactTypes } = controlRoomDirectory;
+    const { services } = controlRoomDirectory;
     const groupedServices = services.reduce((groups, service) => {
       const key = formatServiceTypeLabel(service.type);
       return {
@@ -1266,19 +1241,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
         <div className="cards control-room-mini-cards">
           <div className="card">
-            <div className="card-title">Services / Contacts</div>
+            <div className="card-title">Emergency Contacts</div>
             <div className="card-value">{services.length}</div>
-            <div className="card-detail">Active operational contacts</div>
-          </div>
-          <div className="card">
-            <div className="card-title">Service Types</div>
-            <div className="card-value">{serviceTypes.length}</div>
-            <div className="card-detail">Control Room managed categories</div>
-          </div>
-          <div className="card">
-            <div className="card-title">Emergency Contact Types</div>
-            <div className="card-value">{emergencyContactTypes.length}</div>
-            <div className="card-detail">Escalation/contact classifications</div>
+            <div className="card-detail">Active phone directory records</div>
           </div>
         </div>
 
@@ -1315,66 +1280,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
               </table>
             </div>
           ))
-        )}
-
-        <h3>Service Types</h3>
-        {serviceTypes.length === 0 ? (
-          <p>No active Control Room service types available.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Control Room Managed</th>
-                <th>Sector / Area</th>
-                <th>Notes</th>
-                <th>Active</th>
-              </tr>
-            </thead>
-            <tbody>
-              {serviceTypes.map((serviceType) => (
-                <tr key={serviceType.id}>
-                  <td>{serviceType.type || "-"}</td>
-                  <td>{serviceType.category || "-"}</td>
-                  <td>{serviceType.controlRoomManaged ? "Yes" : "No"}</td>
-                  <td>{serviceType.sector?.name || serviceType.sectorId || "Shared"}</td>
-                  <td>{serviceType.templateSourceId ? `Template: ${serviceType.templateSourceId}` : "-"}</td>
-                  <td>{serviceType.active ? "Yes" : "No"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        <h3>Emergency Contact Types</h3>
-        {emergencyContactTypes.length === 0 ? (
-          <p>No active emergency contact types available.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Escalation Level</th>
-                <th>Sector Specific</th>
-                <th>Sector / Area</th>
-                <th>Notes</th>
-                <th>Active</th>
-              </tr>
-            </thead>
-            <tbody>
-              {emergencyContactTypes.map((contactType) => (
-                <tr key={contactType.id}>
-                  <td>{contactType.type || "-"}</td>
-                  <td>{contactType.escalationLevel || "-"}</td>
-                  <td>{contactType.sectorSpecific ? "Yes" : "No"}</td>
-                  <td>{contactType.sector?.name || contactType.sectorId || "Shared"}</td>
-                  <td>{contactType.templateSourceId ? `Template: ${contactType.templateSourceId}` : "-"}</td>
-                  <td>{contactType.active ? "Yes" : "No"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         )}
       </div>
     );
