@@ -1,0 +1,496 @@
+{
+  "status": "draft",
+  "source": "Provided emergency service contact list",
+  "manualReviewRequired": true,
+  "createdFor": "CivitasWatch Phase 3 emergency services register review",
+  "notes": [
+    "These contacts are draft and unverified until manually confirmed.",
+    "Do not import automatically without operational review.",
+    "The current Service model supports name, type, phone, radio, sector, and isActive.",
+    "Secondary phones, WhatsApp numbers, notes, verified status, and last verified dates are preserved here for review and may require a later schema/UI enhancement if they must be managed directly in the database."
+  ],
+  "serviceTypeMapping": {
+    "SAPS": "POLICE",
+    "Fire Services": "FIRE",
+    "Ambulance / Medical": "AMBULANCE",
+    "Metro / Municipality": "METRO",
+    "Sector Contacts": "SECURITY_BACKUP",
+    "Internal / Community Contacts": "CONTROL_ROOM"
+  },
+  "contacts": [
+    {
+      "category": "SAPS",
+      "name": "South African Police Service",
+      "primaryPhone": "10111",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "National SAPS emergency number. Draft/unverified.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "South African Police Service",
+        "type": "POLICE",
+        "phone": "10111",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "SAPS",
+      "name": "SAPS Local",
+      "primaryPhone": "012 685 0015",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Local",
+      "notes": "Draft/unverified local SAPS contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "SAPS Local",
+        "type": "POLICE",
+        "phone": "012 685 0015",
+        "radio": null,
+        "sector": "Local",
+        "isActive": true
+      }
+    },
+    {
+      "category": "SAPS",
+      "name": "SAPS Customer Service Centre",
+      "primaryPhone": "071 675 6459",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Local",
+      "notes": "Draft/unverified SAPS customer service centre contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "SAPS Customer Service Centre",
+        "type": "POLICE",
+        "phone": "071 675 6459",
+        "radio": null,
+        "sector": "Local",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Fire Services",
+      "name": "Fire Services",
+      "primaryPhone": "10177",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Emergency fire services contact. Draft/unverified.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Fire Services",
+        "type": "FIRE",
+        "phone": "10177",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Fire Services",
+      "name": "Fire Services",
+      "primaryPhone": "012 358 6400",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Local / Tshwane",
+      "notes": "Local fire services contact. Draft/unverified.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Fire Services",
+        "type": "FIRE",
+        "phone": "012 358 6400",
+        "radio": null,
+        "sector": "Local / Tshwane",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Fire Services",
+      "name": "Central Fire",
+      "primaryPhone": "082 555 8929",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Central",
+      "notes": "Draft/unverified central fire contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Central Fire",
+        "type": "FIRE",
+        "phone": "082 555 8929",
+        "radio": null,
+        "sector": "Central",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Fire Services",
+      "name": "Fire and Rescue",
+      "primaryPhone": "012 310 6300",
+      "secondaryPhones": [
+        "012 310 6400"
+      ],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Local / Tshwane",
+      "notes": "Draft/unverified fire and rescue contact. Secondary number: 012 310 6400.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Fire and Rescue",
+        "type": "FIRE",
+        "phone": "012 310 6300",
+        "radio": null,
+        "sector": "Local / Tshwane",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "State Ambulance",
+      "primaryPhone": "10177",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Emergency ambulance contact. Draft/unverified.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "State Ambulance",
+        "type": "AMBULANCE",
+        "phone": "10177",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "GPG Ambulance",
+      "primaryPhone": "011 554 0000",
+      "secondaryPhones": [
+        "011 564 2210"
+      ],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Gauteng",
+      "notes": "Draft/unverified GPG ambulance contact. Secondary number: 011 564 2210.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "GPG Ambulance",
+        "type": "AMBULANCE",
+        "phone": "011 554 0000",
+        "radio": null,
+        "sector": "Gauteng",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "ER24",
+      "primaryPhone": "084 124",
+      "secondaryPhones": [
+        "082 911",
+        "0861 084 124"
+      ],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Draft/unverified ER24 contact. Secondary numbers: 082 911, 0861 084 124.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "ER24",
+        "type": "AMBULANCE",
+        "phone": "084 124",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "Netcare 911",
+      "primaryPhone": "082 911",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Draft/unverified Netcare 911 contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Netcare 911",
+        "type": "AMBULANCE",
+        "phone": "082 911",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "Emer-G-Med",
+      "primaryPhone": "081 237 9033",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Draft/unverified Emer-G-Med contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Emer-G-Med",
+        "type": "AMBULANCE",
+        "phone": "081 237 9033",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "Emergency Medical Solutions",
+      "primaryPhone": "073 969 7987",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Draft/unverified emergency medical solutions contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Emergency Medical Solutions",
+        "type": "AMBULANCE",
+        "phone": "073 969 7987",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "Military Ambulance",
+      "primaryPhone": "012 314 0999",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Military / local",
+      "notes": "Draft/unverified military ambulance contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Military Ambulance",
+        "type": "AMBULANCE",
+        "phone": "012 314 0999",
+        "radio": null,
+        "sector": "Military / local",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "Life Med",
+      "primaryPhone": "086 108 6911",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Draft/unverified Life Med contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Life Med",
+        "type": "AMBULANCE",
+        "phone": "086 108 6911",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "Community Emergency Response Team / CERT",
+      "primaryPhone": "087 095 3556",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Community",
+      "notes": "Draft/unverified CERT contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Community Emergency Response Team / CERT",
+        "type": "AMBULANCE",
+        "phone": "087 095 3556",
+        "radio": null,
+        "sector": "Community",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Ambulance / Medical",
+      "name": "MonAmi Trauma",
+      "primaryPhone": "073 653 4497",
+      "secondaryPhones": [
+        "082 559 7264",
+        "072 357 5988"
+      ],
+      "whatsapp": null,
+      "sectorOrAreaServed": "All sectors",
+      "notes": "Draft/unverified trauma support contact. Secondary numbers: 082 559 7264, 072 357 5988.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "MonAmi Trauma",
+        "type": "AMBULANCE",
+        "phone": "073 653 4497",
+        "radio": null,
+        "sector": "All sectors",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Metro / Municipality",
+      "name": "Metro",
+      "primaryPhone": "012 664 4445",
+      "secondaryPhones": [
+        "012 358 7096"
+      ],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Metro / local",
+      "notes": "Draft/unverified metro contact. Secondary number: 012 358 7096.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Metro",
+        "type": "METRO",
+        "phone": "012 664 4445",
+        "radio": null,
+        "sector": "Metro / local",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Metro / Municipality",
+      "name": "City of Tshwane",
+      "primaryPhone": "012 310 6200",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "City of Tshwane",
+      "notes": "Draft/unverified municipal contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "City of Tshwane",
+        "type": "METRO",
+        "phone": "012 310 6200",
+        "radio": null,
+        "sector": "City of Tshwane",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Sector Contacts",
+      "name": "Sector 1",
+      "primaryPhone": "079 733 2149",
+      "secondaryPhones": [
+        "079 733 2138"
+      ],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Sector 1",
+      "notes": "Draft/unverified sector contact. Secondary number: 079 733 2138.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Sector 1",
+        "type": "SECURITY_BACKUP",
+        "phone": "079 733 2149",
+        "radio": null,
+        "sector": "Sector 1",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Sector Contacts",
+      "name": "Sector 2",
+      "primaryPhone": "076 883 2437",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Sector 2",
+      "notes": "Draft/unverified sector contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Sector 2",
+        "type": "SECURITY_BACKUP",
+        "phone": "076 883 2437",
+        "radio": null,
+        "sector": "Sector 2",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Sector Contacts",
+      "name": "Sector 3",
+      "primaryPhone": "072 837 5278",
+      "secondaryPhones": [],
+      "whatsapp": null,
+      "sectorOrAreaServed": "Sector 3",
+      "notes": "Draft/unverified sector contact.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "Sector 3",
+        "type": "SECURITY_BACKUP",
+        "phone": "072 837 5278",
+        "radio": null,
+        "sector": "Sector 3",
+        "isActive": true
+      }
+    },
+    {
+      "category": "Internal / Community Contacts",
+      "name": "ADS WhatsApp Group Admins",
+      "primaryPhone": "061 310 4176",
+      "secondaryPhones": [],
+      "whatsapp": "061 310 4176",
+      "sectorOrAreaServed": "Community",
+      "notes": "Draft/unverified internal/community contact. WhatsApp number supplied.",
+      "active": true,
+      "verified": false,
+      "lastVerifiedDate": null,
+      "existingServiceMapping": {
+        "name": "ADS WhatsApp Group Admins",
+        "type": "CONTROL_ROOM",
+        "phone": "061 310 4176",
+        "radio": null,
+        "sector": "Community",
+        "isActive": true
+      }
+    }
+  ]
+}
