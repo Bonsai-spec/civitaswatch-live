@@ -38,6 +38,15 @@ export const PATROL_ENDPOINTS = {
   assistanceRequests: `${API}/patrol-events/assistance/requests`,
 };
 
+export const ADMIN_REGISTER_ENDPOINTS = {
+  serviceTypes: `${API}/admin/service-types`,
+  emergencyContactTypes: `${API}/admin/emergency-contact-types`,
+};
+
+export const SERVICE_ENDPOINTS = {
+  list: `${API}/services`,
+};
+
 export const VEHICLE_ENDPOINTS = {
   list: `${API}/vehicles`,
 };

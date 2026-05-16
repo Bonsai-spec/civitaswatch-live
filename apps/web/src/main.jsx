@@ -11,7 +11,11 @@ import {
   getAuthHeaders as buildAuthHeaders,
   getJsonAuthHeaders as buildJsonAuthHeaders,
 } from "./core/http.utils";
-import { PATROL_ENDPOINTS } from "./core/endpoints";
+import {
+  ADMIN_REGISTER_ENDPOINTS,
+  PATROL_ENDPOINTS,
+  SERVICE_ENDPOINTS,
+} from "./core/endpoints";
 import { useAdminData } from "./hooks/useAdminData";
 import { useAuth } from "./hooks/useAuth";
 import { useIncidents } from "./hooks/useIncidents";
@@ -90,6 +94,8 @@ const CONTROL_ROOM_TABS = [
   "Live Overview",
   "Assistance Requests",
   "Incidents",
+  "Active Patrols",
+  "Service Directory",
   "Selected Incident Services",
   "Patrol Reports",
   "Selected Patrol Timeline",
@@ -478,6 +484,13 @@ function App() {
   const [registerTab, setRegisterTab] = useState("Members");
   const [registerSearch, setRegisterSearch] = useState("");
   const [controlRoomRefreshing, setControlRoomRefreshing] = useState(false);
+  const [controlRoomDirectory, setControlRoomDirectory] = useState({
+    services: [],
+    serviceTypes: [],
+    emergencyContactTypes: [],
+  });
+  const [controlRoomDirectoryLoading, setControlRoomDirectoryLoading] = useState(false);
+  const [controlRoomDirectoryError, setControlRoomDirectoryError] = useState("");
 
   const {
     userRole,
@@ -792,6 +805,66 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
     }
   }
 
+  async function loadControlRoomDirectory() {
+    if (!token || !isControlRoomUser) return;
+
+    try {
+      setControlRoomDirectoryLoading(true);
+      setControlRoomDirectoryError("");
+
+      const [servicesRes, serviceTypesRes, emergencyContactTypesRes] = await Promise.all([
+        fetch(SERVICE_ENDPOINTS.list, {
+          headers: getAuthHeaders(),
+        }),
+        fetch(`${ADMIN_REGISTER_ENDPOINTS.serviceTypes}?active=true&controlRoomManaged=true`, {
+          headers: getAuthHeaders(),
+        }),
+        fetch(`${ADMIN_REGISTER_ENDPOINTS.emergencyContactTypes}?active=true`, {
+          headers: getAuthHeaders(),
+        }),
+      ]);
+
+      const [servicesJson, serviceTypesJson, emergencyContactTypesJson] = await Promise.all([
+        servicesRes.json().catch(() => null),
+        serviceTypesRes.json().catch(() => null),
+        emergencyContactTypesRes.json().catch(() => null),
+      ]);
+
+      if (!servicesRes.ok) {
+        throw new Error(servicesJson?.error || "Failed to load services.");
+      }
+
+      if (!serviceTypesRes.ok) {
+        throw new Error(serviceTypesJson?.error || "Failed to load service types.");
+      }
+
+      if (!emergencyContactTypesRes.ok) {
+        throw new Error(
+          emergencyContactTypesJson?.error || "Failed to load emergency contact types."
+        );
+      }
+
+      setControlRoomDirectory({
+        services: Array.isArray(servicesJson) ? servicesJson : [],
+        serviceTypes: Array.isArray(serviceTypesJson) ? serviceTypesJson : [],
+        emergencyContactTypes: Array.isArray(emergencyContactTypesJson)
+          ? emergencyContactTypesJson
+          : [],
+      });
+    } catch (error) {
+      console.error(error);
+      setControlRoomDirectoryError(error.message || "Failed to load service directory.");
+    } finally {
+      setControlRoomDirectoryLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isControlRoomUser && controlRoomTab === "Service Directory") {
+      loadControlRoomDirectory();
+    }
+  }, [isControlRoomUser, controlRoomTab, token]);
+
   function renderIncidentsSection(options = {}, sectionChildren = null) {
     const sectionData = isControlRoomUser ? controlRoomData : data;
     const sectionSelectedIncident = isControlRoomUser
@@ -1030,6 +1103,145 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
     );
   }
 
+  function renderControlRoomDirectoryPanel() {
+    const { services, serviceTypes, emergencyContactTypes } = controlRoomDirectory;
+
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Service Directory / Emergency Contacts</h2>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={loadControlRoomDirectory}
+            disabled={controlRoomDirectoryLoading}
+          >
+            {controlRoomDirectoryLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {controlRoomDirectoryError && (
+          <p className="error-text">{controlRoomDirectoryError}</p>
+        )}
+
+        <p className="card-detail">
+          Read-only operational directory for Control Room coordination. Admin maintains the
+          underlying registers and service/contact records.
+        </p>
+
+        <div className="cards control-room-mini-cards">
+          <div className="card">
+            <div className="card-title">Services / Contacts</div>
+            <div className="card-value">{services.length}</div>
+            <div className="card-detail">Active operational contacts</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Service Types</div>
+            <div className="card-value">{serviceTypes.length}</div>
+            <div className="card-detail">Control Room managed categories</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Emergency Contact Types</div>
+            <div className="card-value">{emergencyContactTypes.length}</div>
+            <div className="card-detail">Escalation/contact classifications</div>
+          </div>
+        </div>
+
+        <h3>Services / Contacts</h3>
+        {services.length === 0 ? (
+          <p>No active services or contacts available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Phone</th>
+                <th>Radio</th>
+                <th>Sector / Area</th>
+                <th>Notes</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((service) => (
+                <tr key={service.id}>
+                  <td>{service.name || "-"}</td>
+                  <td>{service.type || "-"}</td>
+                  <td>{service.phone || "-"}</td>
+                  <td>{service.radio || "-"}</td>
+                  <td>{service.sector || "-"}</td>
+                  <td>{service.notes || "-"}</td>
+                  <td>{service.isActive ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <h3>Service Types</h3>
+        {serviceTypes.length === 0 ? (
+          <p>No active Control Room service types available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Control Room Managed</th>
+                <th>Sector / Area</th>
+                <th>Notes</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {serviceTypes.map((serviceType) => (
+                <tr key={serviceType.id}>
+                  <td>{serviceType.type || "-"}</td>
+                  <td>{serviceType.category || "-"}</td>
+                  <td>{serviceType.controlRoomManaged ? "Yes" : "No"}</td>
+                  <td>{serviceType.sector?.name || serviceType.sectorId || "Shared"}</td>
+                  <td>{serviceType.templateSourceId ? `Template: ${serviceType.templateSourceId}` : "-"}</td>
+                  <td>{serviceType.active ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        <h3>Emergency Contact Types</h3>
+        {emergencyContactTypes.length === 0 ? (
+          <p>No active emergency contact types available.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Escalation Level</th>
+                <th>Sector Specific</th>
+                <th>Sector / Area</th>
+                <th>Notes</th>
+                <th>Active</th>
+              </tr>
+            </thead>
+            <tbody>
+              {emergencyContactTypes.map((contactType) => (
+                <tr key={contactType.id}>
+                  <td>{contactType.type || "-"}</td>
+                  <td>{contactType.escalationLevel || "-"}</td>
+                  <td>{contactType.sectorSpecific ? "Yes" : "No"}</td>
+                  <td>{contactType.sector?.name || contactType.sectorId || "Shared"}</td>
+                  <td>{contactType.templateSourceId ? `Template: ${contactType.templateSourceId}` : "-"}</td>
+                  <td>{contactType.active ? "Yes" : "No"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
   function renderControlRoomTab() {
     if (controlRoomTab === "Live Overview") {
       return (
@@ -1101,6 +1313,14 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         showAssistanceRequests: false,
         showSelectedIncidentServices: false,
       });
+    }
+
+    if (controlRoomTab === "Active Patrols") {
+      return renderPatrolWorkloadPanel();
+    }
+
+    if (controlRoomTab === "Service Directory") {
+      return renderControlRoomDirectoryPanel();
     }
 
     if (controlRoomTab === "Selected Incident Services") {

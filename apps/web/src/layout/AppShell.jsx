@@ -10,12 +10,18 @@ export default function AppShell({
   children,
 }) {
   const isPatrol = user?.role === "PATROL" || user?.role === "PATROLLER";
+  const isControlRoom = user?.role === "CONTROL_ROOM";
+  const subtitle = isPatrol
+    ? "Patrol Console"
+    : isControlRoom
+      ? "Control Room Operations"
+      : "Admin Dashboard";
 
   return (
     <div className="admin-shell">
       <aside className="sidebar">
         <div className="logo">CivitasWatch</div>
-        <div className="subtitle">{isPatrol ? "Patrol Console" : "Admin Dashboard"}</div>
+        <div className="subtitle">{subtitle}</div>
 
         <nav className="nav">
           {navSections.map((section) => (
@@ -38,7 +44,7 @@ export default function AppShell({
       <div className="content">
         <div className="header header-row">
           <div>
-            <h1>{active}</h1>
+            <h1>{isControlRoom ? "Control Room" : active}</h1>
             <p>
               {user
                 ? `Logged in as ${getDisplayName(user)} (${user.role})`
