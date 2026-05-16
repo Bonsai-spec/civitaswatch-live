@@ -3,7 +3,6 @@ import { API } from "../../core/api";
 import { getAuthHeaders, getJsonAuthHeaders } from "../../core/http.utils";
 import { getResidentImportMetadata } from "./register.utils";
 
-const INCIDENT_CODE_PRIORITY_OPTIONS = ["Low", "Medium", "High", "Critical"];
 const INFRASTRUCTURE_RISK_LEVEL_OPTIONS = ["Low", "Medium", "High", "Critical"];
 const EMERGENCY_CONTACT_ESCALATION_OPTIONS = ["Level 1", "Level 2", "Level 3", "Critical"];
 const MASTER_REGISTER_INCOMPLETE_MESSAGE = "Complete the current row before adding another.";
@@ -29,9 +28,9 @@ const MASTER_REGISTER_PLACEHOLDERS = {
   // registers. Later backend APIs and Prisma models should provide sector-scoped
   // records that may be sector-specific or derived from shared master templates.
   "Incident Codes": {
-    description: "Master list of primary incident classifications.",
+    description: "Master list of SAPS / primary incident classifications.",
     addLabel: "Add Incident Code",
-    columns: ["Code", "Name", "Priority", "Active"],
+    columns: ["Incident Code", "Name / Description", "Active"],
   },
   "Incident Subcodes": {
     description: "Detailed classifications linked to Incident Codes.",
@@ -1901,6 +1900,13 @@ export default function RegistersSection({
             master registers should follow this same local-state pattern before
             backend API persistence is introduced.
           */}
+          {isIncidentCodesRegister && (
+            <p className="card-detail">
+              Incident Code is the SAPS/master classification code such as 001, 023,
+              or 105. Operational SAPS/EMS/Control Room reference numbers are captured
+              separately during incident response and are not stored here.
+            </p>
+          )}
           <button
             className="secondary-btn"
             disabled={
@@ -1978,6 +1984,8 @@ export default function RegistersSection({
                 <tr key={row.id}>
                   <td>
                     <input
+                      aria-label="Incident Code"
+                      placeholder="001"
                       value={row.code}
                       onChange={(event) =>
                         updateIncidentCodeRow(row.id, "code", event.target.value)
@@ -1990,6 +1998,7 @@ export default function RegistersSection({
                   <td>
                     <input
                       value={row.name}
+                      placeholder="Back in Contact"
                       onChange={(event) =>
                         updateIncidentCodeRow(row.id, "name", event.target.value)
                       }
@@ -1997,23 +2006,6 @@ export default function RegistersSection({
                         saveIncidentCodeRow({ ...row, name: event.target.value })
                       }
                     />
-                  </td>
-                  <td>
-                    <select
-                      value={row.priority}
-                      onChange={(event) =>
-                        updateIncidentCodeRow(row.id, "priority", event.target.value)
-                      }
-                      onBlur={(event) =>
-                        saveIncidentCodeRow({ ...row, priority: event.target.value })
-                      }
-                    >
-                      {INCIDENT_CODE_PRIORITY_OPTIONS.map((priority) => (
-                        <option key={priority} value={priority}>
-                          {priority}
-                        </option>
-                      ))}
-                    </select>
                   </td>
                   <td>
                     <input
