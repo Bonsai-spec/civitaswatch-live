@@ -211,6 +211,19 @@ function formatPatrolEventLocation(event) {
   return locationLine ? locationLine.replace(/^Location:\s*/i, "") : "";
 }
 
+function getPatrolEventLocationDetails(event) {
+  if (!event) return [];
+
+  return [
+    event.streetNumber ? `Street Number: ${event.streetNumber}` : null,
+    event.streetName ? `Street Name: ${event.streetName}` : null,
+    event.suburb ? `Suburb: ${event.suburb}` : null,
+    event.locationNotes ? `Landmark / Location Notes: ${event.locationNotes}` : null,
+    event.latitude !== null && event.latitude !== undefined ? `Latitude: ${event.latitude}` : null,
+    event.longitude !== null && event.longitude !== undefined ? `Longitude: ${event.longitude}` : null,
+  ].filter(Boolean);
+}
+
 function decorateIncidentForControlRoom(incident) {
   if (!incident) return incident;
 
@@ -361,7 +374,31 @@ function getLatestPatrolOperationalEvent(patrol) {
     .slice()
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
 
-  return events.find((event) => !/^Patrol status:/i.test(event?.description || "")) || events[0] || null;
+  return events.find((event) => !isPatrolStatusOnlyEvent(event)) || events[0] || null;
+}
+
+function isPatrolStatusOnlyEvent(event) {
+  if (!event) return true;
+
+  const description = String(event.description || "").trim();
+  const type = String(event.type || "").trim().toUpperCase();
+
+  if (/^(Patrol|Incident) status:/i.test(description)) return true;
+
+  if (["NOTIFIED", "EN_ROUTE", "ON_SCENE", "STAND_DOWN", "RESUME_PATROL"].includes(type)) {
+    return !(
+      event.assistance ||
+      event.serviceTypeId ||
+      event.serviceTypeRef ||
+      event.infrastructureTypeId ||
+      event.infrastructureTypeRef ||
+      event.referenceNumber ||
+      event.streetName ||
+      event.locationNotes
+    );
+  }
+
+  return false;
 }
 
 function getPatrolEventTitle(event) {
@@ -864,6 +901,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           const classification = getPatrolEventClassificationSummary(latestEvent);
           const description = getPatrolEventDescriptionSummary(latestEvent);
           const location = getPatrolEventLocationSummary(latestEvent);
+          const locationDetails = getPatrolEventLocationDetails(latestEvent);
           const service = formatPatrolEventServiceLabel(latestEvent);
 
           return (
@@ -881,9 +919,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                     <div><strong>Latest Event:</strong> {getPatrolEventTitle(latestEvent)}</div>
                     {classification && <div>Code/Subcode: {classification}</div>}
                     {service && <div>Service / Type: {service}</div>}
-                    {description && <div>Description: {description}</div>}
-                    {location && <div>Location: {location}</div>}
                     {latestEvent.referenceNumber && <div>Reference number: {latestEvent.referenceNumber}</div>}
+                    {description && <div>Description: {description}</div>}
+                    {locationDetails.length > 0
+                      ? locationDetails.map((line) => <div key={line}>{line}</div>)
+                      : location && <div>Location: {location}</div>}
                     <div>Event time: {formatOperationalTime(latestEvent.createdAt)}</div>
                   </div>
                 )}
