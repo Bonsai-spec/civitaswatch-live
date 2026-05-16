@@ -6,6 +6,14 @@ import { prisma } from "../../src/config/db.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SEED_FILE = path.resolve(__dirname, "../seed-data/emergency-service-contacts.json");
+const PLACEHOLDER_SERVICES = [
+  {
+    name: "FIRE",
+    type: "FIRE",
+    phone: "1234",
+    sector: "S1",
+  },
+];
 
 function hasText(value) {
   return value !== undefined && value !== null && String(value).trim().length > 0;
@@ -14,6 +22,32 @@ function hasText(value) {
 function toNullableString(value) {
   if (!hasText(value)) return null;
   return String(value).trim();
+}
+
+function formatOtherNumbersAndNotes(contact) {
+  const parts = [];
+
+  if (Array.isArray(contact.secondaryPhones) && contact.secondaryPhones.length > 0) {
+    parts.push(`Other numbers: ${contact.secondaryPhones.join(" / ")}`);
+  }
+
+  if (hasText(contact.whatsapp)) {
+    parts.push(`WhatsApp: ${String(contact.whatsapp).trim()}`);
+  }
+
+  if (hasText(contact.notes)) {
+    parts.push(String(contact.notes).trim());
+  }
+
+  if (contact.verified === false) {
+    parts.push("Unverified");
+  }
+
+  if (hasText(contact.lastVerifiedDate)) {
+    parts.push(`Last verified: ${String(contact.lastVerifiedDate).trim()}`);
+  }
+
+  return toNullableString(parts.join(" | "));
 }
 
 async function loadDraftContacts() {
@@ -42,10 +76,30 @@ function mapContactToService(contact) {
     name,
     type,
     phone,
-    radio: toNullableString(mapping.radio),
+    radio: toNullableString(mapping.radio) || formatOtherNumbersAndNotes(contact),
     sector,
     isActive: mapping.isActive === undefined ? Boolean(contact.active) : Boolean(mapping.isActive),
   };
+}
+
+async function deactivatePlaceholderServices() {
+  let deactivated = 0;
+
+  for (const placeholder of PLACEHOLDER_SERVICES) {
+    const result = await prisma.service.updateMany({
+      where: {
+        ...placeholder,
+        isActive: true,
+      },
+      data: {
+        isActive: false,
+      },
+    });
+
+    deactivated += result.count;
+  }
+
+  return deactivated;
 }
 
 async function importEmergencyServiceContacts() {
@@ -57,6 +111,7 @@ async function importEmergencyServiceContacts() {
     unchanged: 0,
     skipped: 0,
     unsupportedMetadataRows: 0,
+    placeholdersDeactivated: 0,
   };
 
   for (const contact of contacts) {
@@ -68,13 +123,7 @@ async function importEmergencyServiceContacts() {
       continue;
     }
 
-    if (
-      (Array.isArray(contact.secondaryPhones) && contact.secondaryPhones.length > 0) ||
-      hasText(contact.whatsapp) ||
-      hasText(contact.notes) ||
-      contact.verified !== undefined ||
-      contact.lastVerifiedDate !== undefined
-    ) {
+    if (hasText(serviceData.radio)) {
       stats.unsupportedMetadataRows += 1;
     }
 
@@ -114,6 +163,8 @@ async function importEmergencyServiceContacts() {
     stats.updated += 1;
   }
 
+  stats.placeholdersDeactivated = await deactivatePlaceholderServices();
+
   console.log("Emergency service contact import complete");
   console.log(`Seed file: ${SEED_FILE}`);
   console.log(`Contacts read: ${stats.read}`);
@@ -121,8 +172,9 @@ async function importEmergencyServiceContacts() {
   console.log(`Updated: ${stats.updated}`);
   console.log(`Unchanged: ${stats.unchanged}`);
   console.log(`Skipped: ${stats.skipped}`);
-  console.log(`Rows with metadata not supported by Service model: ${stats.unsupportedMetadataRows}`);
-  console.log("Unsupported metadata remains in the draft JSON and review document.");
+  console.log(`Rows using radio as temporary other numbers/notes field: ${stats.unsupportedMetadataRows}`);
+  console.log(`Placeholder services deactivated: ${stats.placeholdersDeactivated}`);
+  console.log("Secondary phones, WhatsApp, notes, and verification metadata remain in the draft JSON.");
   console.log("Deletes performed: 0");
 }
 

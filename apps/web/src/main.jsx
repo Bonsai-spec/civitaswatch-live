@@ -148,6 +148,23 @@ function formatPatrolEventClassificationRecord(record, valueKey) {
   return formatClassificationRecord(record, valueKey);
 }
 
+const SERVICE_TYPE_LABELS = {
+  POLICE: "SAPS",
+  FIRE: "Fire Services",
+  AMBULANCE: "Ambulance / Medical",
+  METRO: "Metro / Municipality",
+  SECURITY_BACKUP: "Sector Contacts",
+  CONTROL_ROOM: "Internal / Community",
+  TRAFFIC: "Traffic",
+  TOWING: "Towing",
+  MEDICAL_AID: "Medical Aid",
+  OTHER: "Other",
+};
+
+function formatServiceTypeLabel(type) {
+  return SERVICE_TYPE_LABELS[type] || type || "Other";
+}
+
 function getIncidentClassificationLines(item) {
   const incident = item?.incident || null;
   const codeLabel = formatClassificationRecord(
@@ -1217,7 +1234,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   function renderControlRoomDirectoryPanel() {
     const { services, serviceTypes, emergencyContactTypes } = controlRoomDirectory;
     const groupedServices = services.reduce((groups, service) => {
-      const key = service.type || "OTHER";
+      const key = formatServiceTypeLabel(service.type);
       return {
         ...groups,
         [key]: [...(groups[key] || []), service],
@@ -1276,11 +1293,10 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Type</th>
+                    <th>Category</th>
                     <th>Primary Phone</th>
-                    <th>Radio</th>
+                    <th>Other Numbers / Notes</th>
                     <th>Sector / Area</th>
-                    <th>Notes</th>
                     <th>Active</th>
                   </tr>
                 </thead>
@@ -1288,11 +1304,10 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                   {rows.map((service) => (
                     <tr key={service.id}>
                       <td>{service.name || "-"}</td>
-                      <td>{service.type || "-"}</td>
+                      <td>{formatServiceTypeLabel(service.type)}</td>
                       <td>{service.phone || "-"}</td>
                       <td>{service.radio || "-"}</td>
                       <td>{service.sector || "-"}</td>
-                      <td>{service.notes || "-"}</td>
                       <td>{service.isActive ? "Yes" : "No"}</td>
                     </tr>
                   ))}
