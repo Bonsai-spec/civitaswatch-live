@@ -35,6 +35,34 @@ function getAssistanceVehicleLabel(request) {
   );
 }
 
+function getAssistanceServiceLabel(request) {
+  const serviceType = request?.serviceTypeRef;
+
+  if (serviceType?.type) {
+    return [serviceType.type, serviceType.category].filter(Boolean).join(" - ");
+  }
+
+  return request?.assistance || "-";
+}
+
+function getAssistanceLocationLabel(request) {
+  const street = [request?.streetNumber, request?.streetName].filter(Boolean).join(" ");
+  const coordinates =
+    request?.latitude !== null &&
+    request?.latitude !== undefined &&
+    request?.longitude !== null &&
+    request?.longitude !== undefined
+      ? `${request.latitude}, ${request.longitude}`
+      : null;
+
+  return [
+    street,
+    request?.suburb,
+    request?.locationNotes,
+    coordinates,
+  ].filter(Boolean).join(" - ") || "-";
+}
+
 function formatSubmittedTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -119,14 +147,15 @@ export default function IncidentsSection({
           {assistanceRequests.map((request) => (
             <div key={request.id} className="item">
               <div>
-                <strong>{request.assistance}</strong>
+                <strong>{getAssistanceServiceLabel(request)}</strong>
                 <div>Patrol: {getAssistancePatrolLabel(request)}</div>
                 <div>Vehicle: {getAssistanceVehicleLabel(request)}</div>
                 <div>
                   Crew: {(request.patrol?.crew || []).map(getCrewName).join(", ") || "-"}
                 </div>
+                <div>Reference number: {request.referenceNumber || "-"}</div>
+                <div>Location: {getAssistanceLocationLabel(request)}</div>
                 <div>Description: {request.description || "-"}</div>
-                <div>Reference number: {request.incidentCode || request.incident?.incidentCode || "-"}</div>
               </div>
 
               <span className="badge">{formatSubmittedTime(request.createdAt)}</span>

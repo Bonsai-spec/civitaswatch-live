@@ -36,6 +36,68 @@ const PATROL_INCLUDE = {
   },
 };
 
+const incidentCodeSelect = {
+  id: true,
+  code: true,
+  name: true,
+  priority: true,
+};
+
+const incidentSubcodeSelect = {
+  id: true,
+  subcode: true,
+  name: true,
+};
+
+const PATROL_EVENT_INCLUDE = {
+  incident: {
+    select: {
+      id: true,
+      incidentCode: true,
+      incidentCodeId: true,
+      incidentSubcodeId: true,
+      title: true,
+      status: true,
+      incidentCodeRef: {
+        select: incidentCodeSelect,
+      },
+      incidentSubcodeRef: {
+        select: incidentSubcodeSelect,
+      },
+    },
+  },
+  incidentCodeRef: {
+    select: incidentCodeSelect,
+  },
+  incidentSubcodeRef: {
+    select: incidentSubcodeSelect,
+  },
+  serviceTypeRef: {
+    select: {
+      id: true,
+      type: true,
+      category: true,
+      controlRoomManaged: true,
+    },
+  },
+  infrastructureTypeRef: {
+    select: {
+      id: true,
+      type: true,
+      riskLevel: true,
+      requiresLocation: true,
+    },
+  },
+  createdBy: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+    },
+  },
+};
+
 const PATROL_DETAIL_INCLUDE = {
   ...PATROL_INCLUDE,
   incidents: true,
@@ -43,6 +105,7 @@ const PATROL_DETAIL_INCLUDE = {
     orderBy: {
       createdAt: "asc",
     },
+    include: PATROL_EVENT_INCLUDE,
   },
 };
 

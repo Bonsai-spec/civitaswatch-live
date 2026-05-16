@@ -181,28 +181,6 @@ function getVehicleLabel(patrol) {
   );
 }
 
-function buildLocationLines(form) {
-  const street = [form.streetNumber, form.streetName].filter(Boolean).join(" ");
-
-  return [
-    street ? `Street: ${street}` : null,
-    form.suburb ? `Suburb: ${form.suburb}` : null,
-    form.locationNotes ? `Location Notes: ${form.locationNotes}` : null,
-    form.latitude ? `Latitude: ${form.latitude}` : null,
-    form.longitude ? `Longitude: ${form.longitude}` : null,
-  ].filter(Boolean);
-}
-
-function buildDescriptionWithLocation(form) {
-  const locationLines = buildLocationLines(form);
-  const description = form.description || "";
-
-  if (!locationLines.length) return description;
-
-  // TODO: Persist location fields as structured PatrolEvent metadata when the API supports it.
-  return [description, `Location: ${locationLines.join("; ")}`].filter(Boolean).join("\n\n");
-}
-
 export default function PatrolOperationsSection({
   token,
   user,
@@ -608,7 +586,7 @@ export default function PatrolOperationsSection({
         ? "MOBILE"
         : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
       const referenceNumber = eventForm.referenceNumber.trim();
-      const description = buildDescriptionWithLocation(eventForm);
+      const description = eventForm.description.trim();
       const assistance = selectedPatrolAction === "emergency"
         ? eventForm.assistance || "Emergency Assistance"
         : eventForm.assistance || null;
@@ -625,12 +603,17 @@ export default function PatrolOperationsSection({
           incidentCodeId: eventForm.incidentCodeId || null,
           incidentSubcodeId: eventForm.incidentSubcodeId || null,
           infrastructureTypeId: eventForm.infrastructureTypeId || null,
+          streetNumber: eventForm.streetNumber || null,
+          streetName: eventForm.streetName || null,
+          suburb: eventForm.suburb || null,
+          locationNotes: eventForm.locationNotes || null,
+          latitude: eventForm.latitude || null,
+          longitude: eventForm.longitude || null,
           incidentCode: eventForm.incidentCode || null,
           incidentType: eventForm.incidentType || eventForm.incidentCode || null,
           description: description || eventType,
           // Emergency Assistance must write to PatrolEvent.assistance, the same
           // source Control Room reads for its assistance queue.
-          // TODO: Persist referenceNumber, serviceTypeId, and infrastructureTypeId when the API supports them.
           assistance,
           sceneActive: !["STAND_DOWN", "RESUME_PATROL"].includes(eventType),
         }),

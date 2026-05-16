@@ -174,6 +174,43 @@ function getIncidentClassificationLabel(item) {
   return getIncidentClassificationFallback(item) || "N/A";
 }
 
+function formatPatrolEventServiceLabel(event) {
+  const serviceType = event?.serviceTypeRef;
+  const infrastructureType = event?.infrastructureTypeRef;
+
+  if (serviceType?.type) {
+    return [serviceType.type, serviceType.category].filter(Boolean).join(" - ");
+  }
+
+  if (infrastructureType?.type) {
+    return [infrastructureType.type, infrastructureType.riskLevel].filter(Boolean).join(" - ");
+  }
+
+  return event?.assistance || event?.infrastructureType || "";
+}
+
+function formatPatrolEventLocation(event) {
+  const street = [event?.streetNumber, event?.streetName].filter(Boolean).join(" ");
+  const parts = [
+    street,
+    event?.suburb,
+    event?.locationNotes,
+    event?.latitude !== null && event?.latitude !== undefined && event?.longitude !== null && event?.longitude !== undefined
+      ? `${event.latitude}, ${event.longitude}`
+      : null,
+  ].filter(Boolean);
+
+  if (parts.length) return parts.join(" - ");
+
+  const description = String(event?.description || "");
+  const locationLine = description
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => /^Location:/i.test(line));
+
+  return locationLine ? locationLine.replace(/^Location:\s*/i, "") : "";
+}
+
 function decorateIncidentForControlRoom(incident) {
   if (!incident) return incident;
 
@@ -189,7 +226,15 @@ function decorateIncidentForControlRoom(incident) {
 
 function decorateAssistanceRequestForControlRoom(request) {
   const classification = getIncidentClassificationLabel(request);
-  const description = [classification, request.description].filter(Boolean).join(" | ");
+  const service = formatPatrolEventServiceLabel(request);
+  const location = formatPatrolEventLocation(request);
+  const description = [
+    classification !== "N/A" ? classification : null,
+    service ? `Service: ${service}` : null,
+    request.referenceNumber ? `Reference: ${request.referenceNumber}` : null,
+    location ? `Location: ${location}` : null,
+    request.description,
+  ].filter(Boolean).join(" | ");
 
   return {
     ...request,
@@ -340,19 +385,15 @@ function getPatrolEventDescriptionSummary(event) {
 }
 
 function getPatrolEventLocationSummary(event) {
-  const description = String(event?.description || "");
-  const locationLine = description
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) => /^Location:/i.test(line));
-
-  return locationLine ? locationLine.replace(/^Location:\s*/i, "") : "";
+  return formatPatrolEventLocation(event);
 }
 
 function getPatrolEventClassificationSummary(event) {
   const parts = [
     event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode,
     event?.incidentSubcodeRef?.subcode || event?.incident?.incidentSubcodeRef?.subcode,
+    event?.serviceTypeRef?.type,
+    event?.infrastructureTypeRef?.type,
   ].filter(Boolean);
 
   return parts.join(" / ");
@@ -823,6 +864,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           const classification = getPatrolEventClassificationSummary(latestEvent);
           const description = getPatrolEventDescriptionSummary(latestEvent);
           const location = getPatrolEventLocationSummary(latestEvent);
+          const service = formatPatrolEventServiceLabel(latestEvent);
 
           return (
             <div key={patrol.id} className="item">
@@ -838,6 +880,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                   <div className="patrol-latest-event">
                     <div><strong>Latest Event:</strong> {getPatrolEventTitle(latestEvent)}</div>
                     {classification && <div>Code/Subcode: {classification}</div>}
+                    {service && <div>Service / Type: {service}</div>}
                     {description && <div>Description: {description}</div>}
                     {location && <div>Location: {location}</div>}
                     {latestEvent.referenceNumber && <div>Reference number: {latestEvent.referenceNumber}</div>}

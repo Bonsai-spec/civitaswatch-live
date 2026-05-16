@@ -92,6 +92,30 @@ const patrolInclude = {
       incidentSubcodeRef: {
         select: incidentSubcodeSelect,
       },
+      serviceTypeRef: {
+        select: {
+          id: true,
+          type: true,
+          category: true,
+          controlRoomManaged: true,
+        },
+      },
+      infrastructureTypeRef: {
+        select: {
+          id: true,
+          type: true,
+          riskLevel: true,
+          requiresLocation: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+        },
+      },
     },
   },
 };

@@ -1,5 +1,27 @@
 import React from "react";
 
+function formatIntelPatrolEventLocation(event) {
+  const street = [event?.streetNumber, event?.streetName].filter(Boolean).join(" ");
+  const coordinates =
+    event?.latitude !== null &&
+    event?.latitude !== undefined &&
+    event?.longitude !== null &&
+    event?.longitude !== undefined
+      ? `${event.latitude}, ${event.longitude}`
+      : null;
+
+  return [street, event?.suburb, event?.locationNotes, coordinates].filter(Boolean).join(" - ");
+}
+
+function formatIntelPatrolEventClassification(event) {
+  return [
+    event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode,
+    event?.incidentSubcodeRef?.subcode || event?.incident?.incidentSubcodeRef?.subcode,
+    event?.serviceTypeRef?.type,
+    event?.infrastructureTypeRef?.type,
+  ].filter(Boolean).join(" / ");
+}
+
 export default function IntelligenceSection({
   intelligenceEntities,
   filteredIntelligenceEntities,
@@ -604,16 +626,25 @@ export default function IntelligenceSection({
             <div className="panel">
               <h3>Patrol Observations</h3>
               {(selectedIntelEntity.patrolEventVOILinks || []).length === 0 && <p>No patrol observations yet.</p>}
-              {(selectedIntelEntity.patrolEventVOILinks || []).map((item) => (
-                <div key={item.id} className="item">
-                  <div>
-                    <strong>{item.observationType || "Observation"}</strong>
-                    <div>{item.patrolEvent?.type || "Patrol event"}</div>
-                    <div>{item.notes || item.patrolEvent?.description || "-"}</div>
-                    <div className="card-detail">{getIntelAgeLabel({ ...item, ...(item.patrolEvent || {}) })}</div>
+              {(selectedIntelEntity.patrolEventVOILinks || []).map((item) => {
+                const event = item.patrolEvent || {};
+                const classification = formatIntelPatrolEventClassification(event);
+                const location = formatIntelPatrolEventLocation(event);
+
+                return (
+                  <div key={item.id} className="item">
+                    <div>
+                      <strong>{item.observationType || "Observation"}</strong>
+                      <div>{event.type || "Patrol event"}</div>
+                      {classification && <div>Classification: {classification}</div>}
+                      {event.referenceNumber && <div>Reference: {event.referenceNumber}</div>}
+                      {location && <div>Location: {location}</div>}
+                      <div>{item.notes || event.description || "-"}</div>
+                      <div className="card-detail">{getIntelAgeLabel({ ...item, ...event })}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

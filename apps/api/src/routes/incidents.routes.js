@@ -108,6 +108,30 @@ const incidentInclude = {
       incidentSubcodeRef: {
         select: incidentSubcodeSelect,
       },
+      serviceTypeRef: {
+        select: {
+          id: true,
+          type: true,
+          category: true,
+          controlRoomManaged: true,
+        },
+      },
+      infrastructureTypeRef: {
+        select: {
+          id: true,
+          type: true,
+          riskLevel: true,
+          requiresLocation: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -209,6 +233,7 @@ router.post("/report", requireAuth, async (req, res) => {
             incidentSubcodeId: createdIncident.incidentSubcodeId,
             description: createdIncident.title,
             sceneActive: true,
+            createdByUserId: req.user.id,
           },
         });
       }
@@ -535,6 +560,7 @@ router.patch("/:id/resolve", requireAuth, async (req, res) => {
             incidentSubcodeId: updated.incidentSubcodeId,
             description: `Incident resolved: ${updated.title}`,
             sceneActive: false,
+            createdByUserId: req.user.id,
           },
         });
       }

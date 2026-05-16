@@ -1,5 +1,37 @@
 import React from "react";
 
+function formatEventClassification(event) {
+  return [
+    event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode,
+    event?.incidentSubcodeRef?.subcode || event?.incident?.incidentSubcodeRef?.subcode,
+  ].filter(Boolean).join(" / ");
+}
+
+function formatEventService(event) {
+  if (event?.serviceTypeRef?.type) {
+    return [event.serviceTypeRef.type, event.serviceTypeRef.category].filter(Boolean).join(" - ");
+  }
+
+  if (event?.infrastructureTypeRef?.type) {
+    return [event.infrastructureTypeRef.type, event.infrastructureTypeRef.riskLevel].filter(Boolean).join(" - ");
+  }
+
+  return event?.assistance || "";
+}
+
+function formatEventLocation(event) {
+  const street = [event?.streetNumber, event?.streetName].filter(Boolean).join(" ");
+  const coordinates =
+    event?.latitude !== null &&
+    event?.latitude !== undefined &&
+    event?.longitude !== null &&
+    event?.longitude !== undefined
+      ? `${event.latitude}, ${event.longitude}`
+      : null;
+
+  return [street, event?.suburb, event?.locationNotes, coordinates].filter(Boolean).join(" - ");
+}
+
 export default function ReportsSection({
   data,
   reportFilters,
@@ -169,6 +201,36 @@ export default function ReportsSection({
           <p>
             <strong>Summary:</strong> {selectedPatrolReport.summary || "No summary"}
           </p>
+
+          {(selectedPatrolReport.patrolEvents || []).length > 0 && (
+            <div className="panel">
+              <h3>Patrol Timeline</h3>
+              {(selectedPatrolReport.patrolEvents || []).map((event) => {
+                const classification = formatEventClassification(event);
+                const service = formatEventService(event);
+                const location = formatEventLocation(event);
+
+                return (
+                  <div key={event.id} className="item">
+                    <div>
+                      <strong>{event.type || "Patrol event"}</strong>
+                      {classification && <div>Code/Subcode: {classification}</div>}
+                      {service && <div>Service / Type: {service}</div>}
+                      {event.referenceNumber && <div>Reference number: {event.referenceNumber}</div>}
+                      {location && <div>Location: {location}</div>}
+                      <div>Description: {event.description || "-"}</div>
+                      {event.createdBy && (
+                        <div>Created by: {event.createdBy.fullName || event.createdBy.email || "-"}</div>
+                      )}
+                    </div>
+                    <span className="badge">
+                      {event.createdAt ? new Date(event.createdAt).toLocaleString() : "-"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {editPatrolForm && (
             <div className="form">

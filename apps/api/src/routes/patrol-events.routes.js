@@ -59,6 +59,40 @@ const incidentClassificationInclude = {
   },
 };
 
+const patrolEventOperationalInclude = {
+  ...incidentClassificationInclude,
+  serviceTypeRef: {
+    select: {
+      id: true,
+      type: true,
+      category: true,
+      controlRoomManaged: true,
+    },
+  },
+  infrastructureTypeRef: {
+    select: {
+      id: true,
+      type: true,
+      riskLevel: true,
+      requiresLocation: true,
+    },
+  },
+  createdBy: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+    },
+  },
+};
+
+function toNullableNumber(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : NaN;
+}
+
 router.post(
   "/",
   requireAuth,
@@ -74,6 +108,15 @@ router.post(
         incidentCodeId,
         incidentSubcodeId,
         incidentType,
+        referenceNumber,
+        streetNumber,
+        streetName,
+        suburb,
+        locationNotes,
+        latitude,
+        longitude,
+        serviceTypeId,
+        infrastructureTypeId,
         description,
         assistance,
         sceneActive,
@@ -156,6 +199,14 @@ router.post(
         const normalizedIncidentCodeId = toNullableString(incidentCodeId);
         const normalizedIncidentSubcodeId = toNullableString(incidentSubcodeId);
         const normalizedIncidentType = toNullableString(incidentType);
+        const normalizedLatitude = toNullableNumber(latitude);
+        const normalizedLongitude = toNullableNumber(longitude);
+
+        if (Number.isNaN(normalizedLatitude) || Number.isNaN(normalizedLongitude)) {
+          const error = new Error("Invalid coordinates");
+          error.statusCode = 400;
+          throw error;
+        }
 
         if (cleanType === "NOTIFIED") {
           patrolStatus = "NOTIFIED";
@@ -253,6 +304,16 @@ router.post(
             incidentCodeId: normalizedIncidentCodeId || linkedIncident?.incidentCodeId || null,
             incidentSubcodeId:
               normalizedIncidentSubcodeId || linkedIncident?.incidentSubcodeId || null,
+            referenceNumber: toNullableString(referenceNumber),
+            streetNumber: toNullableString(streetNumber),
+            streetName: toNullableString(streetName),
+            suburb: toNullableString(suburb),
+            locationNotes: toNullableString(locationNotes),
+            latitude: normalizedLatitude,
+            longitude: normalizedLongitude,
+            serviceTypeId: toNullableString(serviceTypeId),
+            infrastructureTypeId: toNullableString(infrastructureTypeId),
+            createdByUserId: req.user?.id || null,
             description: toNullableString(description),
             // Emergency Assistance must persist here. Control Room reads this
             // same field for its Assistance Requests queue.
@@ -263,7 +324,7 @@ router.post(
             incident: {
               include: incidentClassificationInclude,
             },
-            ...incidentClassificationInclude,
+            ...patrolEventOperationalInclude,
             patrol: true,
           },
         });
@@ -273,9 +334,15 @@ router.post(
 
       return res.status(201).json(event);
     } catch (error) {
+      if (error.statusCode === 400) {
+        return res.status(400).json({
+          error: error.message,
+        });
+      }
+
       if (error.code === "P2003") {
         return res.status(400).json({
-          error: "Invalid incidentCodeId or incidentSubcodeId.",
+          error: "Invalid incidentCodeId, incidentSubcodeId, serviceTypeId, infrastructureTypeId, or createdByUserId.",
         });
       }
 
@@ -330,7 +397,7 @@ router.get(
               status: true,
             },
           },
-          ...incidentClassificationInclude,
+          ...patrolEventOperationalInclude,
           patrol: {
             include: {
               user: {
@@ -413,7 +480,7 @@ router.post(
           incident: {
             include: incidentClassificationInclude,
           },
-          ...incidentClassificationInclude,
+          ...patrolEventOperationalInclude,
           patrol: {
             include: {
               user: {
@@ -473,7 +540,7 @@ router.get(
           incident: {
             include: incidentClassificationInclude,
           },
-          ...incidentClassificationInclude,
+          ...patrolEventOperationalInclude,
           patrol: {
             include: {
               user: {
@@ -587,7 +654,7 @@ router.get(
           incident: {
             include: incidentClassificationInclude,
           },
-          ...incidentClassificationInclude,
+          ...patrolEventOperationalInclude,
         },
         orderBy: {
           createdAt: "asc",

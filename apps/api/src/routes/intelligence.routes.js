@@ -24,6 +24,35 @@ const ENTITY_TYPES = [
 
 const RISK_LEVELS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
+const patrolEventIntelInclude = {
+  patrol: {
+    select: {
+      id: true,
+      callSign: true,
+      sector: true,
+      status: true,
+    },
+  },
+  incident: {
+    include: {
+      incidentCodeRef: true,
+      incidentSubcodeRef: true,
+    },
+  },
+  incidentCodeRef: true,
+  incidentSubcodeRef: true,
+  serviceTypeRef: true,
+  infrastructureTypeRef: true,
+  createdBy: {
+    select: {
+      id: true,
+      fullName: true,
+      email: true,
+      role: true,
+    },
+  },
+};
+
 function clean(value) {
   if (value === undefined || value === null) return null;
   const trimmed = String(value).trim();
@@ -78,7 +107,9 @@ router.get("/entities", async (req, res) => {
         },
         patrolEventVOILinks: {
           include: {
-            patrolEvent: true,
+            patrolEvent: {
+              include: patrolEventIntelInclude,
+            },
           },
         },
       },
@@ -375,9 +406,7 @@ router.post("/promote/patrol-event/:patrolEventId", async (req, res) => {
 
     const patrolEvent = await prisma.patrolEvent.findUnique({
       where: { id: req.params.patrolEventId },
-      include: {
-        incident: true,
-      },
+      include: patrolEventIntelInclude,
     });
 
     if (!patrolEvent) {
@@ -398,7 +427,11 @@ router.post("/promote/patrol-event/:patrolEventId", async (req, res) => {
           clean(description) ||
           clean(patrolEvent.description) ||
           `Promoted from patrol event ${patrolEvent.type}`,
-        sector: patrolEvent.incident?.sector || null,
+        address: [patrolEvent.streetNumber, patrolEvent.streetName].filter(Boolean).join(" ") || null,
+        suburb: clean(patrolEvent.suburb),
+        sector: patrolEvent.incident?.sector || patrolEvent.patrol?.sector || null,
+        latitude: patrolEvent.latitude,
+        longitude: patrolEvent.longitude,
         riskLevel: validRiskLevel(riskLevel),
         status: "ACTIVE",
         voivehicleDetails:
@@ -468,7 +501,9 @@ router.get("/graph", async (req, res) => {
 
     const patrolEventLinks = await prisma.patrolEventVOILink.findMany({
       include: {
-        patrolEvent: true,
+        patrolEvent: {
+          include: patrolEventIntelInclude,
+        },
         intelligenceEntity: true,
       },
       orderBy: [{ createdAt: "desc" }],
