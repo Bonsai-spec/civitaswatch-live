@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { API } from "../../core/api";
 import { getAuthHeaders, getJsonAuthHeaders } from "../../core/http.utils";
+import { REGISTER_METADATA } from "./register.constants";
 import { getResidentImportMetadata } from "./register.utils";
 
 const INFRASTRUCTURE_RISK_LEVEL_OPTIONS = ["Low", "Medium", "High", "Critical"];
@@ -8,6 +9,7 @@ const EMERGENCY_CONTACT_ESCALATION_OPTIONS = ["Level 1", "Level 2", "Level 3", "
 const MASTER_REGISTER_INCOMPLETE_MESSAGE = "Complete the current row before adding another.";
 const MASTER_REGISTER_PERSISTED_MESSAGE = "Records are saved to the backend and persist after refresh.";
 const MASTER_REGISTER_SUCCESS_MESSAGE = "Saved.";
+const ALL_FILTER_VALUE = "ALL";
 const SERVICE_TYPE_CATEGORY_OPTIONS = [
   "Emergency",
   "Security",
@@ -189,6 +191,9 @@ export default function RegistersSection({
   const [emergencyContactTypeSavingIds, setEmergencyContactTypeSavingIds] = useState([]);
   const [masterRegisterValidationTab, setMasterRegisterValidationTab] = useState("");
   const [masterRegisterSuccessTab, setMasterRegisterSuccessTab] = useState("");
+  const [registerActiveFilter, setRegisterActiveFilter] = useState(ALL_FILTER_VALUE);
+  const [registerSectorFilter, setRegisterSectorFilter] = useState(ALL_FILTER_VALUE);
+  const [registerTypeFilter, setRegisterTypeFilter] = useState(ALL_FILTER_VALUE);
   const isIncidentCodesRegister = registerTab === "Incident Codes";
   const isIncidentSubcodesRegister = registerTab === "Incident Subcodes";
   const isServiceTypesRegister = registerTab === "Service Types";
@@ -202,6 +207,16 @@ export default function RegistersSection({
     isEmergencyServicesRegister ||
     isInfrastructureTypesRegister ||
     isEmergencyContactTypesRegister;
+  const registerMetadata = REGISTER_METADATA[registerTab] || {
+    title: registerTab,
+    description: "Administrative source-of-truth register.",
+  };
+
+  useEffect(() => {
+    setRegisterActiveFilter(ALL_FILTER_VALUE);
+    setRegisterSectorFilter(ALL_FILTER_VALUE);
+    setRegisterTypeFilter(ALL_FILTER_VALUE);
+  }, [registerTab]);
 
   useEffect(() => {
     if (isIncidentCodesRegister && !incidentCodesLoaded && !incidentCodesLoading) {
@@ -1292,11 +1307,246 @@ export default function RegistersSection({
     }
   }
 
-  return (
-    <div className="panel">
-      <h2>{registerTab}</h2>
+  function normalizeFilterValue(value) {
+    return String(value || "").trim();
+  }
 
-      <div className="filter-bar">
+  function getActiveValue(record) {
+    if (!record || typeof record !== "object") return null;
+    if (record.isActive !== undefined) return Boolean(record.isActive);
+    if (record.active !== undefined) return Boolean(record.active);
+    return null;
+  }
+
+  function matchesActiveFilter(record) {
+    if (registerActiveFilter === ALL_FILTER_VALUE) return true;
+    const activeValue = getActiveValue(record);
+    if (activeValue === null) return true;
+    return registerActiveFilter === "ACTIVE" ? activeValue : !activeValue;
+  }
+
+  function getSectorValues(record) {
+    if (!record || typeof record !== "object") return [];
+    const directValues = [
+      record.sector,
+      record.sectorName,
+      record.sectorCode,
+      record.sectorId,
+    ].filter(Boolean);
+    const nestedValues = Array.isArray(record.sectors)
+      ? record.sectors.flatMap((sector) => [sector?.name, sector?.code, sector?.id])
+      : [];
+
+    return [...directValues, ...nestedValues].map(normalizeFilterValue).filter(Boolean);
+  }
+
+  function matchesSectorFilter(record) {
+    if (registerSectorFilter === ALL_FILTER_VALUE) return true;
+    return getSectorValues(record).includes(registerSectorFilter);
+  }
+
+  function getTypeFilterValue(record, tab = registerTab) {
+    if (!record || typeof record !== "object") return "";
+
+    if (tab === "Members") {
+      return getMemberRoles(record)[0] || record.patrolStatus || record.vettingStatus || "";
+    }
+
+    if (tab === "Patrollers") return record.patrolStatus || "NOT_SET";
+    if (tab === "Vehicles") return record.type || "";
+    if (tab === "Residents") {
+      const metadata = getResidentImportMetadata(record);
+      return metadata.flags[0] || metadata.source || "Imported";
+    }
+    if (tab === "Incident Codes") return record.priority || "";
+    if (tab === "Incident Subcodes") {
+      return record.parentCode || record.incidentCode?.code || "";
+    }
+    if (tab === "Service Types") return record.category || "";
+    if (tab === "Emergency Services") return record.type || "";
+    if (tab === "Infrastructure Types") return record.riskLevel || "";
+    if (tab === "Emergency Contact Types") return record.escalationLevel || "";
+
+    return "";
+  }
+
+  function matchesTypeFilter(record, tab = registerTab) {
+    if (registerTypeFilter === ALL_FILTER_VALUE) return true;
+    return normalizeFilterValue(getTypeFilterValue(record, tab)) === registerTypeFilter;
+  }
+
+  function getRegisterSearchValues(record, tab = registerTab) {
+    if (!record || typeof record !== "object") return [];
+
+    if (tab === "Incident Codes") {
+      return [record.code, record.name, record.priority, record.active ? "active" : "inactive"];
+    }
+
+    if (tab === "Incident Subcodes") {
+      return [
+        record.parentCode,
+        record.incidentCode?.code,
+        record.subcode,
+        record.name,
+        record.active ? "active" : "inactive",
+      ];
+    }
+
+    if (tab === "Service Types") {
+      return [
+        record.type,
+        record.category,
+        record.controlRoomManaged ? "control room managed" : "not control room managed",
+        record.active ? "active" : "inactive",
+      ];
+    }
+
+    if (tab === "Emergency Services") {
+      return [
+        record.name,
+        record.type,
+        record.phone,
+        record.radio,
+        record.sector,
+        record.isActive ? "active" : "inactive",
+      ];
+    }
+
+    if (tab === "Infrastructure Types") {
+      return [
+        record.type,
+        record.riskLevel,
+        record.requiresLocation ? "requires location" : "location optional",
+        record.active ? "active" : "inactive",
+      ];
+    }
+
+    if (tab === "Emergency Contact Types") {
+      return [
+        record.type,
+        record.escalationLevel,
+        record.sectorSpecific ? "sector specific" : "shared",
+        record.active ? "active" : "inactive",
+      ];
+    }
+
+    return [];
+  }
+
+  function matchesSearchFilter(record, tab = registerTab) {
+    const query = String(registerSearch || "").trim().toLowerCase();
+    if (!query) return true;
+    return getRegisterSearchValues(record, tab)
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  }
+
+  function applyRegisterFilters(rows, tab = registerTab) {
+    return rows.filter(
+      (row) =>
+        matchesActiveFilter(row) &&
+        matchesSectorFilter(row) &&
+        matchesTypeFilter(row, tab) &&
+        matchesSearchFilter(row, tab)
+    );
+  }
+
+  function getUniqueOptions(rows, getValue) {
+    return [
+      ...new Set(
+        rows
+          .flatMap((row) => {
+            const value = getValue(row);
+            return Array.isArray(value) ? value : [value];
+          })
+          .map(normalizeFilterValue)
+          .filter(Boolean)
+      ),
+    ].sort();
+  }
+
+  function getCurrentRegisterRows() {
+    if (registerTab === "Members") return filteredRegisterMembers;
+    if (registerTab === "Patrollers") return filteredRegisterPatrollers;
+    if (registerTab === "Vehicles") return filteredRegisterVehicles;
+    if (registerTab === "Residents") return filteredRegisterResidents;
+    if (registerTab === "Organisations") return filteredRegisterOrganisations;
+    if (registerTab === "Incident Codes") return incidentCodeRows;
+    if (registerTab === "Incident Subcodes") return incidentSubcodeRows;
+    if (registerTab === "Service Types") return serviceTypeRows;
+    if (registerTab === "Emergency Services") return serviceRows;
+    if (registerTab === "Infrastructure Types") return infrastructureTypeRows;
+    if (registerTab === "Emergency Contact Types") return emergencyContactTypeRows;
+    return [];
+  }
+
+  const currentRegisterRows = getCurrentRegisterRows();
+  const sectorFilterOptions = getUniqueOptions(currentRegisterRows, getSectorValues);
+  const typeFilterOptions = getUniqueOptions(currentRegisterRows, (row) =>
+    getTypeFilterValue(row)
+  );
+  const supportsActiveFilter = currentRegisterRows.some((row) => getActiveValue(row) !== null);
+  const supportsSectorFilter = sectorFilterOptions.length > 0;
+  const supportsTypeFilter = Boolean(registerMetadata.typeFilterLabel) && typeFilterOptions.length > 0;
+  const displayedRegisterVehicles = applyRegisterFilters(filteredRegisterVehicles, "Vehicles");
+  const displayedRegisterResidents = applyRegisterFilters(filteredRegisterResidents, "Residents");
+  const displayedRegisterMembers = applyRegisterFilters(filteredRegisterMembers, "Members");
+  const displayedRegisterPatrollers = applyRegisterFilters(filteredRegisterPatrollers, "Patrollers");
+  const displayedRegisterOrganisations = applyRegisterFilters(
+    filteredRegisterOrganisations,
+    "Organisations"
+  );
+  const displayedIncidentCodeRows = applyRegisterFilters(incidentCodeRows, "Incident Codes");
+  const displayedIncidentSubcodeRows = applyRegisterFilters(
+    incidentSubcodeRows,
+    "Incident Subcodes"
+  );
+  const displayedServiceTypeRows = applyRegisterFilters(serviceTypeRows, "Service Types");
+  const displayedServiceRows = applyRegisterFilters(serviceRows, "Emergency Services");
+  const displayedInfrastructureTypeRows = applyRegisterFilters(
+    infrastructureTypeRows,
+    "Infrastructure Types"
+  );
+  const displayedEmergencyContactTypeRows = applyRegisterFilters(
+    emergencyContactTypeRows,
+    "Emergency Contact Types"
+  );
+
+  function getEmptyStateMessage(sourceRows) {
+    const hasFilters =
+      String(registerSearch || "").trim().length > 0 ||
+      registerActiveFilter !== ALL_FILTER_VALUE ||
+      registerSectorFilter !== ALL_FILTER_VALUE ||
+      registerTypeFilter !== ALL_FILTER_VALUE;
+
+    if (sourceRows.length === 0 && !hasFilters) return "No records configured yet.";
+    if (registerActiveFilter === "ACTIVE") return "No active records found.";
+    if (registerActiveFilter === "INACTIVE") return "No inactive records found.";
+    return hasFilters ? "No records match current filters." : "No records configured yet.";
+  }
+
+  function renderEmptyTableRow(sourceRows, colSpan) {
+    return (
+      <tr>
+        <td colSpan={colSpan} className="empty-table-cell">
+          {getEmptyStateMessage(sourceRows)}
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <div className="panel register-panel">
+      <div className="register-header">
+        <div>
+          <h2>{registerMetadata.title}</h2>
+          <p className="card-detail">{registerMetadata.description}</p>
+        </div>
+      </div>
+
+      <div className="filter-bar register-filter-bar">
         <label>
           Search register
           <input
@@ -1306,7 +1556,62 @@ export default function RegistersSection({
           />
         </label>
 
-        <button onClick={onClearRegisterSearch}>Clear</button>
+        <label>
+          Active status
+          <select
+            value={registerActiveFilter}
+            onChange={(e) => setRegisterActiveFilter(e.target.value)}
+            disabled={!supportsActiveFilter}
+          >
+            <option value={ALL_FILTER_VALUE}>All statuses</option>
+            <option value="ACTIVE">Active only</option>
+            <option value="INACTIVE">Inactive only</option>
+          </select>
+        </label>
+
+        <label>
+          Sector
+          <select
+            value={registerSectorFilter}
+            onChange={(e) => setRegisterSectorFilter(e.target.value)}
+            disabled={!supportsSectorFilter}
+          >
+            <option value={ALL_FILTER_VALUE}>All sectors</option>
+            {sectorFilterOptions.map((sector) => (
+              <option key={sector} value={sector}>
+                {sector}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          {registerMetadata.typeFilterLabel || "Type / category"}
+          <select
+            value={registerTypeFilter}
+            onChange={(e) => setRegisterTypeFilter(e.target.value)}
+            disabled={!supportsTypeFilter}
+          >
+            <option value={ALL_FILTER_VALUE}>All</option>
+            {typeFilterOptions.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={() => {
+            onClearRegisterSearch();
+            setRegisterActiveFilter(ALL_FILTER_VALUE);
+            setRegisterSectorFilter(ALL_FILTER_VALUE);
+            setRegisterTypeFilter(ALL_FILTER_VALUE);
+          }}
+        >
+          Clear
+        </button>
       </div>
 
       <div className="cards">
@@ -1356,13 +1661,19 @@ export default function RegistersSection({
               </tr>
             </thead>
             <tbody>
-              {filteredRegisterVehicles.map((vehicle) => (
+              {displayedRegisterVehicles.length === 0
+                ? renderEmptyTableRow(filteredRegisterVehicles, 6)
+                : displayedRegisterVehicles.map((vehicle) => (
                 <tr key={vehicle.id}>
                   <td>{vehicle.registration || "-"}</td>
                   <td>{vehicle.make || "-"}</td>
                   <td>{vehicle.type || "-"}</td>
                   <td>{vehicle.colour || "-"}</td>
-                  <td>{vehicle.isActive ? "Yes" : "No"}</td>
+                  <td>
+                    <span className={vehicle.isActive ? "status-pill active" : "status-pill inactive"}>
+                      {vehicle.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
                   <td>
                     <button onClick={() => onViewVehicle(vehicle)}>View</button>
                     <button onClick={onEditVehicle}>Edit</button>
@@ -1396,7 +1707,9 @@ export default function RegistersSection({
               </tr>
             </thead>
             <tbody>
-              {filteredRegisterResidents.map((resident) => {
+              {displayedRegisterResidents.length === 0
+                ? renderEmptyTableRow(filteredRegisterResidents, 9)
+                : displayedRegisterResidents.map((resident) => {
                 const metadata = getResidentImportMetadata(resident);
 
                 return (
@@ -1410,7 +1723,11 @@ export default function RegistersSection({
                     <td>{metadata.cityTown || "-"}</td>
                     <td>{metadata.legacyResidentId || "-"}</td>
                     <td>{metadata.flags.length > 0 ? metadata.flags.join(", ") : "-"}</td>
-                    <td>{resident.isActive ? "Yes" : "No"}</td>
+                    <td>
+                      <span className={resident.isActive ? "status-pill active" : "status-pill inactive"}>
+                        {resident.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </td>
                     <td>
                       <button onClick={() => onViewMember(resident)}>View Profile</button>
                       {canManageMembers && (
@@ -1460,7 +1777,9 @@ export default function RegistersSection({
               </tr>
             </thead>
             <tbody>
-              {filteredRegisterMembers.map((member) => (
+              {displayedRegisterMembers.length === 0
+                ? renderEmptyTableRow(filteredRegisterMembers, 12)
+                : displayedRegisterMembers.map((member) => (
                 <tr key={member.id}>
                   <td>{[member.firstName, member.surname].filter(Boolean).join(" ") || "-"}</td>
                   <td>{member.callSign || "-"}</td>
@@ -1493,7 +1812,11 @@ export default function RegistersSection({
                       ? `${member.user.email || member.user.fullName} (${member.user.role})`
                       : "No login"}
                   </td>
-                  <td>{member.isActive ? "Yes" : "No"}</td>
+                  <td>
+                    <span className={member.isActive ? "status-pill active" : "status-pill inactive"}>
+                      {member.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
                   <td>
                     <button onClick={() => onViewMember(member)}>View Profile</button>
                     {canManageMembers && (
@@ -1994,15 +2317,19 @@ export default function RegistersSection({
               </tr>
             </thead>
             <tbody>
-              {filteredRegisterPatrollers.map((member) => (
+              {displayedRegisterPatrollers.length === 0
+                ? renderEmptyTableRow(filteredRegisterPatrollers, 7)
+                : displayedRegisterPatrollers.map((member) => (
                 <tr key={member.id}>
                   <td>{[member.firstName, member.surname].filter(Boolean).join(" ") || "-"}</td>
                   <td>{member.user?.email || member.email || "No email"}</td>
                   <td>{member.callSign || "-"}</td>
                   <td>{member.sector || "-"}</td>
                   <td>
-                    {member.patrolStatus || "NOT_PATROLLER"}
-                    {member.patrolApproved ? " / APPROVED" : ""}
+                    <span className={member.patrolApproved ? "status-pill active" : "status-pill"}>
+                      {member.patrolStatus || "NOT_PATROLLER"}
+                      {member.patrolApproved ? " / APPROVED" : ""}
+                    </span>
                   </td>
                   <td>{member.patrolTraining ? "Patrol trained" : "Training not marked"}</td>
                   <td>
@@ -2037,7 +2364,9 @@ export default function RegistersSection({
               </tr>
             </thead>
             <tbody>
-              {filteredRegisterOrganisations.map((org) => (
+              {displayedRegisterOrganisations.length === 0
+                ? renderEmptyTableRow(filteredRegisterOrganisations, 3)
+                : displayedRegisterOrganisations.map((org) => (
                 <tr key={org.id}>
                   <td>{org.name || "-"}</td>
                   <td>{org.code || "-"}</td>
@@ -2144,6 +2473,12 @@ export default function RegistersSection({
           {masterRegisterSuccessTab === registerTab && (
             <p className="card-detail">{MASTER_REGISTER_SUCCESS_MESSAGE}</p>
           )}
+          {isEditableMasterRegister && !isEmergencyServicesRegister && (
+            <p className="card-detail">
+              Turn Active off to deactivate values that may be referenced by operational history.
+              Delete is for draft or safe unreferenced records only.
+            </p>
+          )}
           {isIncidentCodesRegister && incidentCodesLoading && (
             <p className="card-detail">Loading incident codes...</p>
           )}
@@ -2181,6 +2516,7 @@ export default function RegistersSection({
             <p className="card-detail">{emergencyContactTypesError}</p>
           )}
 
+          <div className="register-table-scroll">
           <table className={isEmergencyServicesRegister ? "emergency-services-register-table" : ""}>
             <thead>
               <tr>
@@ -2191,7 +2527,7 @@ export default function RegistersSection({
               </tr>
             </thead>
             <tbody>
-              {isIncidentCodesRegister && incidentCodeRows.map((row) => (
+              {isIncidentCodesRegister && displayedIncidentCodeRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     <input
@@ -2219,15 +2555,20 @@ export default function RegistersSection({
                     />
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={row.active}
-                      onChange={(event) => {
-                        const nextRow = { ...row, active: event.target.checked };
-                        updateIncidentCodeRow(row.id, "active", event.target.checked);
-                        saveIncidentCodeRow(nextRow);
-                      }}
-                    />
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(event) => {
+                          const nextRow = { ...row, active: event.target.checked };
+                          updateIncidentCodeRow(row.id, "active", event.target.checked);
+                          saveIncidentCodeRow(nextRow);
+                        }}
+                      />
+                      <span className={row.active ? "status-pill active" : "status-pill inactive"}>
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
                   </td>
                   <td>
                     <button
@@ -2240,7 +2581,7 @@ export default function RegistersSection({
                 </tr>
               ))}
 
-              {isIncidentSubcodesRegister && incidentSubcodeRows.map((row) => (
+              {isIncidentSubcodesRegister && displayedIncidentSubcodeRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     {/* The Parent Code dropdown demonstrates master registers referencing each other. */}
@@ -2305,15 +2646,20 @@ export default function RegistersSection({
                     />
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={row.active}
-                      onChange={(event) => {
-                        const nextRow = { ...row, active: event.target.checked };
-                        updateIncidentSubcodeRow(row.id, "active", event.target.checked);
-                        saveIncidentSubcodeRow(nextRow);
-                      }}
-                    />
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(event) => {
+                          const nextRow = { ...row, active: event.target.checked };
+                          updateIncidentSubcodeRow(row.id, "active", event.target.checked);
+                          saveIncidentSubcodeRow(nextRow);
+                        }}
+                      />
+                      <span className={row.active ? "status-pill active" : "status-pill inactive"}>
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
                   </td>
                   <td>
                     <button
@@ -2326,7 +2672,7 @@ export default function RegistersSection({
                 </tr>
               ))}
 
-              {isServiceTypesRegister && serviceTypeRows.map((row) => (
+              {isServiceTypesRegister && displayedServiceTypeRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     <input
@@ -2373,15 +2719,20 @@ export default function RegistersSection({
                     />
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={row.active}
-                      onChange={(event) => {
-                        const nextRow = { ...row, active: event.target.checked };
-                        updateServiceTypeRow(row.id, "active", event.target.checked);
-                        saveServiceTypeRow(nextRow);
-                      }}
-                    />
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(event) => {
+                          const nextRow = { ...row, active: event.target.checked };
+                          updateServiceTypeRow(row.id, "active", event.target.checked);
+                          saveServiceTypeRow(nextRow);
+                        }}
+                      />
+                      <span className={row.active ? "status-pill active" : "status-pill inactive"}>
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
                   </td>
                   <td>
                     <button
@@ -2394,7 +2745,7 @@ export default function RegistersSection({
                 </tr>
               ))}
 
-              {isEmergencyServicesRegister && serviceRows.map((row) => (
+              {isEmergencyServicesRegister && displayedServiceRows.map((row) => (
                 <tr key={row.id}>
                   <td className="service-name-cell">
                     <input
@@ -2468,15 +2819,20 @@ export default function RegistersSection({
                     />
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={row.isActive}
-                      onChange={(event) => {
-                        const nextRow = { ...row, isActive: event.target.checked };
-                        updateServiceRow(row.id, "isActive", event.target.checked);
-                        saveServiceRow(nextRow);
-                      }}
-                    />
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.isActive}
+                        onChange={(event) => {
+                          const nextRow = { ...row, isActive: event.target.checked };
+                          updateServiceRow(row.id, "isActive", event.target.checked);
+                          saveServiceRow(nextRow);
+                        }}
+                      />
+                      <span className={row.isActive ? "status-pill active" : "status-pill inactive"}>
+                        {row.isActive ? "Active" : "Inactive"}
+                      </span>
+                    </label>
                   </td>
                   <td>
                     <button
@@ -2489,7 +2845,7 @@ export default function RegistersSection({
                 </tr>
               ))}
 
-              {isInfrastructureTypesRegister && infrastructureTypeRows.map((row) => (
+              {isInfrastructureTypesRegister && displayedInfrastructureTypeRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     <input
@@ -2536,15 +2892,20 @@ export default function RegistersSection({
                     />
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={row.active}
-                      onChange={(event) => {
-                        const nextRow = { ...row, active: event.target.checked };
-                        updateInfrastructureTypeRow(row.id, "active", event.target.checked);
-                        saveInfrastructureTypeRow(nextRow);
-                      }}
-                    />
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(event) => {
+                          const nextRow = { ...row, active: event.target.checked };
+                          updateInfrastructureTypeRow(row.id, "active", event.target.checked);
+                          saveInfrastructureTypeRow(nextRow);
+                        }}
+                      />
+                      <span className={row.active ? "status-pill active" : "status-pill inactive"}>
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
                   </td>
                   <td>
                     <button
@@ -2557,7 +2918,7 @@ export default function RegistersSection({
                 </tr>
               ))}
 
-              {isEmergencyContactTypesRegister && emergencyContactTypeRows.map((row) => (
+              {isEmergencyContactTypesRegister && displayedEmergencyContactTypeRows.map((row) => (
                 <tr key={row.id}>
                   <td>
                     <input
@@ -2610,15 +2971,20 @@ export default function RegistersSection({
                     />
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={row.active}
-                      onChange={(event) => {
-                        const nextRow = { ...row, active: event.target.checked };
-                        updateEmergencyContactTypeRow(row.id, "active", event.target.checked);
-                        saveEmergencyContactTypeRow(nextRow);
-                      }}
-                    />
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(event) => {
+                          const nextRow = { ...row, active: event.target.checked };
+                          updateEmergencyContactTypeRow(row.id, "active", event.target.checked);
+                          saveEmergencyContactTypeRow(nextRow);
+                        }}
+                      />
+                      <span className={row.active ? "status-pill active" : "status-pill inactive"}>
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
                   </td>
                   <td>
                     <button
@@ -2647,12 +3013,12 @@ export default function RegistersSection({
                 !isEmergencyServicesRegister &&
                 !isInfrastructureTypesRegister &&
                 !isEmergencyContactTypesRegister) ||
-                (isIncidentCodesRegister && incidentCodeRows.length === 0) ||
-                (isIncidentSubcodesRegister && incidentSubcodeRows.length === 0) ||
-                (isServiceTypesRegister && serviceTypeRows.length === 0) ||
-                (isEmergencyServicesRegister && serviceRows.length === 0) ||
-                (isInfrastructureTypesRegister && infrastructureTypeRows.length === 0) ||
-                (isEmergencyContactTypesRegister && emergencyContactTypeRows.length === 0)) && (
+                (isIncidentCodesRegister && displayedIncidentCodeRows.length === 0) ||
+                (isIncidentSubcodesRegister && displayedIncidentSubcodeRows.length === 0) ||
+                (isServiceTypesRegister && displayedServiceTypeRows.length === 0) ||
+                (isEmergencyServicesRegister && displayedServiceRows.length === 0) ||
+                (isInfrastructureTypesRegister && displayedInfrastructureTypeRows.length === 0) ||
+                (isEmergencyContactTypesRegister && displayedEmergencyContactTypeRows.length === 0)) && (
                 <tr>
                   <td
                     colSpan={
@@ -2660,12 +3026,25 @@ export default function RegistersSection({
                       (isEditableMasterRegister ? 1 : 0)
                     }
                   >
-                    No records configured yet.
+                    {getEmptyStateMessage(
+                      isIncidentCodesRegister
+                        ? incidentCodeRows
+                        : isIncidentSubcodesRegister
+                          ? incidentSubcodeRows
+                          : isServiceTypesRegister
+                            ? serviceTypeRows
+                            : isEmergencyServicesRegister
+                              ? serviceRows
+                              : isInfrastructureTypesRegister
+                                ? infrastructureTypeRows
+                                : emergencyContactTypeRows
+                    )}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

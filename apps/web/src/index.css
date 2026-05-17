@@ -151,6 +151,82 @@ textarea {
   font-size: 14px;
 }
 
+.register-panel {
+  overflow-x: auto;
+}
+
+.register-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.register-header h2 {
+  margin: 0 0 6px;
+}
+
+.register-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(150px, 0.7fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.register-filter-bar input,
+.register-filter-bar select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px;
+  background: white;
+}
+
+.register-filter-bar select:disabled {
+  color: #94a3b8;
+  background: #f8fafc;
+}
+
+.register-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.status-pill.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.inline-status-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-table-cell {
+  color: #64748b;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* Grid layout */
 
 .grid {
@@ -781,7 +857,7 @@ table {
 .emergency-services-register-table,
 .emergency-services-directory-table {
   table-layout: auto;
-  min-width: 1120px;
+  min-width: 1280px;
   overflow: visible;
 }
 
@@ -797,32 +873,34 @@ table {
 
 .emergency-services-register-table .service-name-cell,
 .emergency-services-directory-table .service-name-cell {
-  min-width: 240px;
+  min-width: 300px;
 }
 
 .emergency-services-register-table .service-phone-cell,
 .emergency-services-directory-table .service-phone-cell {
-  min-width: 150px;
+  min-width: 190px;
 }
 
 .emergency-services-register-table .service-notes-cell,
 .emergency-services-directory-table .service-notes-cell {
-  min-width: 340px;
+  min-width: 420px;
 }
 
 .emergency-services-register-table .service-sector-cell,
 .emergency-services-directory-table .service-sector-cell {
-  min-width: 180px;
+  min-width: 220px;
 }
 
 .emergency-services-register-table .service-field {
   width: 100%;
   min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .emergency-services-register-table .service-notes-input {
   line-height: 1.35;
-  min-height: 84px;
+  min-height: 96px;
 }
 
 .emergency-services-register-table .service-name-input,
@@ -854,7 +932,8 @@ th {
   .grid,
   .cards,
   .control-room-layout,
-  .control-room-overview-grid {
+  .control-room-overview-grid,
+  .register-filter-bar {
     grid-template-columns: 1fr;
   }
 
