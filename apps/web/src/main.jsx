@@ -1722,11 +1722,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         </div>
       )}
 
-        {active === "Dashboard" && !isControlRoomUser && renderIncidentsSection(
-          {},
-          canViewPatrols ? renderPatrolWorkloadPanel() : null
-        )}
-
         {showControlRoomTabs && (
           <div className="control-room-layout">
             <div className="control-room-tabs" role="tablist" aria-label="Control Room sections">

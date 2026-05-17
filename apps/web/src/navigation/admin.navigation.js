@@ -44,10 +44,6 @@ export const ADMIN_NAV_SECTIONS = [
       { label: "Intelligence", permission: "VIEW_INTELLIGENCE" },
     ],
   },
-  {
-    label: "Master Administration",
-    items: [],
-  },
 ];
 
 export const ADMIN_NAV_ITEMS = ADMIN_NAV_SECTIONS.flatMap((section) => section.items);
