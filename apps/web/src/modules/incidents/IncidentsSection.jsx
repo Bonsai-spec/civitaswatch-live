@@ -109,6 +109,8 @@ export default function IncidentsSection({
   showSelectedIncidentServices = true,
   assistancePanelClassName = "panel",
   onResolveAssistanceRequest,
+  canPromoteToIntelligence = false,
+  onPromoteIncidentToIntelligence,
 }) {
   const assistanceRequests = data.assistanceRequests || [];
   const showAssistanceRequests =
@@ -347,6 +349,14 @@ export default function IncidentsSection({
                 <button onClick={() => onUpdateStatus(selectedIncident.id, "CLOSED")}>
                   Closed
                 </button>
+                {canPromoteToIntelligence && onPromoteIncidentToIntelligence && (
+                  <button
+                    type="button"
+                    onClick={() => onPromoteIncidentToIntelligence(selectedIncident)}
+                  >
+                    Promote to Intelligence
+                  </button>
+                )}
               </div>
 
               {canAssignPatrol && (

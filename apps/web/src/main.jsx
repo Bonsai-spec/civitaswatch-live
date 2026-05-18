@@ -13,6 +13,7 @@ import {
 } from "./core/http.utils";
 import {
   ADMIN_REGISTER_ENDPOINTS,
+  INTELLIGENCE_ENDPOINTS,
   MEMBER_ENDPOINTS,
   PATROL_ENDPOINTS,
   SERVICE_ENDPOINTS,
@@ -45,6 +46,7 @@ import {
 import IntelligenceSection from "./modules/intelligence/IntelligenceSection";
 import IntelGeoMap from "./modules/intelligence/IntelGeoMap";
 import IntelSpiderGraph from "./modules/intelligence/IntelSpiderGraph";
+import PromoteToIntelligencePanel from "./modules/intelligence/PromoteToIntelligencePanel";
 import { getMemberRoles } from "./modules/members/member.utils";
 import {
   getIntelAgeLabel,
@@ -506,6 +508,48 @@ function getLatestActivityItems({ assistanceRequests, activePatrols, incidents }
     .slice(0, 8);
 }
 
+function normalizePromotionRisk(value) {
+  const risk = String(value || "").trim().toUpperCase();
+  return INTEL_RISK_LEVELS.includes(risk) ? risk : "LOW";
+}
+
+function getIncidentPromotionDefaults(incident) {
+  const code = incident?.incidentCodeRef?.code || incident?.incidentCode || "Incident";
+  const codeName = incident?.incidentCodeRef?.name || incident?.incidentType || incident?.title || "";
+  const displayName = [code, codeName].filter(Boolean).join(" - ");
+
+  return {
+    entityType: "INCIDENT_PATTERN",
+    displayName,
+    description: incident?.description || incident?.title || "",
+    riskLevel: normalizePromotionRisk(incident?.severity),
+    status: "ACTIVE",
+    notes: "",
+    roleInIncident: "PROMOTED_FROM_INCIDENT",
+    observationType: "",
+  };
+}
+
+function getPatrolEventPromotionDefaults(event) {
+  const code = event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode;
+  const codeName = event?.incidentCodeRef?.name || event?.incident?.incidentCodeRef?.name;
+  const location = [event?.streetNumber, event?.streetName, event?.suburb].filter(Boolean).join(" ");
+  const displayName =
+    [code, codeName].filter(Boolean).join(" - ") ||
+    [event?.type || "Patrol Event", location].filter(Boolean).join(" - ");
+
+  return {
+    entityType: location ? "LOCATION" : "INCIDENT_PATTERN",
+    displayName,
+    description: event?.description || event?.assistance || "",
+    riskLevel: normalizePromotionRisk(event?.infrastructureTypeRef?.riskLevel),
+    status: "ACTIVE",
+    notes: "",
+    roleInIncident: "",
+    observationType: event?.type || "PATROL_EVENT",
+  };
+}
+
 function App() {
   const {
     token,
@@ -544,6 +588,10 @@ function App() {
     useState(false);
   const [controlRoomPatrollerDirectoryError, setControlRoomPatrollerDirectoryError] =
     useState("");
+  const [intelligencePromotion, setIntelligencePromotion] = useState(null);
+  const [intelligencePromotionForm, setIntelligencePromotionForm] = useState(null);
+  const [intelligencePromotionSubmitting, setIntelligencePromotionSubmitting] =
+    useState(false);
 
   const {
     userRole,
@@ -744,6 +792,90 @@ function App() {
     getAuthHeaders,
     getJsonAuthHeaders,
   });
+
+  function openIncidentIntelligencePromotion(incident) {
+    if (!canViewIntelligence || !incident?.id) return;
+    setIntelligencePromotion({
+      sourceType: "incident",
+      source: incident,
+    });
+    setIntelligencePromotionForm(getIncidentPromotionDefaults(incident));
+  }
+
+  function openPatrolEventIntelligencePromotion(event) {
+    if (!canViewIntelligence || !event?.id) return;
+    setIntelligencePromotion({
+      sourceType: "patrol-event",
+      source: event,
+    });
+    setIntelligencePromotionForm(getPatrolEventPromotionDefaults(event));
+  }
+
+  function closeIntelligencePromotion() {
+    if (intelligencePromotionSubmitting) return;
+    setIntelligencePromotion(null);
+    setIntelligencePromotionForm(null);
+  }
+
+  async function submitIntelligencePromotion(event) {
+    event.preventDefault();
+
+    if (!canViewIntelligence || !intelligencePromotion?.source?.id) {
+      alert("You do not have permission to promote records to intelligence.");
+      return;
+    }
+
+    if (!intelligencePromotionForm?.displayName?.trim()) {
+      alert("Display name is required.");
+      return;
+    }
+
+    const isIncidentPromotion = intelligencePromotion.sourceType === "incident";
+    const endpoint = isIncidentPromotion
+      ? INTELLIGENCE_ENDPOINTS.promoteIncident(intelligencePromotion.source.id)
+      : INTELLIGENCE_ENDPOINTS.promotePatrolEvent(intelligencePromotion.source.id);
+
+    const payload = {
+      entityType: intelligencePromotionForm.entityType,
+      displayName: intelligencePromotionForm.displayName.trim(),
+      description: intelligencePromotionForm.description || null,
+      riskLevel: intelligencePromotionForm.riskLevel || "LOW",
+      status: intelligencePromotionForm.status || "ACTIVE",
+      notes: intelligencePromotionForm.notes || null,
+      ...(isIncidentPromotion
+        ? { roleInIncident: intelligencePromotionForm.roleInIncident || "PROMOTED_FROM_INCIDENT" }
+        : { observationType: intelligencePromotionForm.observationType || "PATROL_EVENT" }),
+    };
+
+    try {
+      setIntelligencePromotionSubmitting(true);
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: getJsonAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(json.error || "Failed to promote record to intelligence");
+        return;
+      }
+
+      setIntelligencePromotion(null);
+      setIntelligencePromotionForm(null);
+      alert(json.alreadyPromoted ? "This source record is already linked to intelligence." : "Promoted to Intelligence.");
+
+      if (json.entity?.id) {
+        await refreshIntelligence();
+        await viewIntelEntity(json.entity);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to promote record to intelligence");
+    } finally {
+      setIntelligencePromotionSubmitting(false);
+    }
+  }
 
   function handleLogout() {
     logout();
@@ -1040,6 +1172,8 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         onDeleteIncident={deleteIncident}
         onSelectIncident={setSelectedIncident}
         onResolveAssistanceRequest={isControlRoomUser ? resolveAssistanceRequest : undefined}
+        canPromoteToIntelligence={canViewIntelligence && !isControlRoomUser}
+        onPromoteIncidentToIntelligence={openIncidentIntelligencePromotion}
         {...options}
       >
         {sectionChildren}
@@ -1075,6 +1209,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         onLoadPatrolReportAudit={loadPatrolReportAudit}
         onCloseActivePatrol={closeActivePatrol}
         getVehicleLabel={getVehicleLabel}
+        canPromoteToIntelligence={canViewIntelligence && !isControlRoomUser}
+        onPromoteIncidentToIntelligence={openIncidentIntelligencePromotion}
+        onPromotePatrolEventToIntelligence={openPatrolEventIntelligencePromotion}
         {...options}
       />
     );
@@ -1842,6 +1979,20 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           />
         )}
 
+        {intelligencePromotion && canViewIntelligence && !isControlRoomUser && (
+          <PromoteToIntelligencePanel
+            promotion={intelligencePromotion}
+            form={intelligencePromotionForm}
+            onFormChange={setIntelligencePromotionForm}
+            onSubmit={submitIntelligencePromotion}
+            onClose={closeIntelligencePromotion}
+            submitting={intelligencePromotionSubmitting}
+            entityTypes={INTEL_ENTITY_TYPES.filter((type) => type !== "GROUP")}
+            riskLevels={INTEL_RISK_LEVELS}
+            statuses={INTEL_STATUSES}
+          />
+        )}
+
         {isReportRoute && !isControlRoomUser && canViewReports && (
           <ReportsSection
             data={data}
@@ -1871,6 +2022,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             getVehicleLabel={getVehicleLabel}
             filteredIncidentReports={filteredRegisterIncidents}
             onViewIncidentReport={viewIncident}
+            canPromoteToIntelligence={canViewIntelligence && !isControlRoomUser}
+            onPromoteIncidentToIntelligence={openIncidentIntelligencePromotion}
+            onPromotePatrolEventToIntelligence={openPatrolEventIntelligencePromotion}
           />
         )}
     </AppShell>

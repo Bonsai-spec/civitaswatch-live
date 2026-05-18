@@ -60,4 +60,6 @@ export const INTELLIGENCE_ENDPOINTS = {
   connections: (id) => `${API}/intelligence/${id}/connections`,
   links: `${API}/intelligence/links`,
   linkDetail: (id) => `${API}/intelligence/links/${id}`,
+  promoteIncident: (id) => `${API}/intelligence/promote/incident/${id}`,
+  promotePatrolEvent: (id) => `${API}/intelligence/promote/patrol-event/${id}`,
 };

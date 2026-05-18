@@ -329,6 +329,9 @@ export default function ReportsSection({
   getVehicleLabel,
   filteredIncidentReports = [],
   onViewIncidentReport,
+  canPromoteToIntelligence = false,
+  onPromoteIncidentToIntelligence,
+  onPromotePatrolEventToIntelligence,
   showFilters = true,
   showSummaryCards = true,
   showSelectedPatrolReport = true,
@@ -1256,6 +1259,14 @@ export default function ReportsSection({
                         ["Address", [incident.street, incident.suburb].filter(Boolean).join(", ")],
                       ],
                     })}>View</button>
+                    {canPromoteToIntelligence && onPromoteIncidentToIntelligence && (
+                      <button
+                        type="button"
+                        onClick={() => onPromoteIncidentToIntelligence(incident)}
+                      >
+                        Promote to Intelligence
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1393,6 +1404,14 @@ export default function ReportsSection({
                         ["Requested", formatDateTime(request.createdAt)],
                       ],
                     })}>View</button>
+                    {canPromoteToIntelligence && onPromotePatrolEventToIntelligence && (
+                      <button
+                        type="button"
+                        onClick={() => onPromotePatrolEventToIntelligence(request)}
+                      >
+                        Promote to Intelligence
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1656,6 +1675,14 @@ export default function ReportsSection({
                         ["Created", formatDateTime(event.createdAt)],
                       ],
                     })}>View</button>
+                    {canPromoteToIntelligence && onPromotePatrolEventToIntelligence && (
+                      <button
+                        type="button"
+                        onClick={() => onPromotePatrolEventToIntelligence(event)}
+                      >
+                        Promote to Intelligence
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -1859,9 +1886,24 @@ export default function ReportsSection({
                         <div>Created by: {event.createdBy.fullName || event.createdBy.email || "-"}</div>
                       )}
                     </div>
-                    <span className="badge">
-                      {event.createdAt ? new Date(event.createdAt).toLocaleString() : "-"}
-                    </span>
+                    <div className="action-row">
+                      <span className="badge">
+                        {event.createdAt ? new Date(event.createdAt).toLocaleString() : "-"}
+                      </span>
+                      {canPromoteToIntelligence && onPromotePatrolEventToIntelligence && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onPromotePatrolEventToIntelligence({
+                              ...event,
+                              patrol: event.patrol || selectedPatrolReport,
+                            })
+                          }
+                        >
+                          Promote to Intelligence
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

@@ -53,6 +53,32 @@ const patrolEventIntelInclude = {
   },
 };
 
+const intelligenceEntityDetailInclude = {
+  voivehicleDetails: true,
+  incidentVOILinks: {
+    include: {
+      incident: true,
+    },
+  },
+  patrolEventVOILinks: {
+    include: {
+      patrolEvent: {
+        include: patrolEventIntelInclude,
+      },
+    },
+  },
+  outgoingLinks: {
+    include: {
+      toEntity: true,
+    },
+  },
+  incomingLinks: {
+    include: {
+      fromEntity: true,
+    },
+  },
+};
+
 function clean(value) {
   if (value === undefined || value === null) return null;
   const trimmed = String(value).trim();
@@ -77,6 +103,25 @@ function validRiskLevel(value) {
 router.use(requireAuth);
 router.use(requireRole(...INTEL_ROLES));
 
+router.get("/", async (req, res) => {
+  try {
+    const entities = await prisma.intelligenceEntity.findMany({
+      include: intelligenceEntityDetailInclude,
+      orderBy: [{ updatedAt: "desc" }],
+    });
+
+    res.json(entities);
+  } catch (error) {
+    console.error("GET /intelligence failed:", error);
+    res.status(500).json({ error: "Failed to fetch intelligence entities" });
+  }
+});
+
+router.post("/", async (req, res) => {
+  req.url = "/entities";
+  router.handle(req, res);
+});
+
 router.get("/entities", async (req, res) => {
   try {
     const { type, riskLevel, sector, q } = req.query;
@@ -99,19 +144,7 @@ router.get("/entities", async (req, res) => {
     const entities = await prisma.intelligenceEntity.findMany({
       where,
       include: {
-        voivehicleDetails: true,
-        incidentVOILinks: {
-          include: {
-            incident: true,
-          },
-        },
-        patrolEventVOILinks: {
-          include: {
-            patrolEvent: {
-              include: patrolEventIntelInclude,
-            },
-          },
-        },
+        ...intelligenceEntityDetailInclude,
       },
       orderBy: [{ updatedAt: "desc" }],
     });
@@ -137,7 +170,9 @@ router.post("/entities", async (req, res) => {
       riskLevel,
       status,
       vehicle,
+      vehicleDetails,
     } = req.body;
+    const vehiclePayload = vehicle || vehicleDetails;
 
     if (!clean(displayName)) {
       return res.status(400).json({ error: "displayName is required" });
@@ -156,16 +191,16 @@ router.post("/entities", async (req, res) => {
         riskLevel: validRiskLevel(riskLevel),
         status: upper(status, "ACTIVE"),
         voivehicleDetails:
-          validEntityType(entityType) === "VEHICLE" && vehicle?.registrationNumber
+          validEntityType(entityType) === "VEHICLE" && vehiclePayload?.registrationNumber
             ? {
                 create: {
-                  registrationNumber: String(vehicle.registrationNumber).trim().toUpperCase(),
-                  make: clean(vehicle.make),
-                  model: clean(vehicle.model),
-                  colour: clean(vehicle.colour),
-                  vehicleType: clean(vehicle.vehicleType),
-                  distinguishingMarks: clean(vehicle.distinguishingMarks),
-                  notes: clean(vehicle.notes),
+                  registrationNumber: String(vehiclePayload.registrationNumber).trim().toUpperCase(),
+                  make: clean(vehiclePayload.make),
+                  model: clean(vehiclePayload.model),
+                  colour: clean(vehiclePayload.colour),
+                  vehicleType: clean(vehiclePayload.vehicleType),
+                  distinguishingMarks: clean(vehiclePayload.distinguishingMarks),
+                  notes: clean(vehiclePayload.notes),
                 },
               }
             : undefined,
@@ -196,7 +231,9 @@ router.patch("/entities/:id", async (req, res) => {
       riskLevel,
       status,
       vehicle,
+      vehicleDetails,
     } = req.body;
+    const vehiclePayload = vehicle || vehicleDetails;
 
     const data = {};
 
@@ -222,31 +259,31 @@ router.patch("/entities/:id", async (req, res) => {
       },
     });
 
-    if (vehicle && updated.entityType === "VEHICLE") {
+    if (vehiclePayload && updated.entityType === "VEHICLE") {
       await prisma.vOIVehicleDetails.upsert({
         where: { intelligenceEntityId: updated.id },
         update: {
-          registrationNumber: vehicle.registrationNumber
-            ? String(vehicle.registrationNumber).trim().toUpperCase()
+          registrationNumber: vehiclePayload.registrationNumber
+            ? String(vehiclePayload.registrationNumber).trim().toUpperCase()
             : updated.voivehicleDetails?.registrationNumber || "UNKNOWN",
-          make: clean(vehicle.make),
-          model: clean(vehicle.model),
-          colour: clean(vehicle.colour),
-          vehicleType: clean(vehicle.vehicleType),
-          distinguishingMarks: clean(vehicle.distinguishingMarks),
-          notes: clean(vehicle.notes),
+          make: clean(vehiclePayload.make),
+          model: clean(vehiclePayload.model),
+          colour: clean(vehiclePayload.colour),
+          vehicleType: clean(vehiclePayload.vehicleType),
+          distinguishingMarks: clean(vehiclePayload.distinguishingMarks),
+          notes: clean(vehiclePayload.notes),
         },
         create: {
           intelligenceEntityId: updated.id,
-          registrationNumber: vehicle.registrationNumber
-            ? String(vehicle.registrationNumber).trim().toUpperCase()
+          registrationNumber: vehiclePayload.registrationNumber
+            ? String(vehiclePayload.registrationNumber).trim().toUpperCase()
             : "UNKNOWN",
-          make: clean(vehicle.make),
-          model: clean(vehicle.model),
-          colour: clean(vehicle.colour),
-          vehicleType: clean(vehicle.vehicleType),
-          distinguishingMarks: clean(vehicle.distinguishingMarks),
-          notes: clean(vehicle.notes),
+          make: clean(vehiclePayload.make),
+          model: clean(vehiclePayload.model),
+          colour: clean(vehiclePayload.colour),
+          vehicleType: clean(vehiclePayload.vehicleType),
+          distinguishingMarks: clean(vehiclePayload.distinguishingMarks),
+          notes: clean(vehiclePayload.notes),
         },
       });
     }
@@ -313,6 +350,19 @@ router.post("/links", async (req, res) => {
   }
 });
 
+router.delete("/links/:id", async (req, res) => {
+  try {
+    const deleted = await prisma.intelligenceLink.delete({
+      where: { id: req.params.id },
+    });
+
+    res.json(deleted);
+  } catch (error) {
+    console.error("DELETE /intelligence/links/:id failed:", error);
+    res.status(500).json({ error: "Failed to delete intelligence link" });
+  }
+});
+
 router.post("/promote/incident/:incidentId", async (req, res) => {
   try {
     const {
@@ -320,6 +370,7 @@ router.post("/promote/incident/:incidentId", async (req, res) => {
       displayName,
       description,
       riskLevel,
+      status,
       roleInIncident,
       notes,
       vehicle,
@@ -331,6 +382,31 @@ router.post("/promote/incident/:incidentId", async (req, res) => {
 
     if (!incident) {
       return res.status(404).json({ error: "Incident not found" });
+    }
+
+    const existingLink = await prisma.incidentVOILink.findFirst({
+      where: {
+        incidentId: incident.id,
+      },
+      include: {
+        incident: true,
+        intelligenceEntity: {
+          include: {
+            voivehicleDetails: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (existingLink) {
+      return res.json({
+        entity: existingLink.intelligenceEntity,
+        link: existingLink,
+        alreadyPromoted: true,
+      });
     }
 
     const finalType = validEntityType(entityType);
@@ -351,7 +427,7 @@ router.post("/promote/incident/:incidentId", async (req, res) => {
         suburb: clean(incident.suburb),
         sector: clean(incident.sector),
         riskLevel: validRiskLevel(riskLevel || incident.severity),
-        status: "ACTIVE",
+        status: upper(status, "ACTIVE"),
         voivehicleDetails:
           finalType === "VEHICLE" && vehicle?.registrationNumber
             ? {
@@ -399,6 +475,7 @@ router.post("/promote/patrol-event/:patrolEventId", async (req, res) => {
       displayName,
       description,
       riskLevel,
+      status,
       observationType,
       notes,
       vehicle,
@@ -411,6 +488,33 @@ router.post("/promote/patrol-event/:patrolEventId", async (req, res) => {
 
     if (!patrolEvent) {
       return res.status(404).json({ error: "Patrol event not found" });
+    }
+
+    const existingLink = await prisma.patrolEventVOILink.findFirst({
+      where: {
+        patrolEventId: patrolEvent.id,
+      },
+      include: {
+        patrolEvent: {
+          include: patrolEventIntelInclude,
+        },
+        intelligenceEntity: {
+          include: {
+            voivehicleDetails: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (existingLink) {
+      return res.json({
+        entity: existingLink.intelligenceEntity,
+        link: existingLink,
+        alreadyPromoted: true,
+      });
     }
 
     const finalType = validEntityType(entityType);
@@ -433,7 +537,7 @@ router.post("/promote/patrol-event/:patrolEventId", async (req, res) => {
         latitude: patrolEvent.latitude,
         longitude: patrolEvent.longitude,
         riskLevel: validRiskLevel(riskLevel),
-        status: "ACTIVE",
+        status: upper(status, "ACTIVE"),
         voivehicleDetails:
           finalType === "VEHICLE" && vehicle?.registrationNumber
             ? {
@@ -518,6 +622,46 @@ router.get("/graph", async (req, res) => {
   } catch (error) {
     console.error("GET /intelligence/graph failed:", error);
     res.status(500).json({ error: "Failed to fetch intelligence graph" });
+  }
+});
+
+router.get("/:id/connections", async (req, res) => {
+  try {
+    const entity = await prisma.intelligenceEntity.findUnique({
+      where: { id: req.params.id },
+      include: intelligenceEntityDetailInclude,
+    });
+
+    if (!entity) {
+      return res.status(404).json({ error: "Intelligence entity not found" });
+    }
+
+    res.json(entity);
+  } catch (error) {
+    console.error("GET /intelligence/:id/connections failed:", error);
+    res.status(500).json({ error: "Failed to fetch intelligence profile" });
+  }
+});
+
+router.patch("/:id", async (req, res) => {
+  req.url = `/entities/${req.params.id}`;
+  router.handle(req, res);
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const archived = await prisma.intelligenceEntity.update({
+      where: { id: req.params.id },
+      data: {
+        status: "ARCHIVED",
+      },
+      include: intelligenceEntityDetailInclude,
+    });
+
+    res.json(archived);
+  } catch (error) {
+    console.error("DELETE /intelligence/:id failed:", error);
+    res.status(500).json({ error: "Failed to archive intelligence entity" });
   }
 });
 
