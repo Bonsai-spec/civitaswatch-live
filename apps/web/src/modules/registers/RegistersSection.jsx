@@ -125,10 +125,10 @@ export default function RegistersSection({
   // Integration plan: initial page load will fetch sector-scoped records from
   // /api/admin/incident-codes, /api/admin/incident-subcodes,
   // /api/admin/service-types, /api/admin/infrastructure-types, and
-  // /api/admin/emergency-contact-types. Add actions will become POST requests,
-  // inline edits will become PATCH requests, and Delete actions will become
-  // DELETE requests. Local state should remain the working UI state after API
-  // responses. Active-only records will feed Patrol, Control Room, and
+  // /api/admin/emergency-contact-types. Add actions use POST requests, inline
+  // edits use PATCH requests, and persisted removals should deactivate records
+  // instead of hard-deleting operational history references. Local state should
+  // remain the working UI state after API responses. Active-only records will feed Patrol, Control Room, and
   // Intelligence workflows, and shared template inheritance may prepopulate
   // sector registers on first load.
   // Incident Codes is the first master register backed by the Admin API.
@@ -1005,23 +1005,29 @@ export default function RegistersSection({
 
     setIncidentCodesError("");
     setMasterRegisterSuccessTab("");
+    setIncidentCodeSaving(id, true);
 
     try {
       const res = await fetch(`${INCIDENT_CODES_ENDPOINT}/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(getToken()),
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ active: false }),
       });
       const json = await parseApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to delete incident code.");
+        throw new Error(json?.error || "Failed to deactivate incident code.");
       }
 
-      setIncidentCodeRows((current) => current.filter((item) => item.id !== id));
+      setIncidentCodeRows((current) =>
+        current.map((item) => (item.id === id ? json : item))
+      );
       setMasterRegisterSuccessTab("Incident Codes");
     } catch (err) {
-      console.error("Failed to delete incident code", err);
-      setIncidentCodesError(err.message || "Failed to delete incident code.");
+      console.error("Failed to deactivate incident code", err);
+      setIncidentCodesError(err.message || "Failed to deactivate incident code.");
+    } finally {
+      setIncidentCodeSaving(id, false);
     }
   }
 
@@ -1061,23 +1067,31 @@ export default function RegistersSection({
 
     setIncidentSubcodesError("");
     setMasterRegisterSuccessTab("");
+    setIncidentSubcodeSaving(id, true);
 
     try {
       const res = await fetch(`${INCIDENT_SUBCODES_ENDPOINT}/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(getToken()),
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ active: false }),
       });
       const json = await parseApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to delete incident subcode.");
+        throw new Error(json?.error || "Failed to deactivate incident subcode.");
       }
 
-      setIncidentSubcodeRows((current) => current.filter((item) => item.id !== id));
+      const nextRow = normalizeIncidentSubcode(json);
+
+      setIncidentSubcodeRows((current) =>
+        current.map((item) => (item.id === id ? nextRow : item))
+      );
       setMasterRegisterSuccessTab("Incident Subcodes");
     } catch (err) {
-      console.error("Failed to delete incident subcode", err);
-      setIncidentSubcodesError(err.message || "Failed to delete incident subcode.");
+      console.error("Failed to deactivate incident subcode", err);
+      setIncidentSubcodesError(err.message || "Failed to deactivate incident subcode.");
+    } finally {
+      setIncidentSubcodeSaving(id, false);
     }
   }
 
@@ -1116,23 +1130,31 @@ export default function RegistersSection({
 
     setServiceTypesError("");
     setMasterRegisterSuccessTab("");
+    setServiceTypeSaving(id, true);
 
     try {
       const res = await fetch(`${SERVICE_TYPES_ENDPOINT}/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(getToken()),
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ active: false }),
       });
       const json = await parseApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to delete service type.");
+        throw new Error(json?.error || "Failed to deactivate service type.");
       }
 
-      setServiceTypeRows((current) => current.filter((item) => item.id !== id));
+      const nextRow = normalizeServiceType(json);
+
+      setServiceTypeRows((current) =>
+        current.map((item) => (item.id === id ? nextRow : item))
+      );
       setMasterRegisterSuccessTab("Service Types");
     } catch (err) {
-      console.error("Failed to delete service type", err);
-      setServiceTypesError(err.message || "Failed to delete service type.");
+      console.error("Failed to deactivate service type", err);
+      setServiceTypesError(err.message || "Failed to deactivate service type.");
+    } finally {
+      setServiceTypeSaving(id, false);
     }
   }
 
@@ -1173,11 +1195,13 @@ export default function RegistersSection({
 
     setServicesError("");
     setMasterRegisterSuccessTab("");
+    setServiceSaving(id, true);
 
     try {
       const res = await fetch(`${SERVICES_ENDPOINT}/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(getToken()),
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ isActive: false }),
       });
       const json = await parseApiResponse(res);
 
@@ -1194,6 +1218,8 @@ export default function RegistersSection({
     } catch (err) {
       console.error("Failed to deactivate emergency service", err);
       setServicesError(err.message || "Failed to deactivate emergency service.");
+    } finally {
+      setServiceSaving(id, false);
     }
   }
 
@@ -1232,23 +1258,31 @@ export default function RegistersSection({
 
     setInfrastructureTypesError("");
     setMasterRegisterSuccessTab("");
+    setInfrastructureTypeSaving(id, true);
 
     try {
       const res = await fetch(`${INFRASTRUCTURE_TYPES_ENDPOINT}/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(getToken()),
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ active: false }),
       });
       const json = await parseApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to delete infrastructure type.");
+        throw new Error(json?.error || "Failed to deactivate infrastructure type.");
       }
 
-      setInfrastructureTypeRows((current) => current.filter((item) => item.id !== id));
+      const nextRow = normalizeInfrastructureType(json);
+
+      setInfrastructureTypeRows((current) =>
+        current.map((item) => (item.id === id ? nextRow : item))
+      );
       setMasterRegisterSuccessTab("Infrastructure Types");
     } catch (err) {
-      console.error("Failed to delete infrastructure type", err);
-      setInfrastructureTypesError(err.message || "Failed to delete infrastructure type.");
+      console.error("Failed to deactivate infrastructure type", err);
+      setInfrastructureTypesError(err.message || "Failed to deactivate infrastructure type.");
+    } finally {
+      setInfrastructureTypeSaving(id, false);
     }
   }
 
@@ -1287,23 +1321,31 @@ export default function RegistersSection({
 
     setEmergencyContactTypesError("");
     setMasterRegisterSuccessTab("");
+    setEmergencyContactTypeSaving(id, true);
 
     try {
       const res = await fetch(`${EMERGENCY_CONTACT_TYPES_ENDPOINT}/${id}`, {
-        method: "DELETE",
-        headers: getAuthHeaders(getToken()),
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ active: false }),
       });
       const json = await parseApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to delete emergency contact type.");
+        throw new Error(json?.error || "Failed to deactivate emergency contact type.");
       }
 
-      setEmergencyContactTypeRows((current) => current.filter((item) => item.id !== id));
+      const nextRow = normalizeEmergencyContactType(json);
+
+      setEmergencyContactTypeRows((current) =>
+        current.map((item) => (item.id === id ? nextRow : item))
+      );
       setMasterRegisterSuccessTab("Emergency Contact Types");
     } catch (err) {
-      console.error("Failed to delete emergency contact type", err);
-      setEmergencyContactTypesError(err.message || "Failed to delete emergency contact type.");
+      console.error("Failed to deactivate emergency contact type", err);
+      setEmergencyContactTypesError(err.message || "Failed to deactivate emergency contact type.");
+    } finally {
+      setEmergencyContactTypeSaving(id, false);
     }
   }
 
@@ -2476,7 +2518,7 @@ export default function RegistersSection({
           {isEditableMasterRegister && !isEmergencyServicesRegister && (
             <p className="card-detail">
               Turn Active off to deactivate values that may be referenced by operational history.
-              Delete is for draft or safe unreferenced records only.
+              Draft rows can be removed before they are saved.
             </p>
           )}
           {isIncidentCodesRegister && incidentCodesLoading && (
@@ -2572,10 +2614,19 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button
-                      disabled={incidentCodeSavingIds.includes(row.id)}
+                      disabled={
+                        incidentCodeSavingIds.includes(row.id) ||
+                        (!isDraftIncidentCode(row) && !row.active)
+                      }
                       onClick={() => deleteIncidentCodeRow(row.id)}
                     >
-                      {incidentCodeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                      {incidentCodeSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftIncidentCode(row)
+                          ? "Remove"
+                          : row.active
+                            ? "Deactivate"
+                            : "Inactive"}
                     </button>
                   </td>
                 </tr>
@@ -2663,10 +2714,19 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button
-                      disabled={incidentSubcodeSavingIds.includes(row.id)}
+                      disabled={
+                        incidentSubcodeSavingIds.includes(row.id) ||
+                        (!isDraftIncidentSubcode(row) && !row.active)
+                      }
                       onClick={() => deleteIncidentSubcodeRow(row.id)}
                     >
-                      {incidentSubcodeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                      {incidentSubcodeSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftIncidentSubcode(row)
+                          ? "Remove"
+                          : row.active
+                            ? "Deactivate"
+                            : "Inactive"}
                     </button>
                   </td>
                 </tr>
@@ -2736,10 +2796,19 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button
-                      disabled={serviceTypeSavingIds.includes(row.id)}
+                      disabled={
+                        serviceTypeSavingIds.includes(row.id) ||
+                        (!isDraftServiceType(row) && !row.active)
+                      }
                       onClick={() => deleteServiceTypeRow(row.id)}
                     >
-                      {serviceTypeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                      {serviceTypeSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftServiceType(row)
+                          ? "Remove"
+                          : row.active
+                            ? "Deactivate"
+                            : "Inactive"}
                     </button>
                   </td>
                 </tr>
@@ -2836,10 +2905,19 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button
-                      disabled={serviceSavingIds.includes(row.id)}
+                      disabled={
+                        serviceSavingIds.includes(row.id) ||
+                        (!isDraftService(row) && !row.isActive)
+                      }
                       onClick={() => deleteServiceRow(row.id)}
                     >
-                      {serviceSavingIds.includes(row.id) ? "Saving..." : "Deactivate"}
+                      {serviceSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftService(row)
+                          ? "Remove"
+                          : row.isActive
+                            ? "Deactivate"
+                            : "Inactive"}
                     </button>
                   </td>
                 </tr>
@@ -2909,10 +2987,19 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button
-                      disabled={infrastructureTypeSavingIds.includes(row.id)}
+                      disabled={
+                        infrastructureTypeSavingIds.includes(row.id) ||
+                        (!isDraftInfrastructureType(row) && !row.active)
+                      }
                       onClick={() => deleteInfrastructureTypeRow(row.id)}
                     >
-                      {infrastructureTypeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                      {infrastructureTypeSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftInfrastructureType(row)
+                          ? "Remove"
+                          : row.active
+                            ? "Deactivate"
+                            : "Inactive"}
                     </button>
                   </td>
                 </tr>
@@ -2988,10 +3075,19 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button
-                      disabled={emergencyContactTypeSavingIds.includes(row.id)}
+                      disabled={
+                        emergencyContactTypeSavingIds.includes(row.id) ||
+                        (!isDraftEmergencyContactType(row) && !row.active)
+                      }
                       onClick={() => deleteEmergencyContactTypeRow(row.id)}
                     >
-                      {emergencyContactTypeSavingIds.includes(row.id) ? "Saving..." : "Delete"}
+                      {emergencyContactTypeSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftEmergencyContactType(row)
+                          ? "Remove"
+                          : row.active
+                            ? "Deactivate"
+                            : "Inactive"}
                     </button>
                   </td>
                 </tr>

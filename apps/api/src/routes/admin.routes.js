@@ -18,8 +18,8 @@ const router = express.Router();
 //
 // These endpoints should be sector-scoped. Master Admin may manage shared
 // templates; Sector Admin may manage local sector values. Control Room and
-// Patrol should read active classification values only. Deletes may require
-// confirmation, audit logging, and role checks.
+// Patrol should read active classification values only. Master register removal
+// should prefer deactivation so operational history can keep its references.
 const VALID_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED", "ARCHIVED"];
 const VALID_SEVERITIES = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 
@@ -325,24 +325,19 @@ router.delete("/incident-codes/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.incidentCode.delete({
+    const incidentCode = await prisma.incidentCode.update({
       where: { id },
+      data: { active: false },
     });
 
-    res.json({ success: true });
+    res.json(incidentCode);
   } catch (err) {
     if (err.code === "P2025") {
       return res.status(404).json({ error: "Incident Code not found." });
     }
 
-    if (err.code === "P2003") {
-      return res.status(409).json({
-        error: "Incident Code cannot be deleted while Incident Subcodes reference it.",
-      });
-    }
-
     console.error("DELETE /admin/incident-codes/:id failed:", err);
-    res.status(500).json({ error: "Failed to delete incident code." });
+    res.status(500).json({ error: "Failed to deactivate incident code." });
   }
 });
 
@@ -495,18 +490,20 @@ router.delete("/incident-subcodes/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.incidentSubcode.delete({
+    const incidentSubcode = await prisma.incidentSubcode.update({
       where: { id },
+      data: { active: false },
+      include: incidentSubcodeInclude,
     });
 
-    res.json({ success: true });
+    res.json(incidentSubcode);
   } catch (err) {
     if (err.code === "P2025") {
       return res.status(404).json({ error: "Incident Subcode not found." });
     }
 
     console.error("DELETE /admin/incident-subcodes/:id failed:", err);
-    res.status(500).json({ error: "Failed to delete incident subcode." });
+    res.status(500).json({ error: "Failed to deactivate incident subcode." });
   }
 });
 
@@ -660,18 +657,19 @@ router.delete("/service-types/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.serviceType.delete({
+    const serviceType = await prisma.serviceType.update({
       where: { id },
+      data: { active: false },
     });
 
-    res.json({ success: true });
+    res.json(serviceType);
   } catch (err) {
     if (err.code === "P2025") {
       return res.status(404).json({ error: "Service Type not found." });
     }
 
     console.error("DELETE /admin/service-types/:id failed:", err);
-    res.status(500).json({ error: "Failed to delete service type." });
+    res.status(500).json({ error: "Failed to deactivate service type." });
   }
 });
 
@@ -828,18 +826,19 @@ router.delete("/infrastructure-types/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.infrastructureType.delete({
+    const infrastructureType = await prisma.infrastructureType.update({
       where: { id },
+      data: { active: false },
     });
 
-    res.json({ success: true });
+    res.json(infrastructureType);
   } catch (err) {
     if (err.code === "P2025") {
       return res.status(404).json({ error: "Infrastructure Type not found." });
     }
 
     console.error("DELETE /admin/infrastructure-types/:id failed:", err);
-    res.status(500).json({ error: "Failed to delete infrastructure type." });
+    res.status(500).json({ error: "Failed to deactivate infrastructure type." });
   }
 });
 
@@ -998,18 +997,19 @@ router.delete("/emergency-contact-types/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    await prisma.emergencyContactType.delete({
+    const emergencyContactType = await prisma.emergencyContactType.update({
       where: { id },
+      data: { active: false },
     });
 
-    res.json({ success: true });
+    res.json(emergencyContactType);
   } catch (err) {
     if (err.code === "P2025") {
       return res.status(404).json({ error: "Emergency Contact Type not found." });
     }
 
     console.error("DELETE /admin/emergency-contact-types/:id failed:", err);
-    res.status(500).json({ error: "Failed to delete emergency contact type." });
+    res.status(500).json({ error: "Failed to deactivate emergency contact type." });
   }
 });
 
