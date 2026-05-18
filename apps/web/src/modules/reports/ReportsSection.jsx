@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 
 function formatEventClassification(event) {
   return [
@@ -56,6 +56,111 @@ function getAssistanceLocationLabel(request) {
   return [street, request?.suburb, request?.locationNotes].filter(Boolean).join(" - ") || "-";
 }
 
+function getPatrolCallSign(patrol) {
+  return patrol?.callSign || patrol?.patrolCallSign || patrol?.id || "-";
+}
+
+function getPatrolDriverLabel(patrol) {
+  return patrol?.user?.fullName || patrol?.user?.email || "Unnamed";
+}
+
+function getRecordDate(record) {
+  return record?.createdAt || record?.startTime || record?.requestedAt || record?.updatedAt || null;
+}
+
+function inDateRange(record, reportFilters) {
+  const value = getRecordDate(record);
+  const date = value ? new Date(value) : null;
+
+  if (reportFilters.from) {
+    if (!date) return false;
+    if (date < new Date(reportFilters.from)) return false;
+  }
+
+  if (reportFilters.to) {
+    if (!date) return false;
+    const toDate = new Date(reportFilters.to);
+    toDate.setHours(23, 59, 59, 999);
+    if (date > toDate) return false;
+  }
+
+  return true;
+}
+
+function includesText(value, search) {
+  if (!search) return true;
+  return String(value || "").toLowerCase().includes(String(search).trim().toLowerCase());
+}
+
+function incidentCodeLabel(record) {
+  return (
+    record?.incidentCodeRef?.code ||
+    record?.incidentCode ||
+    record?.incident?.incidentCodeRef?.code ||
+    record?.incident?.incidentCode ||
+    "-"
+  );
+}
+
+function incidentSubcodeLabel(record) {
+  return (
+    record?.incidentSubcodeRef?.subcode ||
+    record?.incident?.incidentSubcodeRef?.subcode ||
+    "-"
+  );
+}
+
+function getInfrastructureRows(patrolReports) {
+  return patrolReports.flatMap((patrol) =>
+    (patrol.patrolEvents || [])
+      .filter((event) => event.type === "INFRASTRUCTURE" || event.infrastructureTypeRef)
+      .map((event) => ({ ...event, patrol }))
+  );
+}
+
+function getVehicleReportRows(patrolReports) {
+  return patrolReports.map((patrol) => ({
+    id: patrol.id,
+    vehicle: patrol.vehicle,
+    patrol,
+    registration: patrol.vehicle?.registration || patrol.vehicleLabel || patrol.tempVehicleRegistration || "-",
+    driver: getPatrolDriverLabel(patrol),
+    sector: patrol.sector || "-",
+    status: patrol.status || "-",
+    callSign: getPatrolCallSign(patrol),
+    startTime: patrol.startTime,
+    endTime: patrol.endTime,
+    totalKm: patrol.totalKm,
+  }));
+}
+
+function csvEscape(value) {
+  const text = value === null || value === undefined ? "" : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function exportCsv(filename, columns, rows) {
+  const header = columns.map((column) => csvEscape(column.label)).join(",");
+  const body = rows
+    .map((row) => columns.map((column) => csvEscape(column.value(row))).join(","))
+    .join("\n");
+  const blob = new Blob([[header, body].filter(Boolean).join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
 export default function ReportsSection({
   data,
   reportCategory = "Patrol Reports",
@@ -84,8 +189,6 @@ export default function ReportsSection({
   getVehicleLabel,
   filteredIncidentReports = [],
   onViewIncidentReport,
-  onEditIncidentReport,
-  onDeleteIncidentReport,
   showFilters = true,
   showSummaryCards = true,
   showSelectedPatrolReport = true,
@@ -93,8 +196,149 @@ export default function ReportsSection({
 }) {
   const assistanceRequests = data.assistanceRequests || [];
   const vehicles = data.vehicles || [];
+  const [selectedReportDetail, setSelectedReportDetail] = useState(null);
   const refreshHandler =
     reportCategory === "Patrol Reports" ? onRefreshReports : onRefreshOperationalData || onRefreshReports;
+  const incidentRows = useMemo(() => {
+    return filteredIncidentReports.filter((incident) => {
+      const search = [
+        incident.incidentCode,
+        incident.title,
+        incident.description,
+        incident.incidentType,
+        incident.sector,
+        incident.status,
+        incident.severity,
+        incident.street,
+        incident.suburb,
+      ].join(" ");
+
+      if (!inDateRange(incident, reportFilters)) return false;
+      if (!includesText(search, reportFilters.search)) return false;
+      if (reportFilters.sector !== "ALL" && incident.sector !== reportFilters.sector) return false;
+      if (reportFilters.status !== "ALL" && incident.status !== reportFilters.status) return false;
+      if (reportFilters.severity !== "ALL" && incident.severity !== reportFilters.severity) return false;
+      if (reportFilters.incidentCode !== "ALL" && incidentCodeLabel(incident) !== reportFilters.incidentCode) return false;
+      if (reportFilters.incidentSubcode !== "ALL" && incidentSubcodeLabel(incident) !== reportFilters.incidentSubcode) return false;
+      return true;
+    });
+  }, [filteredIncidentReports, reportFilters]);
+  const assistanceRows = useMemo(() => {
+    return assistanceRequests.filter((request) => {
+      const patrol = request.patrol || {};
+      const service = formatEventService(request) || request.assistance || "";
+      const search = [
+        service,
+        getAssistancePatrolLabel(request),
+        getAssistanceVehicleLabel(request),
+        getAssistanceLocationLabel(request),
+        request.description,
+        request.referenceNumber,
+      ].join(" ");
+
+      if (!inDateRange(request, reportFilters)) return false;
+      if (!includesText(search, reportFilters.search)) return false;
+      if (reportFilters.sector !== "ALL" && (patrol.sector || request.sector) !== reportFilters.sector) return false;
+      if (reportFilters.callSign && !includesText(patrol.callSign, reportFilters.callSign)) return false;
+      if (reportFilters.serviceType !== "ALL" && service !== reportFilters.serviceType) return false;
+      if (reportFilters.referenceNumber && !includesText(request.referenceNumber, reportFilters.referenceNumber)) return false;
+      if (reportFilters.status !== "ALL") {
+        const resolved = request.resolvedAt || request.status === "RESOLVED" || request.sceneActive === false ? "RESOLVED" : "ACTIVE";
+        if (resolved !== reportFilters.status) return false;
+      }
+      return true;
+    });
+  }, [assistanceRequests, reportFilters]);
+  const infrastructureRows = useMemo(() => {
+    return getInfrastructureRows(filteredPatrolReports).filter((event) => {
+      const search = [
+        event.infrastructureTypeRef?.type,
+        event.infrastructureTypeRef?.riskLevel,
+        event.description,
+        formatEventLocation(event),
+        event.patrol?.sector,
+        getPatrolCallSign(event.patrol),
+      ].join(" ");
+
+      if (!inDateRange(event, reportFilters)) return false;
+      if (!includesText(search, reportFilters.search)) return false;
+      if (reportFilters.sector !== "ALL" && event.patrol?.sector !== reportFilters.sector) return false;
+      if (reportFilters.infrastructureType !== "ALL" && event.infrastructureTypeRef?.type !== reportFilters.infrastructureType) return false;
+      if (reportFilters.riskLevel !== "ALL" && event.infrastructureTypeRef?.riskLevel !== reportFilters.riskLevel) return false;
+      return true;
+    });
+  }, [filteredPatrolReports, reportFilters]);
+  const vehicleRows = useMemo(() => {
+    return getVehicleReportRows(filteredPatrolReports).filter((row) => {
+      if (!inDateRange(row.patrol, reportFilters)) return false;
+      if (reportFilters.vehicleId !== "ALL" && row.patrol.vehicleId !== reportFilters.vehicleId) return false;
+      if (reportFilters.sector !== "ALL" && row.sector !== reportFilters.sector) return false;
+      if (reportFilters.status !== "ALL" && row.status !== reportFilters.status) return false;
+      if (reportFilters.patrollerId !== "ALL" && row.patrol.userId !== reportFilters.patrollerId) return false;
+      if (!includesText([row.registration, row.driver, row.callSign].join(" "), reportFilters.search)) return false;
+      return true;
+    });
+  }, [filteredPatrolReports, reportFilters]);
+
+  const incidentCodeOptions = Array.from(new Set(filteredIncidentReports.map(incidentCodeLabel).filter((value) => value && value !== "-")));
+  const incidentSubcodeOptions = Array.from(new Set(filteredIncidentReports.map(incidentSubcodeLabel).filter((value) => value && value !== "-")));
+  const serviceTypeOptions = Array.from(new Set(assistanceRequests.map((request) => formatEventService(request) || request.assistance).filter(Boolean)));
+  const infrastructureTypeOptions = Array.from(new Set(getInfrastructureRows(filteredPatrolReports).map((event) => event.infrastructureTypeRef?.type).filter(Boolean)));
+  const riskLevelOptions = Array.from(new Set(getInfrastructureRows(filteredPatrolReports).map((event) => event.infrastructureTypeRef?.riskLevel).filter(Boolean)));
+
+  function renderReportDetail() {
+    if (!selectedReportDetail) return null;
+
+    return (
+      <div className="incident-details">
+        <div className="details-header">
+          <h3>{selectedReportDetail.title}</h3>
+          <button className="secondary-btn" onClick={() => setSelectedReportDetail(null)}>
+            Close
+          </button>
+        </div>
+        {selectedReportDetail.rows.map(([label, value]) => (
+          <p key={label}>
+            <strong>{label}:</strong> {value || "-"}
+          </p>
+        ))}
+      </div>
+    );
+  }
+
+  function renderCommonFilters(extraFilters = null) {
+    return (
+      <div className="action-row">
+        <input
+          placeholder="Search"
+          value={reportFilters.search || ""}
+          onChange={(e) => onReportFiltersChange({ ...reportFilters, search: e.target.value })}
+        />
+        <input
+          type="date"
+          value={reportFilters.from}
+          onChange={(e) => onReportFiltersChange({ ...reportFilters, from: e.target.value })}
+        />
+        <input
+          type="date"
+          value={reportFilters.to}
+          onChange={(e) => onReportFiltersChange({ ...reportFilters, to: e.target.value })}
+        />
+        <select
+          value={reportFilters.sector}
+          onChange={(e) => onReportFiltersChange({ ...reportFilters, sector: e.target.value })}
+        >
+          {sectorFilterOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {extraFilters}
+        <button onClick={onClearReportFilters}>Clear</button>
+      </div>
+    );
+  }
 
   if (reportCategory === "Incident Reports") {
     return (
@@ -111,15 +355,80 @@ export default function ReportsSection({
           Historical incident records for review, follow-up, and accountability.
         </p>
 
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <select
+                value={reportFilters.status}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, status: e.target.value })}
+              >
+                <option value="ALL">All Status</option>
+                <option value="OPEN">Open</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="CLOSED">Closed</option>
+                <option value="ARCHIVED">Archived</option>
+              </select>
+              <select
+                value={reportFilters.severity}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, severity: e.target.value })}
+              >
+                <option value="ALL">All Severity</option>
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="CRITICAL">Critical</option>
+              </select>
+              <select
+                value={reportFilters.incidentCode}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, incidentCode: e.target.value })}
+              >
+                <option value="ALL">All Codes</option>
+                {incidentCodeOptions.map((code) => (
+                  <option key={code} value={code}>{code}</option>
+                ))}
+              </select>
+              <select
+                value={reportFilters.incidentSubcode}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, incidentSubcode: e.target.value })}
+              >
+                <option value="ALL">All Subcodes</option>
+                {incidentSubcodeOptions.map((subcode) => (
+                  <option key={subcode} value={subcode}>{subcode}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv("incident-reports.csv", [
+                    { label: "ID", value: (row) => row.id },
+                    { label: "Code", value: incidentCodeLabel },
+                    { label: "Subcode", value: incidentSubcodeLabel },
+                    { label: "Title", value: (row) => row.title },
+                    { label: "Sector", value: (row) => row.sector },
+                    { label: "Status", value: (row) => row.status },
+                    { label: "Severity", value: (row) => row.severity },
+                    { label: "Address", value: (row) => [row.street, row.suburb].filter(Boolean).join(", ") },
+                    { label: "Created", value: (row) => formatDateTime(row.createdAt) },
+                  ], incidentRows)
+                }
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+
+        {renderReportDetail()}
+
         <div className="cards">
           <div className="card">
             <div className="card-title">Incident Reports</div>
-            <div className="card-value">{filteredIncidentReports.length}</div>
+            <div className="card-value">{incidentRows.length}</div>
             <div className="card-detail">Operational incident and response history</div>
           </div>
         </div>
 
-        {filteredIncidentReports.length === 0 ? (
+        {incidentRows.length === 0 ? (
           <p>No incident reports available.</p>
         ) : (
           <table>
@@ -136,9 +445,9 @@ export default function ReportsSection({
               </tr>
             </thead>
             <tbody>
-              {filteredIncidentReports.map((incident) => (
+              {incidentRows.map((incident) => (
                 <tr key={incident.id}>
-                  <td>{incident.incidentCode || "-"}</td>
+                  <td>{incidentCodeLabel(incident)}</td>
                   <td>{incident.title || "-"}</td>
                   <td>{incident.incidentType || "-"}</td>
                   <td>{incident.sector || "-"}</td>
@@ -146,15 +455,20 @@ export default function ReportsSection({
                   <td>{incident.severity || "-"}</td>
                   <td>{[incident.street, incident.suburb].filter(Boolean).join(", ") || "-"}</td>
                   <td>
-                    {onViewIncidentReport && (
-                      <button onClick={() => onViewIncidentReport(incident)}>View</button>
-                    )}
-                    {onEditIncidentReport && (
-                      <button onClick={() => onEditIncidentReport(incident)}>Edit</button>
-                    )}
-                    {onDeleteIncidentReport && (
-                      <button onClick={() => onDeleteIncidentReport(incident.id)}>Delete</button>
-                    )}
+                    <button onClick={() => onViewIncidentReport ? onViewIncidentReport(incident) : setSelectedReportDetail({
+                      title: "Incident Report",
+                      rows: [
+                        ["ID", incident.id],
+                        ["Code", incidentCodeLabel(incident)],
+                        ["Subcode", incidentSubcodeLabel(incident)],
+                        ["Title", incident.title],
+                        ["Description", incident.description],
+                        ["Sector", incident.sector],
+                        ["Status", incident.status],
+                        ["Severity", incident.severity],
+                        ["Address", [incident.street, incident.suburb].filter(Boolean).join(", ")],
+                      ],
+                    })}>View</button>
                   </td>
                 </tr>
               ))}
@@ -181,15 +495,68 @@ export default function ReportsSection({
           in Control Room.
         </p>
 
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <input
+                placeholder="Patrol call sign"
+                value={reportFilters.callSign || ""}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, callSign: e.target.value })}
+              />
+              <input
+                placeholder="Reference number"
+                value={reportFilters.referenceNumber || ""}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, referenceNumber: e.target.value })}
+              />
+              <select
+                value={reportFilters.serviceType}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, serviceType: e.target.value })}
+              >
+                <option value="ALL">All Service Types</option>
+                {serviceTypeOptions.map((service) => (
+                  <option key={service} value={service}>{service}</option>
+                ))}
+              </select>
+              <select
+                value={reportFilters.status}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, status: e.target.value })}
+              >
+                <option value="ALL">All Status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="RESOLVED">Resolved</option>
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv("assistance-request-reports.csv", [
+                    { label: "ID", value: (row) => row.id },
+                    { label: "Service", value: (row) => formatEventService(row) || row.assistance },
+                    { label: "Patrol", value: getAssistancePatrolLabel },
+                    { label: "Vehicle", value: getAssistanceVehicleLabel },
+                    { label: "Sector", value: (row) => row?.patrol?.sector || row?.sector },
+                    { label: "Reference Number", value: (row) => row.referenceNumber },
+                    { label: "Location", value: getAssistanceLocationLabel },
+                    { label: "Description", value: (row) => row.description },
+                    { label: "Requested", value: (row) => formatDateTime(row.createdAt) },
+                  ], assistanceRows)
+                }
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+
+        {renderReportDetail()}
+
         <div className="cards">
           <div className="card">
             <div className="card-title">Assistance Request Reports</div>
-            <div className="card-value">{assistanceRequests.length}</div>
+            <div className="card-value">{assistanceRows.length}</div>
             <div className="card-detail">History sourced from Patrol assistance events</div>
           </div>
         </div>
 
-        {assistanceRequests.length === 0 ? (
+        {assistanceRows.length === 0 ? (
           <p>No assistance request history available.</p>
         ) : (
           <table>
@@ -202,10 +569,11 @@ export default function ReportsSection({
                 <th>Location</th>
                 <th>Description</th>
                 <th>Requested</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {assistanceRequests.map((request) => (
+              {assistanceRows.map((request) => (
                 <tr key={request.id}>
                   <td>{formatEventService(request) || "-"}</td>
                   <td>{getAssistancePatrolLabel(request)}</td>
@@ -213,7 +581,23 @@ export default function ReportsSection({
                   <td>{request?.patrol?.sector || request?.sector || "-"}</td>
                   <td>{getAssistanceLocationLabel(request)}</td>
                   <td>{request.description || "-"}</td>
-                  <td>{request.createdAt ? new Date(request.createdAt).toLocaleString() : "-"}</td>
+                  <td>{formatDateTime(request.createdAt)}</td>
+                  <td>
+                    <button onClick={() => setSelectedReportDetail({
+                      title: "Assistance Request Report",
+                      rows: [
+                        ["ID", request.id],
+                        ["Service", formatEventService(request) || request.assistance],
+                        ["Patrol", getAssistancePatrolLabel(request)],
+                        ["Vehicle", getAssistanceVehicleLabel(request)],
+                        ["Sector", request?.patrol?.sector || request?.sector],
+                        ["Reference Number", request.referenceNumber],
+                        ["Location", getAssistanceLocationLabel(request)],
+                        ["Description", request.description],
+                        ["Requested", formatDateTime(request.createdAt)],
+                      ],
+                    })}>View</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -235,38 +619,233 @@ export default function ReportsSection({
           )}
         </div>
         <p className="card-detail">
-          Vehicle accountability view for operational history and fleet review.
+          Vehicle accountability view built from patrol session history.
         </p>
+
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <select
+                value={reportFilters.vehicleId}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, vehicleId: e.target.value })}
+              >
+                <option value="ALL">All Vehicles</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.registration || getVehicleLabel(vehicle)}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={reportFilters.patrollerId}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, patrollerId: e.target.value })}
+              >
+                <option value="ALL">All Drivers</option>
+                {patrollerFilterOptions.map((patroller) => (
+                  <option key={patroller.id} value={patroller.id}>
+                    {patroller.fullName || patroller.email || "Unnamed"}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={reportFilters.status}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, status: e.target.value })}
+              >
+                {statusFilterOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv("vehicle-reports.csv", [
+                    { label: "Patrol ID", value: (row) => row.id },
+                    { label: "Registration", value: (row) => row.registration },
+                    { label: "Driver", value: (row) => row.driver },
+                    { label: "Patrol Call Sign", value: (row) => row.callSign },
+                    { label: "Sector", value: (row) => row.sector },
+                    { label: "Status", value: (row) => row.status },
+                    { label: "Start", value: (row) => formatDateTime(row.startTime) },
+                    { label: "End", value: (row) => formatDateTime(row.endTime) },
+                    { label: "Total KM", value: (row) => row.totalKm },
+                  ], vehicleRows)
+                }
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+
+        {renderReportDetail()}
 
         <div className="cards">
           <div className="card">
             <div className="card-title">Vehicle Reports</div>
-            <div className="card-value">{vehicles.length}</div>
-            <div className="card-detail">Vehicles available for operational reporting</div>
+            <div className="card-value">{vehicleRows.length}</div>
+            <div className="card-detail">Matching patrol vehicle activity</div>
           </div>
         </div>
 
-        {vehicles.length === 0 ? (
-          <p>No vehicle records available.</p>
+        {vehicleRows.length === 0 ? (
+          <p>No vehicle activity matches these filters.</p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Registration</th>
-                <th>Make</th>
-                <th>Type</th>
-                <th>Colour</th>
-                <th>Active</th>
+                <th>Driver</th>
+                <th>Call Sign</th>
+                <th>Sector</th>
+                <th>Status</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Total KM</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {vehicles.map((vehicle) => (
-                <tr key={vehicle.id}>
-                  <td>{vehicle.registration || getVehicleLabel(vehicle)}</td>
-                  <td>{vehicle.make || "-"}</td>
-                  <td>{vehicle.type || "-"}</td>
-                  <td>{vehicle.colour || "-"}</td>
-                  <td>{vehicle.isActive ? "Yes" : "No"}</td>
+              {vehicleRows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.registration}</td>
+                  <td>{row.driver}</td>
+                  <td>{row.callSign}</td>
+                  <td>{row.sector}</td>
+                  <td>{row.status}</td>
+                  <td>{formatDateTime(row.startTime)}</td>
+                  <td>{formatDateTime(row.endTime)}</td>
+                  <td>{row.totalKm ?? "-"}</td>
+                  <td>
+                    <button onClick={() => setSelectedReportDetail({
+                      title: "Vehicle Report",
+                      rows: [
+                        ["Patrol ID", row.id],
+                        ["Registration", row.registration],
+                        ["Driver", row.driver],
+                        ["Patrol Call Sign", row.callSign],
+                        ["Sector", row.sector],
+                        ["Status", row.status],
+                        ["Start", formatDateTime(row.startTime)],
+                        ["End", formatDateTime(row.endTime)],
+                        ["Total KM", row.totalKm],
+                      ],
+                    })}>View</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
+  if (reportCategory === "Infrastructure Reports") {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Infrastructure Reports</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+        <p className="card-detail">
+          Infrastructure event history captured from patrol activity.
+        </p>
+
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <select
+                value={reportFilters.infrastructureType}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, infrastructureType: e.target.value })}
+              >
+                <option value="ALL">All Infrastructure Types</option>
+                {infrastructureTypeOptions.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+              <select
+                value={reportFilters.riskLevel}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, riskLevel: e.target.value })}
+              >
+                <option value="ALL">All Risk Levels</option>
+                {riskLevelOptions.map((risk) => (
+                  <option key={risk} value={risk}>{risk}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv("infrastructure-reports.csv", [
+                    { label: "ID", value: (row) => row.id },
+                    { label: "Type", value: (row) => row.infrastructureTypeRef?.type },
+                    { label: "Risk Level", value: (row) => row.infrastructureTypeRef?.riskLevel },
+                    { label: "Patrol Call Sign", value: (row) => getPatrolCallSign(row.patrol) },
+                    { label: "Sector", value: (row) => row.patrol?.sector },
+                    { label: "Location", value: formatEventLocation },
+                    { label: "Description", value: (row) => row.description },
+                    { label: "Created", value: (row) => formatDateTime(row.createdAt) },
+                  ], infrastructureRows)
+                }
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+
+        {renderReportDetail()}
+
+        <div className="cards">
+          <div className="card">
+            <div className="card-title">Infrastructure Reports</div>
+            <div className="card-value">{infrastructureRows.length}</div>
+            <div className="card-detail">Matching infrastructure events</div>
+          </div>
+        </div>
+
+        {infrastructureRows.length === 0 ? (
+          <p>No infrastructure reports match these filters.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Risk</th>
+                <th>Patrol</th>
+                <th>Sector</th>
+                <th>Location</th>
+                <th>Description</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {infrastructureRows.map((event) => (
+                <tr key={event.id}>
+                  <td>{event.infrastructureTypeRef?.type || event.infrastructureType || "-"}</td>
+                  <td>{event.infrastructureTypeRef?.riskLevel || "-"}</td>
+                  <td>{getPatrolCallSign(event.patrol)}</td>
+                  <td>{event.patrol?.sector || "-"}</td>
+                  <td>{formatEventLocation(event) || "-"}</td>
+                  <td>{event.description || "-"}</td>
+                  <td>{formatDateTime(event.createdAt)}</td>
+                  <td>
+                    <button onClick={() => setSelectedReportDetail({
+                      title: "Infrastructure Report",
+                      rows: [
+                        ["ID", event.id],
+                        ["Type", event.infrastructureTypeRef?.type || event.infrastructureType],
+                        ["Risk Level", event.infrastructureTypeRef?.riskLevel],
+                        ["Patrol", getPatrolCallSign(event.patrol)],
+                        ["Sector", event.patrol?.sector],
+                        ["Location", formatEventLocation(event)],
+                        ["Description", event.description],
+                        ["Created", formatDateTime(event.createdAt)],
+                      ],
+                    })}>View</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -292,6 +871,12 @@ export default function ReportsSection({
 
       {showFilters && (
       <div className="action-row">
+        <input
+          placeholder="Patrol call sign"
+          value={reportFilters.callSign || ""}
+          onChange={(e) => onReportFiltersChange({ ...reportFilters, callSign: e.target.value })}
+        />
+
         <input
           type="date"
           value={reportFilters.from}
@@ -353,6 +938,26 @@ export default function ReportsSection({
         </select>
 
         <button onClick={onClearReportFilters}>Clear</button>
+        <button
+          type="button"
+          onClick={() =>
+            exportCsv("patrol-reports.csv", [
+              { label: "ID", value: (row) => row.id },
+              { label: "Patrol Call Sign", value: getPatrolCallSign },
+              { label: "Driver", value: getPatrolDriverLabel },
+              { label: "Vehicle", value: (row) => row.vehicle?.registration || getVehicleLabel(row.vehicle) },
+              { label: "Sector", value: (row) => row.sector },
+              { label: "Start KM", value: (row) => row.startKm },
+              { label: "End KM", value: (row) => row.endKm },
+              { label: "Total KM", value: (row) => row.totalKm },
+              { label: "Status", value: (row) => row.status },
+              { label: "Start Time", value: (row) => formatDateTime(row.startTime) },
+              { label: "End Time", value: (row) => formatDateTime(row.endTime) },
+            ], filteredPatrolReports)
+          }
+        >
+          Export CSV
+        </button>
       </div>
       )}
 

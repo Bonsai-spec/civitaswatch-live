@@ -35,6 +35,7 @@ export const ADMIN_NAV_SECTIONS = [
       { label: "Incident Reports", permission: "VIEW_REPORTS" },
       { label: "Patrol Reports", permission: "VIEW_REPORTS" },
       { label: "Assistance Request Reports", permission: "VIEW_REPORTS" },
+      { label: "Infrastructure Reports", permission: "VIEW_REPORTS" },
       { label: "Vehicle Reports", permission: "VIEW_REPORTS" },
     ],
   },

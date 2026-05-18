@@ -1871,8 +1871,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             getVehicleLabel={getVehicleLabel}
             filteredIncidentReports={filteredRegisterIncidents}
             onViewIncidentReport={viewIncident}
-            onEditIncidentReport={editIncident}
-            onDeleteIncidentReport={deleteIncident}
           />
         )}
     </AppShell>

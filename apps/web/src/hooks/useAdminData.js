@@ -91,7 +91,10 @@ export function useAdminData({
 
       if (ASSISTANCE_REQUEST_ROLES.has(user?.role)) {
         try {
-          const assistanceRes = await fetch(PATROL_ENDPOINTS.assistanceRequests, {
+          const assistanceUrl = ["ADMIN", "MASTER_ADMIN"].includes(user?.role)
+            ? `${PATROL_ENDPOINTS.assistanceRequests}?includeResolved=true`
+            : PATROL_ENDPOINTS.assistanceRequests;
+          const assistanceRes = await fetch(assistanceUrl, {
             headers: getAuthHeaders(),
           });
 

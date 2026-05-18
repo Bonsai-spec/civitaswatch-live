@@ -5,12 +5,22 @@ export const DEFAULT_REPORT_FILTERS = {
   vehicleId: "ALL",
   patrollerId: "ALL",
   status: "ALL",
+  search: "",
+  callSign: "",
+  severity: "ALL",
+  incidentCode: "ALL",
+  incidentSubcode: "ALL",
+  serviceType: "ALL",
+  referenceNumber: "",
+  infrastructureType: "ALL",
+  riskLevel: "ALL",
 };
 
 export const REPORT_CATEGORIES = [
   "Incident Reports",
   "Patrol Reports",
   "Assistance Request Reports",
+  "Infrastructure Reports",
   "Vehicle Reports",
 ];
 

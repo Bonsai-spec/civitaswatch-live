@@ -112,7 +112,12 @@ export function useReports({
       editPatrolForm.startKm === "" ? null : Number(editPatrolForm.startKm);
     const endKm = editPatrolForm.endKm === "" ? null : Number(editPatrolForm.endKm);
 
-    if (startKm !== null && Number.isNaN(startKm)) {
+    if (startKm === null) {
+      alert("Start KM is required.");
+      return;
+    }
+
+    if (Number.isNaN(startKm)) {
       alert("Start KM must be a valid number.");
       return;
     }
@@ -142,10 +147,11 @@ export function useReports({
         }),
       });
 
-      const json = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const json = contentType.includes("application/json") ? await res.json() : null;
 
       if (!res.ok) {
-        alert(json.error || "Failed to update patrol report");
+        alert(json?.error || `Failed to update patrol report (${res.status})`);
         return;
       }
 
@@ -158,7 +164,7 @@ export function useReports({
       alert("Report updated and audit log saved.");
     } catch (err) {
       console.error(err);
-      alert("Failed to update patrol report");
+      alert(`Failed to update patrol report: ${err.message}`);
     }
   }
 
@@ -234,6 +240,7 @@ export function useReports({
     reportFilters.vehicleId,
     reportFilters.patrollerId,
     reportFilters.status,
+    reportFilters.callSign,
   ]);
 
   return {

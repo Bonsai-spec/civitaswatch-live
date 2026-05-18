@@ -1,6 +1,7 @@
 // apps/api/src/routes/patrols.routes.js
 
 import express from "express";
+import { randomUUID } from "crypto";
 import { prisma } from "../config/db.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -644,6 +645,148 @@ function auditValue(value) {
   if (value === null || value === undefined) return "";
   return String(value);
 }
+
+function normalizeOptionalInt(value, fieldName) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+
+  const number = Number(value);
+  if (!Number.isInteger(number)) {
+    const error = new Error(`${fieldName} must be a whole number`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return number;
+}
+
+// =================================
+// ADMIN REPORT UPDATE + AUDIT
+// PATCH /patrols/:id/admin-update
+// =================================
+router.patch("/:id/admin-update", requireAuth, async (req, res) => {
+  try {
+    if (!isAdminUser(req.user)) {
+      return res.status(403).json({ error: "Only admin users may edit patrol reports" });
+    }
+
+    const { id } = req.params;
+    const { updates = {}, editReason } = req.body || {};
+    const cleanReason = cleanText(editReason);
+
+    if (!cleanReason || cleanReason.length < 5) {
+      return res.status(400).json({ error: "Edit reason is required, minimum 5 characters." });
+    }
+
+    const patrol = await prisma.patrolSession.findUnique({
+      where: { id },
+      include: PATROL_DETAIL_INCLUDE,
+    });
+
+    if (!patrol) {
+      return res.status(404).json({ error: "Patrol report not found" });
+    }
+
+    if (patrol.isLocked) {
+      return res.status(400).json({ error: "Patrol report is locked and cannot be edited" });
+    }
+
+    const data = {};
+    const auditRows = [];
+
+    function addChange(fieldName, nextValue) {
+      if (nextValue === undefined) return;
+
+      const oldValue = patrol[fieldName];
+      if (auditValue(oldValue) === auditValue(nextValue)) return;
+
+      data[fieldName] = nextValue;
+      auditRows.push({
+        id: randomUUID(),
+        patrolId: id,
+        editedBy: req.user.id,
+        editedByRole: req.user.role,
+        fieldName,
+        oldValue: auditValue(oldValue),
+        newValue: auditValue(nextValue),
+        editReason: cleanReason,
+      });
+    }
+
+    const normalizedStartKm = normalizeOptionalInt(updates.startKm, "startKm");
+    if (normalizedStartKm === null) {
+      return res.status(400).json({ error: "Start KM is required." });
+    }
+
+    addChange("sector", updates.sector === undefined ? undefined : cleanText(updates.sector));
+    addChange("summary", updates.summary === undefined ? undefined : cleanText(updates.summary));
+    addChange("startKm", normalizedStartKm);
+    addChange("endKm", normalizeOptionalInt(updates.endKm, "endKm"));
+
+    const nextStartKm = data.startKm !== undefined ? data.startKm : patrol.startKm;
+    const nextEndKm = data.endKm !== undefined ? data.endKm : patrol.endKm;
+
+    if (nextStartKm !== null && nextEndKm !== null && nextEndKm !== undefined && nextEndKm < nextStartKm) {
+      return res.status(400).json({ error: "End KM cannot be less than Start KM." });
+    }
+
+    if (data.startKm !== undefined || data.endKm !== undefined) {
+      data.totalKm =
+        nextEndKm === null || nextEndKm === undefined
+          ? null
+          : nextEndKm - nextStartKm;
+    }
+
+    if (auditRows.length === 0) {
+      return res.json({ patrol: addVehicleLabel(patrol), auditLogs: [] });
+    }
+
+    data.editedAt = new Date();
+    data.editedBy = req.user.id;
+    data.editCount = { increment: 1 };
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.patrolReportAuditLog.createMany({ data: auditRows });
+
+      return tx.patrolSession.update({
+        where: { id },
+        data,
+        include: PATROL_DETAIL_INCLUDE,
+      });
+    });
+
+    res.json({ patrol: addVehicleLabel(updated), auditLogs: auditRows });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+
+    console.error("PATCH /patrols/:id/admin-update failed:", err);
+    res.status(500).json({ error: "Failed to update patrol report" });
+  }
+});
+
+// =================================
+// PATROL REPORT AUDIT
+// GET /patrols/:id/audit
+// =================================
+router.get("/:id/audit", requireAuth, async (req, res) => {
+  try {
+    if (!isAllowedOperationalRole(req.user)) {
+      return res.status(403).json({ error: "Not allowed" });
+    }
+
+    const logs = await prisma.patrolReportAuditLog.findMany({
+      where: { patrolId: req.params.id },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(logs);
+  } catch (err) {
+    console.error("GET /patrols/:id/audit failed:", err);
+    res.status(500).json({ error: "Failed to load audit history" });
+  }
+});
 
 // =================================
 // REPORTS

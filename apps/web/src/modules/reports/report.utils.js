@@ -30,6 +30,11 @@ export function filterPatrolReports(patrolReports, reportFilters) {
       return false;
     }
 
+    if (reportFilters.callSign) {
+      const callSign = String(patrol.callSign || "").toLowerCase();
+      if (!callSign.includes(String(reportFilters.callSign).toLowerCase())) return false;
+    }
+
     return true;
   });
 }

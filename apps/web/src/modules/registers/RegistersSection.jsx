@@ -2394,6 +2394,151 @@ export default function RegistersSection({
         </>
       )}
 
+      {registerTab !== "Members" && memberForm && (
+        <div className="incident-details">
+          <div className="details-header">
+            <h3>{isEditingMember ? "Edit Member" : "Add Member"}</h3>
+            <button className="secondary-btn" onClick={cancelMemberForm}>
+              Close
+            </button>
+          </div>
+          <form className="form" onSubmit={saveMember}>
+            <label>
+              First Name
+              <input
+                value={memberForm.firstName}
+                onChange={(e) => setMemberForm({ ...memberForm, firstName: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Surname
+              <input
+                value={memberForm.surname}
+                onChange={(e) => setMemberForm({ ...memberForm, surname: e.target.value })}
+                required
+              />
+            </label>
+            <label>
+              Cell Number
+              <input
+                value={memberForm.cellNumber || ""}
+                onChange={(e) => setMemberForm({ ...memberForm, cellNumber: e.target.value })}
+              />
+            </label>
+            <label>
+              Email
+              <input
+                type="email"
+                value={memberForm.email || ""}
+                onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
+              />
+            </label>
+            <label>
+              Address
+              <input
+                value={memberForm.address || ""}
+                onChange={(e) => setMemberForm({ ...memberForm, address: e.target.value })}
+              />
+            </label>
+            <label>
+              Suburb
+              <input
+                value={memberForm.suburb || ""}
+                onChange={(e) => setMemberForm({ ...memberForm, suburb: e.target.value })}
+              />
+            </label>
+            <label>
+              Sector
+              <select
+                value={memberForm.sector || "Sector 1"}
+                onChange={(e) => setMemberForm({ ...memberForm, sector: e.target.value })}
+              >
+                <option>Sector 1</option>
+                <option>Sector 2</option>
+                <option>Sector 3</option>
+                <option>Sector 4</option>
+              </select>
+            </label>
+            <label>
+              Call Sign
+              <input
+                value={memberForm.callSign || ""}
+                onChange={(e) => setMemberForm({ ...memberForm, callSign: e.target.value })}
+              />
+            </label>
+            <label>
+              Notes
+              <textarea
+                value={memberForm.notes || ""}
+                onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })}
+              />
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={Boolean(memberForm.isActive)}
+                onChange={(e) => setMemberForm({ ...memberForm, isActive: e.target.checked })}
+              />
+              Active Member
+            </label>
+            <div className="action-row">
+              <button className="primary-btn" type="submit">
+                Update Member
+              </button>
+              <button className="secondary-btn" type="button" onClick={cancelMemberForm}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {registerTab !== "Members" && selectedMember && (
+        <div className="incident-details">
+          <div className="details-header">
+            <h3>Member Profile</h3>
+            <button className="secondary-btn" onClick={onCloseSelectedMember}>
+              Close
+            </button>
+          </div>
+          <p>
+            <strong>Name:</strong>{" "}
+            {[selectedMember.firstName, selectedMember.surname].filter(Boolean).join(" ") || "-"}
+          </p>
+          <p><strong>Callsign:</strong> {selectedMember.callSign || "-"}</p>
+          <p><strong>Cell:</strong> {selectedMember.cellNumber || "-"}</p>
+          <p><strong>Email:</strong> {selectedMember.email || "-"}</p>
+          <p>
+            <strong>Address:</strong>{" "}
+            {[selectedMember.address, selectedMember.suburb].filter(Boolean).join(", ") || "-"}
+          </p>
+          <p><strong>Sector:</strong> {selectedMember.sector || "-"}</p>
+          <p>
+            <strong>Patrol Status:</strong> {selectedMember.patrolStatus || "NOT_PATROLLER"}
+            {selectedMember.patrolApproved ? " / APPROVED" : ""}
+          </p>
+          <p><strong>Roles:</strong> {getMemberRoles(selectedMember).join(", ") || "-"}</p>
+          <p><strong>Notes:</strong> {selectedMember.notes || "-"}</p>
+          {canManageMembers && (
+            <div className="action-row">
+              <button onClick={() => startEditMember(selectedMember)}>Edit Member</button>
+              <button onClick={() => updatePatrollerStatus(selectedMember, "APPROVED", true)}>
+                Approve Patrol
+              </button>
+              <button onClick={() => updatePatrollerStatus(selectedMember, "SUSPENDED", false)}>
+                Suspend Patrol
+              </button>
+              {selectedMember.isActive ? (
+                <button onClick={() => disableMember(selectedMember)}>Disable</button>
+              ) : (
+                <button onClick={() => enableMember(selectedMember)}>Enable</button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {registerTab === "Organisations" && (
         <>
           <h3>Organisation Register</h3>

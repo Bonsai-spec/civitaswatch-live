@@ -360,6 +360,7 @@ router.get(
   requireRole("CONTROL_ROOM", "ADMIN", "MASTER_ADMIN"),
   async (req, res) => {
     try {
+      const includeResolved = String(req.query.includeResolved || "").toLowerCase() === "true";
       // Assistance is not a separate register yet. It remains PatrolEvent data,
       // with external service coordination owned by Control Room.
       const events = await prisma.patrolEvent.findMany({
@@ -375,7 +376,7 @@ router.get(
                 not: "",
               },
             },
-            {
+            includeResolved ? {} : {
               sceneActive: true,
             },
           ],
