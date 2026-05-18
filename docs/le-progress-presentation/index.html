@@ -1,0 +1,1668 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CivitasWatch Phase 3 Progress Review</title>
+  <style>
+    :root {
+      --navy: #071427;
+      --navy-2: #0d1f3a;
+      --blue: #0ea5e9;
+      --blue-2: #2563eb;
+      --ink: #102033;
+      --muted: #64748b;
+      --line: #dbe5f0;
+      --paper: #f8fbff;
+      --white: #ffffff;
+      --ok: #16a34a;
+      --warn: #f59e0b;
+      --future: #7c3aed;
+      --shadow: 0 18px 48px rgba(7, 20, 39, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(7, 20, 39, 0.96);
+      color: var(--white);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+    }
+
+    .topbar-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    nav {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    nav a {
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: #dbeafe;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    nav a:hover,
+    nav a.active {
+      background: rgba(14, 165, 233, 0.2);
+      color: var(--white);
+    }
+
+    .progress {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue), #93c5fd);
+      transition: width 120ms ease;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 26px 20px 56px;
+    }
+
+    .slide {
+      min-height: calc(100vh - 72px);
+      padding: 42px 0;
+      display: grid;
+      align-content: center;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 76px;
+    }
+
+    .hero {
+      color: var(--white);
+      background:
+        linear-gradient(135deg, rgba(7, 20, 39, 0.98), rgba(13, 31, 58, 0.92)),
+        radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.28), transparent 38%);
+      border-radius: 24px;
+      padding: 56px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .eyebrow {
+      color: #93c5fd;
+      text-transform: uppercase;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      margin: 0 0 12px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      letter-spacing: 0;
+      line-height: 1.08;
+    }
+
+    h1 {
+      font-size: clamp(42px, 7vw, 86px);
+      max-width: 900px;
+    }
+
+    h2 {
+      font-size: clamp(30px, 4vw, 52px);
+      color: var(--navy);
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: 20px;
+      color: var(--navy);
+      margin-bottom: 10px;
+    }
+
+    .hero p {
+      max-width: 850px;
+      color: #dbeafe;
+      font-size: clamp(18px, 2vw, 24px);
+      margin: 20px 0 0;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: var(--muted);
+      margin: 0 0 24px;
+      max-width: 880px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.four {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 26px rgba(7, 20, 39, 0.06);
+    }
+
+    .card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+    }
+
+    .metric {
+      font-size: 34px;
+      font-weight: 900;
+      color: var(--navy);
+      margin-bottom: 4px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #075985;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .badge.done {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge.progressing {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge.future {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-label {
+      background: var(--navy);
+      color: var(--white);
+      border-radius: 14px;
+      padding: 16px;
+      font-weight: 900;
+      display: grid;
+      align-content: center;
+    }
+
+    .flow-content {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      color: var(--muted);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+      counter-reset: step;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 12px;
+      align-items: start;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-weight: 900;
+    }
+
+    .step strong {
+      color: var(--navy);
+    }
+
+    .diagram {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .node {
+      border-radius: 14px;
+      padding: 16px 12px;
+      text-align: center;
+      background: var(--white);
+      border: 1px solid var(--line);
+      font-weight: 900;
+      min-height: 86px;
+      display: grid;
+      place-items: center;
+      color: var(--navy);
+    }
+
+    .node.primary {
+      background: var(--navy);
+      color: var(--white);
+      border-color: var(--navy);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .list li {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      color: var(--ink);
+    }
+
+    .example {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #eff6ff;
+      color: #1e3a8a;
+      border: 1px solid #bfdbfe;
+      font-weight: 900;
+      font-size: 18px;
+    }
+
+    .warning {
+      border-left: 5px solid var(--warn);
+      background: #fffbeb;
+      color: #78350f;
+    }
+
+    .mock-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0 22px;
+    }
+
+    .mock-tabs a {
+      text-decoration: none;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #075985;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .role-card {
+      display: grid;
+      gap: 12px;
+    }
+
+    .role-card .role-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .role-card dl {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .role-card div {
+      min-width: 0;
+    }
+
+    .role-card dt {
+      color: var(--navy);
+      font-weight: 900;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .role-card dd {
+      margin: 2px 0 0;
+      color: var(--muted);
+    }
+
+    .phone-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .phone {
+      background: #061225;
+      border-radius: 28px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .phone-screen {
+      min-height: 450px;
+      background: #f8fbff;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .phone-top {
+      background: var(--navy);
+      color: var(--white);
+      padding: 16px;
+    }
+
+    .phone-top small {
+      color: #93c5fd;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .phone-body {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .field {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: var(--white);
+      min-width: 0;
+    }
+
+    .field span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .field strong {
+      color: var(--navy);
+      overflow-wrap: anywhere;
+    }
+
+    .app-button {
+      border-radius: 12px;
+      background: var(--blue-2);
+      color: var(--white);
+      padding: 11px 12px;
+      text-align: center;
+      font-weight: 900;
+    }
+
+    .status-stack {
+      display: grid;
+      gap: 7px;
+    }
+
+    .status-pill {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1e3a8a;
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .status-pill.active {
+      background: var(--navy);
+      color: var(--white);
+      border-color: var(--navy);
+    }
+
+    .mock-shell {
+      background: #071427;
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .mock-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 16px;
+      color: var(--white);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .mock-app {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      min-height: 520px;
+      background: #f8fbff;
+    }
+
+    .mock-sidebar {
+      background: #0d1f3a;
+      color: #dbeafe;
+      padding: 16px;
+      display: grid;
+      align-content: start;
+      gap: 8px;
+    }
+
+    .mock-sidebar span {
+      display: block;
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-weight: 800;
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .mock-sidebar span.active {
+      background: rgba(14, 165, 233, 0.24);
+      color: var(--white);
+    }
+
+    .mock-content {
+      padding: 18px;
+      min-width: 0;
+    }
+
+    .mock-card-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .mock-panel {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .mock-panel p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      overflow-wrap: anywhere;
+    }
+
+    .mock-panel strong {
+      color: var(--navy);
+    }
+
+    .mini-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      font-size: 13px;
+    }
+
+    .mini-table th,
+    .mini-table td {
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    .mini-table th {
+      background: #eff6ff;
+      color: #1e3a8a;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .trend-up {
+      color: #b45309;
+      font-weight: 900;
+    }
+
+    .trend-down {
+      color: #15803d;
+      font-weight: 900;
+    }
+
+    .report-metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .report-metric {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      min-width: 0;
+    }
+
+    .report-metric strong {
+      display: block;
+      color: var(--navy);
+      font-size: 24px;
+      line-height: 1;
+      margin-bottom: 7px;
+    }
+
+    .report-metric span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .bar-chart {
+      display: grid;
+      gap: 10px;
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 138px 1fr 54px;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      color: var(--ink);
+    }
+
+    .bar-track {
+      height: 12px;
+      border-radius: 999px;
+      background: #dbeafe;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--blue-2));
+    }
+
+    .bar-fill.alt {
+      background: linear-gradient(90deg, #16a34a, #0f766e);
+    }
+
+    .bar-fill.warn {
+      background: linear-gradient(90deg, #f59e0b, #b45309);
+    }
+
+    .split-bar {
+      display: flex;
+      height: 24px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #dbeafe;
+      margin-top: 10px;
+    }
+
+    .split-bar span {
+      display: grid;
+      place-items: center;
+      color: var(--white);
+      font-size: 12px;
+      font-weight: 900;
+      min-width: 0;
+    }
+
+    .split-driver {
+      background: var(--blue-2);
+    }
+
+    .split-crew {
+      background: #0f766e;
+    }
+
+    .concept-map {
+      position: relative;
+      min-height: 320px;
+      border-radius: 18px;
+      background:
+        linear-gradient(90deg, rgba(14, 165, 233, 0.11) 1px, transparent 1px),
+        linear-gradient(rgba(14, 165, 233, 0.11) 1px, transparent 1px),
+        #eef6ff;
+      background-size: 34px 34px;
+      border: 1px solid #bfdbfe;
+      overflow: hidden;
+    }
+
+    .map-marker {
+      position: absolute;
+      width: 138px;
+      border-radius: 14px;
+      padding: 9px;
+      background: var(--white);
+      border: 2px solid var(--blue-2);
+      box-shadow: 0 10px 22px rgba(7, 20, 39, 0.12);
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--navy);
+    }
+
+    .spider {
+      display: grid;
+      place-items: center;
+      min-height: 320px;
+      border-radius: 18px;
+      background: var(--white);
+      border: 1px solid var(--line);
+    }
+
+    .spider svg {
+      width: min(100%, 420px);
+      height: auto;
+    }
+
+    .data-flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .data-step {
+      position: relative;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 12px;
+      min-height: 130px;
+    }
+
+    .data-step:not(:last-child)::after {
+      content: ">";
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: var(--blue-2);
+      color: var(--white);
+      font-weight: 900;
+      z-index: 2;
+    }
+
+    .data-step strong {
+      display: block;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+
+    .data-step span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .question {
+      border-left: 5px solid var(--blue);
+    }
+
+    .decision {
+      border-left: 5px solid var(--future);
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 980px) {
+      .grid,
+      .grid.two,
+      .grid.four,
+      .diagram,
+      .phone-grid,
+      .mock-card-grid,
+      .data-flow,
+      .report-metrics,
+      .chart-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .hero {
+        padding: 38px;
+      }
+
+      .mock-app {
+        grid-template-columns: 1fr;
+      }
+
+      .mock-sidebar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .data-step:not(:last-child)::after {
+        display: none;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .topbar-inner {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      nav {
+        width: 100%;
+      }
+
+      main {
+        padding: 18px 14px 42px;
+      }
+
+      .slide {
+        min-height: auto;
+        padding: 34px 0;
+      }
+
+      .hero {
+        padding: 28px;
+        border-radius: 18px;
+      }
+
+      .grid,
+      .grid.two,
+      .grid.four,
+      .diagram,
+      .flow-row,
+      .phone-grid,
+      .mock-card-grid,
+      .data-flow,
+      .report-metrics,
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .mock-top {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .mock-sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .mini-table {
+        display: block;
+        overflow-x: auto;
+      }
+
+      .bar-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+      }
+    }
+
+    @media print {
+      .topbar {
+        position: static;
+      }
+
+      nav,
+      .progress {
+        display: none;
+      }
+
+      body {
+        background: var(--white);
+      }
+
+      main {
+        max-width: none;
+        padding: 0;
+      }
+
+      .slide {
+        min-height: auto;
+        page-break-after: always;
+        padding: 24px 0;
+      }
+
+      .card,
+      .hero {
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="brand-mark">C</span> CivitasWatch Phase 3</div>
+      <nav aria-label="Presentation sections">
+        <a href="#title">Title</a>
+        <a href="#summary">Summary</a>
+        <a href="#model">Model</a>
+        <a href="#roles">Role Demo</a>
+        <a href="#patroller-demo">Patroller</a>
+        <a href="#control-demo">Control</a>
+        <a href="#admin-demo">Admin</a>
+        <a href="#reports-demo">Reports</a>
+        <a href="#patroller-activity-demo">Hours & KM</a>
+        <a href="#intelligence-demo">Intel</a>
+        <a href="#data-flow">Flow</a>
+        <a href="#patrol">Patrol</a>
+        <a href="#control-room">Control Room</a>
+        <a href="#registers">Registers</a>
+        <a href="#reports">Reports</a>
+        <a href="#feedback">Feedback</a>
+        <a href="#priorities">Priorities</a>
+      </nav>
+    </div>
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+  </header>
+
+  <main>
+    <section class="slide" id="title">
+      <div class="hero">
+        <p class="eyebrow">Community safety platform</p>
+        <h1>CivitasWatch</h1>
+        <p>Phase 3 Progress Review</p>
+        <div class="badge-row">
+          <span class="badge">Patrol</span>
+          <span class="badge">Control Room</span>
+          <span class="badge">Admin Registers</span>
+          <span class="badge">Reports</span>
+          <span class="badge">Intelligence</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="summary">
+      <p class="eyebrow">Progress snapshot</p>
+      <h2>Executive Summary</h2>
+      <p class="subtitle">Phase 3 has moved CivitasWatch from basic operational screens toward a structured patrol, control room, register, reporting, and intelligence platform.</p>
+      <div class="grid">
+        <div class="card"><span class="badge done">Operational</span><h3>Patrol workflow</h3><p>Mobile field workflow is active for starting patrols, capturing events, requesting assistance, and closing patrol sessions.</p></div>
+        <div class="card"><span class="badge done">Operational</span><h3>Control Room overview</h3><p>Live overview, active patrols, assistance requests, incidents, directories, and patrol reports are available in the local Control Room workspace.</p></div>
+        <div class="card"><span class="badge done">Persistent</span><h3>Admin master registers</h3><p>Master registers are backed by API/database persistence and use safe deactivate behavior for history-linked records.</p></div>
+        <div class="card"><span class="badge done">Imported</span><h3>SAPS incident codes</h3><p>Numeric SAPS incident codes are imported with leading zeroes preserved and demo records disabled rather than deleted.</p></div>
+        <div class="card"><span class="badge done">Added</span><h3>Emergency Services</h3><p>Admin can manage actual service contacts; Control Room can view the directory read-only for coordination.</p></div>
+        <div class="card"><span class="badge progressing">In alignment</span><h3>Reports and Intelligence</h3><p>Reports are being aligned as history/accountability views, while Intelligence planning focuses on patterns, links, hotspots, and risk indicators.</p></div>
+        <div class="card"><span class="badge done">Prepared</span><h3>Server migration pack</h3><p>Migration report, technical specification, and handover pack are prepared; PDF output should be regenerated after latest cleanup.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="model">
+      <p class="eyebrow">Operating model</p>
+      <h2>Current Operating Model</h2>
+      <p class="subtitle">Each module has a clear operational responsibility so live actions, registers, reports, and analysis do not blur together.</p>
+      <div class="diagram">
+        <div class="node primary">Patrol<br />Mobile field capture</div>
+        <div class="node primary">Control Room<br />Live coordination</div>
+        <div class="node">Admin<br />Master data</div>
+        <div class="node">Reports<br />History and accountability</div>
+        <div class="node">Intelligence<br />Pattern analysis</div>
+        <div class="node">Future Map<br />Spatial awareness</div>
+      </div>
+      <div class="grid two" style="margin-top: 20px;">
+        <div class="card question"><h3>Question for LE</h3><p>Does this split match the way the group wants live operations, oversight, and reporting to work?</p></div>
+        <div class="card decision"><h3>Decision required</h3><p>Confirm which roles should see which modules before wider operational rollout.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="roles">
+      <p class="eyebrow">Role journey demo</p>
+      <h2>How CivitasWatch Feels by Role</h2>
+      <p class="subtitle">The platform separates field capture, live coordination, source-of-truth administration, historical reporting, and future intelligence analysis.</p>
+      <div class="mock-tabs" aria-label="Role walkthrough quick links">
+        <a href="#patroller-demo">Patroller mobile</a>
+        <a href="#control-demo">Control Room</a>
+        <a href="#admin-demo">Admin registers</a>
+        <a href="#reports-demo">Reports</a>
+        <a href="#intelligence-demo">Intelligence / map</a>
+      </div>
+      <div class="grid">
+        <div class="card role-card">
+          <div class="role-title"><h3>Patroller</h3><span class="badge done">Mobile</span></div>
+          <dl>
+            <div><dt>Logs in to</dt><dd>Start a patrol, update status, and capture field events.</dd></div>
+            <div><dt>Screens used</dt><dd>Login, Start Patrol, Active Patrol, Incident Response, Assistance, Infrastructure, End Patrol.</dd></div>
+            <div><dt>Decisions</dt><dd>Which patrol call sign, vehicle, crew, status, SAPS incident code, service type, and location to record.</dd></div>
+            <div><dt>Data flow</dt><dd>Events become live Control Room context and later report history.</dd></div>
+          </dl>
+        </div>
+        <div class="card role-card">
+          <div class="role-title"><h3>Control Room</h3><span class="badge done">Live ops</span></div>
+          <dl>
+            <div><dt>Logs in to</dt><dd>Monitor live patrols and coordinate assistance.</dd></div>
+            <div><dt>Screens used</dt><dd>Live Overview, Active Patrols, Assistance Requests, Incidents, Directories, Patrol Reports, Map later.</dd></div>
+            <div><dt>Decisions</dt><dd>Which patrol needs attention, which service to contact, and what incident context matters now.</dd></div>
+            <div><dt>Data flow</dt><dd>Uses live patrol data and read-only directories, without editing Admin registers.</dd></div>
+          </dl>
+        </div>
+        <div class="card role-card">
+          <div class="role-title"><h3>Admin</h3><span class="badge done">Registers</span></div>
+          <dl>
+            <div><dt>Logs in to</dt><dd>Maintain members, vehicles, contacts, and classification registers.</dd></div>
+            <div><dt>Screens used</dt><dd>Dashboard, Members, Patrollers, Vehicles, Emergency Services, Incident Codes, Service Types.</dd></div>
+            <div><dt>Decisions</dt><dd>Which source records are active, correct, and available to operational modules.</dd></div>
+            <div><dt>Data flow</dt><dd>Register values power Patrol dropdowns, Control Room lookup, Reports, and future Intelligence.</dd></div>
+          </dl>
+        </div>
+        <div class="card role-card">
+          <div class="role-title"><h3>Reports</h3><span class="badge progressing">History</span></div>
+          <dl>
+            <div><dt>Logs in to</dt><dd>Review what happened and prepare accountability feedback.</dd></div>
+            <div><dt>Screens used</dt><dd>Monthly Safety Trends, Patroller Activity, Infrastructure, Assistance, Vehicle Usage, Patrol and Incident Reports.</dd></div>
+            <div><dt>Decisions</dt><dd>Which filters, periods, codes, suburbs, sectors, and exports are needed.</dd></div>
+            <div><dt>Data flow</dt><dd>Summarises historical operational data without becoming a live action screen.</dd></div>
+          </dl>
+        </div>
+        <div class="card role-card">
+          <div class="role-title"><h3>Intelligence / Map</h3><span class="badge future">Future</span></div>
+          <dl>
+            <div><dt>Logs in to</dt><dd>Analyse patterns, links, hotspots, and spatial risk.</dd></div>
+            <div><dt>Screens used</dt><dd>Repeat locations, repeated vehicles, incident code trends, entity links, spider graph, geo-map.</dd></div>
+            <div><dt>Decisions</dt><dd>Which patterns should be watched, escalated, or fed back to the group.</dd></div>
+            <div><dt>Data flow</dt><dd>Uses captured history and coordinates; continuous live patrol GPS is not implemented yet.</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="patroller-demo">
+      <p class="eyebrow">Patroller look and feel</p>
+      <h2>Mobile Patrol Workflow Mock Screens</h2>
+      <p class="subtitle">Demo values are safe mock data: WW75, ABC123GP, Patrol Test, Nick Oosthuizen, Daniel van Rooyen, and 1 Broadway, Valhalla.</p>
+      <div class="phone-grid">
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top"><small>Login</small><h3>Patrol access</h3></div>
+            <div class="phone-body">
+              <div class="field"><span>Email or call sign</span><strong>patrol.test@example.local</strong></div>
+              <div class="field"><span>Password</span><strong>Hidden in live system</strong></div>
+              <div class="app-button">Sign in</div>
+              <div class="field"><span>Next screen</span><strong>Start Patrol</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top"><small>Start Patrol</small><h3>Session setup</h3></div>
+            <div class="phone-body">
+              <div class="field"><span>Patrol session call sign</span><strong>WW75</strong></div>
+              <div class="field"><span>Vehicle</span><strong>ABC123GP</strong></div>
+              <div class="field"><span>Driver</span><strong>Patrol Test</strong></div>
+              <div class="field"><span>Crew</span><strong>Nick Oosthuizen / Daniel van Rooyen</strong></div>
+              <div class="field"><span>Sector</span><strong>Sector 1</strong></div>
+              <div class="field"><span>Start KM</span><strong>128450</strong></div>
+              <div class="app-button">Start patrol</div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top"><small>Active Patrol</small><h3>WW75</h3></div>
+            <div class="phone-body">
+              <div class="field"><span>Status dropdown</span><strong>ON_SCENE</strong></div>
+              <div class="status-stack">
+                <div class="status-pill">Started Patrol</div>
+                <div class="status-pill">En Route</div>
+                <div class="status-pill active">On Scene</div>
+                <div class="status-pill">Stand Down</div>
+                <div class="status-pill">Resume Patrol</div>
+              </div>
+              <div class="field"><span>Control Room sees</span><strong>WW75 ON_SCENE in Sector 1</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top"><small>Incident Response</small><h3>SAPS coded event</h3></div>
+            <div class="phone-body">
+              <div class="field"><span>Incident code</span><strong>037 - Burglar Alarm</strong></div>
+              <div class="field"><span>Incident subcode</span><strong>Alarm activation / premises security</strong></div>
+              <div class="field"><span>Description</span><strong>Alarm reported at front gate. Patrol checking perimeter.</strong></div>
+              <div class="field"><span>Reference number</span><strong>CR-2026-037-001</strong></div>
+              <div class="field"><span>Location</span><strong>1 Broadway, Valhalla</strong></div>
+              <div class="app-button">Capture incident</div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top"><small>Emergency Assistance</small><h3>Service request</h3></div>
+            <div class="phone-body">
+              <div class="field"><span>Service type</span><strong>SAPS response</strong></div>
+              <div class="field"><span>Description</span><strong>Control Room requested to contact SAPS for alarm escalation.</strong></div>
+              <div class="field"><span>Location</span><strong>1 Broadway, Valhalla</strong></div>
+              <div class="field"><span>Flow</span><strong>Patroller asks Control Room; Control Room coordinates.</strong></div>
+              <div class="app-button">Request assistance</div>
+            </div>
+          </div>
+        </div>
+        <div class="phone">
+          <div class="phone-screen">
+            <div class="phone-top"><small>Infrastructure / End</small><h3>Close the loop</h3></div>
+            <div class="phone-body">
+              <div class="field"><span>Infrastructure type</span><strong>Street light</strong></div>
+              <div class="field"><span>Description</span><strong>Light out near intersection, visibility reduced at night.</strong></div>
+              <div class="field"><span>Location</span><strong>1 Broadway, Valhalla</strong></div>
+              <div class="field"><span>End KM</span><strong>128486</strong></div>
+              <div class="field"><span>Summary</span><strong>Incident response completed, assistance requested, infrastructure fault logged.</strong></div>
+              <div class="app-button">End patrol</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="control-demo">
+      <p class="eyebrow">Control Room look and feel</p>
+      <h2>Live Operations Mock Dashboard</h2>
+      <p class="subtitle">Control Room is for live coordination and read-only directory use. It is not an Admin register editing workspace.</p>
+      <div class="mock-shell">
+        <div class="mock-top"><strong>Control Room / Control Room Operations</strong><span class="badge done">Live local workspace</span></div>
+        <div class="mock-app">
+          <aside class="mock-sidebar" aria-label="Control Room local tabs">
+            <span class="active">Live Overview</span>
+            <span>Active Patrols</span>
+            <span>Assistance Requests</span>
+            <span>Incidents</span>
+            <span>Incident Codes Reference</span>
+            <span>Patroller Directory</span>
+            <span>Emergency Services</span>
+            <span>Patrol Reports</span>
+            <span>Map later</span>
+          </aside>
+          <div class="mock-content">
+            <div class="mock-card-grid">
+              <div class="mock-panel"><strong>Active patrol</strong><p>WW75 / Sector 1 / ON_SCENE</p></div>
+              <div class="mock-panel"><strong>Latest event</strong><p>037 - Burglar Alarm</p></div>
+              <div class="mock-panel"><strong>Location</strong><p>1 Broadway, Valhalla</p></div>
+            </div>
+            <div class="grid two">
+              <div class="mock-panel">
+                <h3>Active Patrols</h3>
+                <p><strong>Call sign:</strong> WW75</p>
+                <p><strong>Driver:</strong> Patrol Test</p>
+                <p><strong>Crew:</strong> Daniel van Rooyen</p>
+                <p><strong>Vehicle:</strong> ABC123GP</p>
+                <p><strong>Sector:</strong> Sector 1</p>
+                <p><strong>Status:</strong> ON_SCENE</p>
+              </div>
+              <div class="mock-panel">
+                <h3>Assistance Requests</h3>
+                <p><strong>Request:</strong> SAPS response for burglar alarm</p>
+                <p><strong>Patrol:</strong> WW75</p>
+                <p><strong>Control action:</strong> Contact verified service number and record handling notes.</p>
+              </div>
+              <div class="mock-panel">
+                <h3>Incidents</h3>
+                <p><strong>Latest Event:</strong> 037 - Burglar Alarm</p>
+                <p><strong>Location:</strong> 1 Broadway, Valhalla</p>
+                <p><strong>Reference:</strong> CR-2026-037-001</p>
+              </div>
+              <div class="mock-panel">
+                <h3>Emergency Services</h3>
+                <p><strong>SAPS:</strong> 10111</p>
+                <p><strong>Fire:</strong> 10177</p>
+                <p><strong>ER24:</strong> 084 124</p>
+                <p>Directory is read-only here; Admin maintains source records.</p>
+              </div>
+              <div class="mock-panel">
+                <h3>Incident Codes Reference</h3>
+                <p>037 - Burglar Alarm</p>
+                <p>038 - Suspicious Person</p>
+                <p>023 - Armed Robbery</p>
+              </div>
+              <div class="mock-panel">
+                <h3>Patrol Reports / Map later</h3>
+                <p>Selected patrol timeline is visible for context.</p>
+                <p>Future map will show status and event markers once implemented.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="admin-demo">
+      <p class="eyebrow">Admin look and feel</p>
+      <h2>Source-of-Truth Register Mock Screens</h2>
+      <p class="subtitle">Admin manages the records that Patrol, Control Room, Reports, and Intelligence depend on.</p>
+      <div class="mock-shell">
+        <div class="mock-top"><strong>Admin / Registers</strong><span class="badge done">Source of truth</span></div>
+        <div class="mock-app">
+          <aside class="mock-sidebar" aria-label="Admin register navigation">
+            <span class="active">Dashboard</span>
+            <span>Members</span>
+            <span>Patrollers</span>
+            <span>Vehicles</span>
+            <span>Emergency Services</span>
+            <span>Incident Codes</span>
+            <span>Incident Subcodes</span>
+            <span>Service Types</span>
+            <span>Infrastructure Types</span>
+            <span>Emergency Contact Types</span>
+          </aside>
+          <div class="mock-content">
+            <div class="mock-card-grid">
+              <div class="mock-panel"><strong>SAPS codes</strong><p>Imported with leading zeroes preserved.</p></div>
+              <div class="mock-panel"><strong>Demo codes</strong><p>Disabled, not deleted, to protect history.</p></div>
+              <div class="mock-panel"><strong>Emergency contacts</strong><p>Maintained in Admin; viewed read-only by Control Room.</p></div>
+            </div>
+            <table class="mini-table" aria-label="Admin register example">
+              <thead><tr><th>Register</th><th>Example source data</th><th>Used by</th></tr></thead>
+              <tbody>
+                <tr><td>Members / Patrollers</td><td>Patrol Test, Nick Oosthuizen, Daniel van Rooyen</td><td>Patrol driver and crew selection, reports</td></tr>
+                <tr><td>Vehicles</td><td>ABC123GP</td><td>Start Patrol, vehicle usage reports</td></tr>
+                <tr><td>Emergency Services</td><td>SAPS 10111, Fire 10177, ER24 084 124</td><td>Control Room read-only directory</td></tr>
+                <tr><td>Incident Codes</td><td>037 - Burglar Alarm</td><td>Patrol incident response, reports, intelligence</td></tr>
+                <tr><td>Service / Infrastructure Types</td><td>SAPS response, Street light</td><td>Assistance and infrastructure reporting</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="reports-demo">
+      <p class="eyebrow">Reports look and feel</p>
+      <h2>Monthly Feedback and Accountability Mock Screens</h2>
+      <p class="subtitle">Reports are historical views with filters and exports. They should not behave like live operations or master registers.</p>
+      <div class="grid two">
+        <div class="mock-panel">
+          <h3>Professional reports</h3>
+          <div class="badge-row">
+            <span class="badge">Monthly Community Safety Trends</span>
+            <span class="badge">Patroller Activity / Hours & KM</span>
+            <span class="badge">Infrastructure Summary and Detail</span>
+            <span class="badge">Assistance Request</span>
+            <span class="badge">Vehicle Usage</span>
+          </div>
+          <p>Filters should include date/month, sector, suburb, patrol call sign, driver/patroller, vehicle, incident code/subcode, service type, infrastructure type, status, and search text where data supports it.</p>
+        </div>
+        <div class="mock-panel">
+          <h3>Monthly trend examples</h3>
+          <p><strong>037 - Burglar Alarm</strong> increased from 8 to 12 in Valhalla.</p>
+          <p><strong>038 - Suspicious Person</strong> decreased from 14 to 9.</p>
+          <p><strong>Night-time incidents</strong> increased by 18%.</p>
+        </div>
+      </div>
+      <table class="mini-table" style="margin-top: 16px;" aria-label="Monthly trends example">
+        <thead><tr><th>Incident Code</th><th>Subcode</th><th>Sector</th><th>Suburb</th><th>Street / location</th><th>Time of day</th><th>This month</th><th>Previous</th><th>Change</th></tr></thead>
+        <tbody>
+          <tr><td>037 - Burglar Alarm</td><td>Alarm activation</td><td>Sector 1</td><td>Valhalla</td><td>Broadway</td><td>Night-time</td><td>12</td><td>8</td><td class="trend-up">+50%</td></tr>
+          <tr><td>038 - Suspicious Person</td><td>-</td><td>Sector 1</td><td>Valhalla</td><td>Near community park</td><td>Evening</td><td>9</td><td>14</td><td class="trend-down">-35.7%</td></tr>
+          <tr><td>023 - Armed Robbery</td><td>-</td><td>Sector 1</td><td>Valhalla</td><td>Retail corridor</td><td>Night-time</td><td>2</td><td>1</td><td class="trend-up">+100%</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="slide" id="patroller-activity-demo">
+      <p class="eyebrow">Patroller activity report</p>
+      <h2>Patrol Hours &amp; KM Monthly Accountability</h2>
+      <p class="subtitle">This report is for monthly management feedback, contribution tracking, and patrol coverage accountability. It is not a live Control Room dispatch screen.</p>
+      <div class="report-metrics">
+        <div class="report-metric"><strong>146.5h</strong><span>Total patrol hours this month</span></div>
+        <div class="report-metric"><strong>1,284km</strong><span>Total kilometres patrolled</span></div>
+        <div class="report-metric"><strong>38</strong><span>Patrol sessions</span></div>
+        <div class="report-metric"><strong>12</strong><span>Active patrollers</span></div>
+        <div class="report-metric"><strong>3h 51m</strong><span>Average patrol duration</span></div>
+        <div class="report-metric"><strong>9m</strong><span>Average response time if available</span></div>
+      </div>
+      <div class="chart-grid">
+        <div class="mock-panel">
+          <h3>Hours by patroller</h3>
+          <div class="bar-chart">
+            <div class="bar-row"><strong>Patrol Test</strong><div class="bar-track"><div class="bar-fill" style="width: 92%;"></div></div><span>36.5h</span></div>
+            <div class="bar-row"><strong>Nick Oosthuizen</strong><div class="bar-track"><div class="bar-fill" style="width: 78%;"></div></div><span>31.0h</span></div>
+            <div class="bar-row"><strong>Daniel van Rooyen</strong><div class="bar-track"><div class="bar-fill" style="width: 69%;"></div></div><span>27.4h</span></div>
+            <div class="bar-row"><strong>Jaco Schoeman</strong><div class="bar-track"><div class="bar-fill" style="width: 54%;"></div></div><span>21.5h</span></div>
+          </div>
+        </div>
+        <div class="mock-panel">
+          <h3>KM by patroller</h3>
+          <div class="bar-chart">
+            <div class="bar-row"><strong>Patrol Test</strong><div class="bar-track"><div class="bar-fill alt" style="width: 95%;"></div></div><span>342km</span></div>
+            <div class="bar-row"><strong>Daniel van Rooyen</strong><div class="bar-track"><div class="bar-fill alt" style="width: 76%;"></div></div><span>274km</span></div>
+            <div class="bar-row"><strong>Nick Oosthuizen</strong><div class="bar-track"><div class="bar-fill alt" style="width: 70%;"></div></div><span>252km</span></div>
+            <div class="bar-row"><strong>Jaco Schoeman</strong><div class="bar-track"><div class="bar-fill alt" style="width: 52%;"></div></div><span>188km</span></div>
+          </div>
+        </div>
+        <div class="mock-panel">
+          <h3>Patrol coverage by sector</h3>
+          <div class="bar-chart">
+            <div class="bar-row"><strong>Sector 1</strong><div class="bar-track"><div class="bar-fill" style="width: 100%;"></div></div><span>22</span></div>
+            <div class="bar-row"><strong>Sector 2</strong><div class="bar-track"><div class="bar-fill" style="width: 55%;"></div></div><span>12</span></div>
+            <div class="bar-row"><strong>Sector 3</strong><div class="bar-track"><div class="bar-fill" style="width: 18%;"></div></div><span>4</span></div>
+          </div>
+        </div>
+        <div class="mock-panel">
+          <h3>Patrol sessions per month</h3>
+          <div class="bar-chart">
+            <div class="bar-row"><strong>March</strong><div class="bar-track"><div class="bar-fill warn" style="width: 68%;"></div></div><span>26</span></div>
+            <div class="bar-row"><strong>April</strong><div class="bar-track"><div class="bar-fill warn" style="width: 82%;"></div></div><span>31</span></div>
+            <div class="bar-row"><strong>May</strong><div class="bar-track"><div class="bar-fill warn" style="width: 100%;"></div></div><span>38</span></div>
+          </div>
+        </div>
+        <div class="mock-panel">
+          <h3>Day vs night patrol hours</h3>
+          <div class="split-bar" aria-label="Day versus night patrol hours">
+            <span class="split-driver" style="width: 42%;">Day 61.5h</span>
+            <span class="split-crew" style="width: 58%;">Night 85.0h</span>
+          </div>
+          <p>Useful for showing visible patrol coverage during higher-risk evening and night periods.</p>
+        </div>
+        <div class="mock-panel">
+          <h3>Driver vs crew participation</h3>
+          <div class="split-bar" aria-label="Driver versus crew participation">
+            <span class="split-driver" style="width: 57%;">Driver 83.4h</span>
+            <span class="split-crew" style="width: 43%;">Crew 63.1h</span>
+          </div>
+          <p>Separates the logged-in driver role from crew participation for fair contribution reporting.</p>
+        </div>
+      </div>
+      <table class="mini-table" aria-label="Patroller activity and patrol hours table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Patroller</th>
+            <th>Member Call Sign</th>
+            <th>Patrol Session Call Sign</th>
+            <th>Role</th>
+            <th>Vehicle</th>
+            <th>Sector</th>
+            <th>Start Time / Clock On</th>
+            <th>End Time / Clock Off</th>
+            <th>Hours Worked</th>
+            <th>Start KM</th>
+            <th>End KM</th>
+            <th>Total KM</th>
+            <th>Incidents</th>
+            <th>Assistance Requests</th>
+            <th>Infrastructure Reports</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>2026-05-03</td><td>Patrol Test</td><td>PT01</td><td>WW75</td><td>Driver</td><td>ABC123GP</td><td>Sector 1</td><td>18:00</td><td>22:15</td><td>4.25</td><td>128450</td><td>128512</td><td>62</td><td>2</td><td>1</td><td>1</td><td>037 - Burglar Alarm, Valhalla.</td></tr>
+          <tr><td>2026-05-03</td><td>Nick Oosthuizen</td><td>NO17</td><td>WW75</td><td>Crew</td><td>ABC123GP</td><td>Sector 1</td><td>18:00</td><td>22:15</td><td>4.25</td><td>-</td><td>-</td><td>-</td><td>2</td><td>1</td><td>1</td><td>Crew support and perimeter check.</td></tr>
+          <tr><td>2026-05-09</td><td>Daniel van Rooyen</td><td>DVR08</td><td>WW75</td><td>Driver</td><td>ABC123GP</td><td>Sector 1</td><td>19:30</td><td>23:45</td><td>4.25</td><td>128512</td><td>128571</td><td>59</td><td>1</td><td>0</td><td>2</td><td>Night patrol with infrastructure faults logged.</td></tr>
+          <tr><td>2026-05-14</td><td>Jaco Schoeman</td><td>JS11</td><td>WW75</td><td>Crew</td><td>ABC123GP</td><td>Sector 1</td><td>17:45</td><td>21:00</td><td>3.25</td><td>-</td><td>-</td><td>-</td><td>0</td><td>1</td><td>0</td><td>Assistance request support.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="slide" id="intelligence-demo">
+      <p class="eyebrow">Intelligence and map direction</p>
+      <h2>Pattern Analysis and Future Spatial Awareness</h2>
+      <p class="subtitle">Current event records can store coordinates. Continuous live patrol GPS tracking and a live patrol map are future work.</p>
+      <div class="grid two">
+        <div class="concept-map">
+          <div class="map-marker" style="left: 9%; top: 16%;">Hotspot<br />Broadway / Valhalla</div>
+          <div class="map-marker" style="left: 58%; top: 28%; border-color: #f59e0b;">Repeat vehicle<br />Seen near alarms</div>
+          <div class="map-marker" style="left: 32%; top: 66%; border-color: #7c3aed;">Future map<br />Live patrol layer later</div>
+        </div>
+        <div class="spider" aria-label="Intelligence relationship concept">
+          <svg viewBox="0 0 420 300" role="img" aria-label="Spider graph concept">
+            <line x1="210" y1="150" x2="90" y2="70" stroke="#93c5fd" stroke-width="4" />
+            <line x1="210" y1="150" x2="330" y2="70" stroke="#93c5fd" stroke-width="4" />
+            <line x1="210" y1="150" x2="80" y2="220" stroke="#93c5fd" stroke-width="4" />
+            <line x1="210" y1="150" x2="340" y2="220" stroke="#93c5fd" stroke-width="4" />
+            <circle cx="210" cy="150" r="42" fill="#071427" />
+            <text x="210" y="146" fill="#ffffff" text-anchor="middle" font-size="14" font-weight="700">037</text>
+            <text x="210" y="164" fill="#ffffff" text-anchor="middle" font-size="12">Burglar Alarm</text>
+            <circle cx="90" cy="70" r="34" fill="#e0f2fe" />
+            <text x="90" y="75" fill="#075985" text-anchor="middle" font-size="12" font-weight="700">Location</text>
+            <circle cx="330" cy="70" r="34" fill="#e0f2fe" />
+            <text x="330" y="75" fill="#075985" text-anchor="middle" font-size="12" font-weight="700">Vehicle</text>
+            <circle cx="80" cy="220" r="34" fill="#e0f2fe" />
+            <text x="80" y="225" fill="#075985" text-anchor="middle" font-size="12" font-weight="700">Patrol</text>
+            <circle cx="340" cy="220" r="34" fill="#e0f2fe" />
+            <text x="340" y="225" fill="#075985" text-anchor="middle" font-size="12" font-weight="700">Suburb</text>
+          </svg>
+        </div>
+      </div>
+      <div class="grid" style="margin-top: 16px;">
+        <div class="card"><h3>Repeat signals</h3><p>Repeat locations, repeated vehicles, repeated incident codes, repeated assistance requests.</p></div>
+        <div class="card"><h3>Risk views</h3><p>Hotspots, entity links, risk indicators, and spider graph relationships.</p></div>
+        <div class="card"><h3>Future map</h3><p>Geo-map and live patrol map later, once GPS requirements are confirmed.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="data-flow">
+      <p class="eyebrow">Data flow</p>
+      <h2>From Field Capture to Monthly Feedback</h2>
+      <div class="data-flow">
+        <div class="data-step"><strong>Patroller captures event</strong><span>Incident, assistance, infrastructure, status, and location details are recorded in the field.</span></div>
+        <div class="data-step"><strong>Control Room sees live status</strong><span>Operators see active patrols, latest events, and requests for coordination.</span></div>
+        <div class="data-step"><strong>Admin maintains registers</strong><span>Source records keep dropdowns, contacts, vehicles, members, and codes consistent.</span></div>
+        <div class="data-step"><strong>Reports summarize history</strong><span>Monthly and accountability reports group by code, suburb, sector, time, patrol, and vehicle.</span></div>
+        <div class="data-step"><strong>Intelligence analyses patterns</strong><span>Repeated locations, vehicles, codes, hotspots, and relationships are identified.</span></div>
+        <div class="data-step"><strong>Future map visualizes location</strong><span>Event markers and later live patrol GPS can support spatial awareness.</span></div>
+      </div>
+    </section>
+
+    <section class="slide" id="patrol">
+      <p class="eyebrow">Mobile-first field workflow</p>
+      <h2>Patrol Mobile Workflow</h2>
+      <div class="timeline">
+        <div class="step"><div><strong>Start Patrol</strong><br />Logged-in driver starts a patrol session.</div></div>
+        <div class="step"><div><strong>Patrol session call sign</strong><br />Manual shift call sign such as Bravo 1 or Sector 1 Alpha.</div></div>
+        <div class="step"><div><strong>Vehicle selection</strong><br />Registered vehicle selected for the session.</div></div>
+        <div class="step"><div><strong>Crew selection</strong><br />Optional crew members added separately; they do not replace the driver.</div></div>
+        <div class="step"><div><strong>Status and field actions</strong><br />Status updates, incident response, emergency assistance, infrastructure report, and observations.</div></div>
+        <div class="step"><div><strong>End Patrol</strong><br />End KM and summary captured for patrol history and reports.</div></div>
+      </div>
+    </section>
+
+    <section class="slide" id="control-room">
+      <p class="eyebrow">Live coordination</p>
+      <h2>Control Room</h2>
+      <p class="subtitle">Control Room remains a local tab workspace for live operational coordination, not old separate route sections.</p>
+      <div class="grid four">
+        <div class="card"><h3>Live Overview</h3><p>Current operational summary.</p></div>
+        <div class="card"><h3>Active Patrols</h3><p>Call sign, driver, crew, vehicle, sector, and patrol status.</p></div>
+        <div class="card"><h3>Assistance Requests</h3><p>Requests from patrollers routed through Control Room.</p></div>
+        <div class="card"><h3>Incidents</h3><p>Operational incidents and selected incident services.</p></div>
+        <div class="card"><h3>Incident Codes Reference</h3><p>Read-only SAPS code lookup.</p></div>
+        <div class="card"><h3>Patroller Directory</h3><p>Read-only operational lookup.</p></div>
+        <div class="card"><h3>Emergency Services</h3><p>Read-only contact directory.</p></div>
+        <div class="card"><h3>Patrol Reports</h3><p>History view for selected patrol timelines.</p></div>
+        <div class="card"><span class="badge future">Later</span><h3>Map</h3><p>Future live spatial awareness.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="registers">
+      <p class="eyebrow">Source of truth</p>
+      <h2>Admin Registers</h2>
+      <p class="subtitle">Registers are source-of-truth management screens, separate from historical reports and live Control Room actions.</p>
+      <div class="grid">
+        <div class="card"><h3>People</h3><p>Members, Patrollers, Residents.</p></div>
+        <div class="card"><h3>Assets and organisations</h3><p>Vehicles and Organisations.</p></div>
+        <div class="card"><h3>Operational contacts</h3><p>Emergency Services actual contact records.</p></div>
+        <div class="card"><h3>Incident taxonomy</h3><p>Incident Codes and Incident Subcodes.</p></div>
+        <div class="card"><h3>Response taxonomy</h3><p>Service Types and Emergency Contact Types.</p></div>
+        <div class="card"><h3>Infrastructure taxonomy</h3><p>Infrastructure Types for field reporting and future intelligence analysis.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="saps">
+      <p class="eyebrow">Incident classification</p>
+      <h2>SAPS Incident Codes</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Imported and preserved</h3>
+          <p>Numeric SAPS codes are imported with leading zeroes preserved. Demo codes are disabled, not deleted, so history stays safe.</p>
+          <div class="example">037 - Burglar Alarm</div>
+        </div>
+        <div class="card">
+          <h3>Operational use</h3>
+          <p>Patrol incident response uses SAPS code dropdowns. Control Room shows code and description for context and coordination.</p>
+          <div class="badge-row">
+            <span class="badge done">Patrol dropdown</span>
+            <span class="badge done">Control Room reference</span>
+            <span class="badge progressing">Reports trend grouping</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" id="services">
+      <p class="eyebrow">Operational contacts</p>
+      <h2>Emergency Services Directory</h2>
+      <div class="flow">
+        <div class="flow-row"><div class="flow-label">Admin</div><div class="flow-content">Manages actual emergency service and operational contact records.</div></div>
+        <div class="flow-row"><div class="flow-label">Control Room</div><div class="flow-content">Views the directory read-only for coordination.</div></div>
+        <div class="flow-row"><div class="flow-label">Types</div><div class="flow-content">SAPS, Fire, Ambulance, Metro, Sector Contacts, Internal/Community, and other local contacts.</div></div>
+      </div>
+      <div class="card warning" style="margin-top: 18px;"><h3>Operational caution</h3><p>All contact numbers must be verified before live operational use.</p></div>
+    </section>
+
+    <section class="slide" id="reports">
+      <p class="eyebrow">Accountability and history</p>
+      <h2>Reports Roadmap</h2>
+      <p class="subtitle">Reports should answer what happened, where it happened, who responded, and what patterns are emerging.</p>
+      <div class="grid">
+        <div class="card"><h3>Monthly Community Safety Trends</h3><p>Incident Codes, Incident Subcodes, sector, suburb, street/location, and month-to-month increases/decreases. Avoid category-only reporting.</p></div>
+        <div class="card"><h3>Patroller Activity / Hours &amp; KM Report</h3><p>Monthly management feedback for patrol hours, kilometres, sessions, active patrollers, sector coverage, driver vs crew participation, and event counts. Not a live Control Room dispatch view.</p></div>
+        <div class="card"><h3>Infrastructure Summary and Detail</h3><p>Infrastructure type, risk, location, patrol, and field notes.</p></div>
+        <div class="card"><h3>Assistance Request Report</h3><p>Historical assistance requests, service type, patrol call sign, location, and status.</p></div>
+        <div class="card"><h3>Vehicle Usage Report</h3><p>Patrol sessions, kilometres, drivers, incidents attended, assistance, and infrastructure reports.</p></div>
+        <div class="card"><h3>Patrol and Incident Reports</h3><p>Audited patrol edits and incident accountability views.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="intelligence">
+      <p class="eyebrow">Pattern analysis</p>
+      <h2>Intelligence Roadmap</h2>
+      <div class="grid">
+        <div class="card"><h3>Repeated locations</h3><p>Identify hotspots and recurring streets or suburbs.</p></div>
+        <div class="card"><h3>Repeated vehicles</h3><p>Link vehicles to repeated incident patterns where data supports it.</p></div>
+        <div class="card"><h3>Repeated incident codes</h3><p>Trend SAPS codes and subcodes over time.</p></div>
+        <div class="card"><h3>Repeated assistance requests</h3><p>Detect recurring service demand.</p></div>
+        <div class="card"><h3>Entity links</h3><p>Connect people, vehicles, places, organisations, and incidents.</p></div>
+        <div class="card"><h3>Visual analysis</h3><p>Spider graph, geo-map, hotspots, and risk indicators.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="map">
+      <p class="eyebrow">Spatial awareness</p>
+      <h2>Future Live Map</h2>
+      <p class="subtitle">The map is not implemented yet. It is planned as a live operational layer once location and GPS data are ready.</p>
+      <div class="grid">
+        <div class="card"><span class="badge future">Future</span><h3>Active patrol locations</h3><p>Future GPS pings and status markers.</p></div>
+        <div class="card"><span class="badge future">Future</span><h3>Incidents</h3><p>Incident markers and selected incident context.</p></div>
+        <div class="card"><span class="badge future">Future</span><h3>Assistance requests</h3><p>Emergency and assistance request markers.</p></div>
+        <div class="card"><span class="badge future">Future</span><h3>Infrastructure faults</h3><p>Infrastructure reports by type and severity.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="server">
+      <p class="eyebrow">Deployment readiness</p>
+      <h2>Server Migration Readiness</h2>
+      <div class="grid">
+        <div class="card"><span class="badge done">Created</span><h3>Database migration report</h3><p>Current database state and migration notes are documented.</p></div>
+        <div class="card"><span class="badge done">Created</span><h3>Server technical specification</h3><p>Server requirements and deployment approach are documented.</p></div>
+        <div class="card"><span class="badge done">Prepared</span><h3>Handover pack</h3><p>Technical handover pack is prepared for review.</p></div>
+        <div class="card warning"><h3>Regenerate PDF</h3><p>The PDF generated earlier should be regenerated after the latest data cleanup and report updates.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="feedback">
+      <p class="eyebrow">Review input</p>
+      <h2>What We Need Feedback On</h2>
+      <div class="grid">
+        <div class="card question"><h3>Patrol status options</h3><p>Are Started Patrol, En Route, On Scene, Stand Down, and Resume Patrol the correct field statuses?</p></div>
+        <div class="card question"><h3>Emergency contacts</h3><p>Are SAPS, Fire, Ambulance, Metro, sector, internal, and community contacts complete and verified?</p></div>
+        <div class="card question"><h3>SAPS incident codes</h3><p>Are the imported SAPS incident codes and descriptions correct for monthly community feedback?</p></div>
+        <div class="card question"><h3>Monthly graphs</h3><p>Which graphs are needed: incident codes, subcodes, suburbs, sectors, time-of-day, repeat locations, or code by suburb?</p></div>
+        <div class="card question"><h3>Control Room first view</h3><p>What should operators see first: active patrols, assistance requests, incidents, emergency contacts, or map later?</p></div>
+        <div class="card question"><h3>Future live map</h3><p>Which markers must appear first: patrols, incidents, assistance requests, infrastructure faults, or hotspots?</p></div>
+        <div class="card question"><h3>Register editing</h3><p>Who should be allowed to edit members, patrollers, vehicles, emergency contacts, and master registers?</p></div>
+        <div class="card question"><h3>Monthly exports</h3><p>Which reports must be exported monthly for LE, the group, and community feedback?</p></div>
+      </div>
+    </section>
+
+    <section class="slide" id="priorities">
+      <p class="eyebrow">Next development batch</p>
+      <h2>Next Development Priorities</h2>
+      <div class="timeline">
+        <div class="step"><div><strong>Reports enhancement</strong><br />Improve monthly trends, patroller activity, assistance, infrastructure, vehicle usage, and CSV exports.</div></div>
+        <div class="step"><div><strong>Control Room layout improvement</strong><br />Continue improving wide-screen operational visibility and selected patrol timelines.</div></div>
+        <div class="step"><div><strong>Deactivate/delete safety</strong><br />Continue protecting operational history by deactivating referenced register records.</div></div>
+        <div class="step"><div><strong>Updated server handover pack</strong><br />Regenerate documents/PDF after latest cleanup.</div></div>
+        <div class="step"><div><strong>Intelligence planning</strong><br />Define entity links, hotspot logic, spider graph, and map requirements.</div></div>
+        <div class="step"><div><strong>Live map planning</strong><br />Define GPS, marker, and status requirements before implementation.</div></div>
+      </div>
+      <p class="footer-note">Offline presentation. No credentials, secrets, or live operational phone numbers are included.</p>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const sections = Array.from(document.querySelectorAll(".slide"));
+      const links = Array.from(document.querySelectorAll("nav a"));
+      const progressFill = document.getElementById("progressFill");
+
+      function updateProgress() {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - window.innerHeight;
+        const pct = height > 0 ? (scrollTop / height) * 100 : 0;
+        progressFill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+
+        let activeId = sections[0] && sections[0].id;
+        sections.forEach((section) => {
+          if (section.getBoundingClientRect().top <= 120) activeId = section.id;
+        });
+
+        links.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === "#" + activeId);
+        });
+      }
+
+      function jump(delta) {
+        const current = sections.findIndex((section) => {
+          const rect = section.getBoundingClientRect();
+          return rect.top <= 120 && rect.bottom > 120;
+        });
+        const next = Math.max(0, Math.min(sections.length - 1, current + delta));
+        sections[next].scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight" || event.key === "PageDown") jump(1);
+        if (event.key === "ArrowLeft" || event.key === "PageUp") jump(-1);
+      });
+
+      window.addEventListener("scroll", updateProgress, { passive: true });
+      window.addEventListener("resize", updateProgress);
+      updateProgress();
+    })();
+  </script>
+</body>
+</html>
