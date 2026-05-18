@@ -81,6 +81,7 @@ textarea {
   text-align: left;
   font-weight: 700;
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 
 .nav button.active,
@@ -248,6 +249,11 @@ textarea {
   cursor: pointer;
 }
 
+.item > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .item:hover {
   background: #eef6ff;
 }
@@ -262,53 +268,23 @@ textarea {
   background: #e0f2fe;
   color: #0369a1;
   align-self: center;
+  flex: 0 0 auto;
 }
 
 /* Control Room */
 
 .control-room-layout {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  gap: 22px;
-  align-items: start;
-}
-
-.control-room-tabs {
-  display: grid;
-  gap: 8px;
-  position: sticky;
-  top: 24px;
-}
-
-.control-room-tabs button {
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 11px 12px;
-  background: white;
-  color: #334155;
-  text-align: left;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.control-room-tabs button.active,
-.control-room-tabs button:hover {
-  background: #020617;
-  border-color: #020617;
-  color: white;
-}
-
-.control-room-tab-panel {
   min-width: 0;
+  width: 100%;
 }
 
 .control-room-overview-cards {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
 }
 
 .control-room-overview-grid {
   display: grid;
-  grid-template-columns: minmax(420px, 1.45fr) minmax(280px, 0.75fr);
+  grid-template-columns: minmax(520px, 1.35fr) minmax(360px, 0.9fr);
   gap: 22px;
   align-items: start;
 }
@@ -351,6 +327,9 @@ textarea {
 .assistance-queue-panel .item {
   background: #fff1f2;
   border: 1px solid #fecdd3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: start;
 }
 
 .assistance-queue-panel .badge {
@@ -359,7 +338,11 @@ textarea {
 }
 
 .map-placeholder-panel {
-  min-height: 320px;
+  min-height: 480px;
+}
+
+.active-patrols-panel .item {
+  align-items: flex-start;
 }
 
 /* Incident details */
@@ -937,8 +920,8 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .control-room-tabs {
-    position: static;
+  .assistance-queue-panel .item {
+    grid-template-columns: 1fr;
   }
 }
 

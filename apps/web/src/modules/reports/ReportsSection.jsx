@@ -107,6 +107,9 @@ export default function ReportsSection({
             </button>
           )}
         </div>
+        <p className="card-detail">
+          Historical incident records for review, follow-up, and accountability.
+        </p>
 
         <div className="cards">
           <div className="card">
@@ -162,7 +165,10 @@ export default function ReportsSection({
     );
   }
 
-  if (reportCategory === "Assistance Requests") {
+  if (
+    reportCategory === "Assistance Request Reports" ||
+    reportCategory === "Assistance Requests"
+  ) {
     return (
       <div className="panel">
         <div className="details-header">
@@ -173,6 +179,10 @@ export default function ReportsSection({
             </button>
           )}
         </div>
+        <p className="card-detail">
+          Historical assistance requests submitted by patrol teams. Live coordination remains
+          in Control Room.
+        </p>
 
         <div className="cards">
           <div className="card">
@@ -227,12 +237,15 @@ export default function ReportsSection({
             </button>
           )}
         </div>
+        <p className="card-detail">
+          Vehicle accountability view for operational history and fleet review.
+        </p>
 
         <div className="cards">
           <div className="card">
             <div className="card-title">Vehicles</div>
             <div className="card-value">{vehicles.length}</div>
-            <div className="card-detail">Vehicle register records available for reporting</div>
+            <div className="card-detail">Vehicles available for operational reporting</div>
           </div>
         </div>
 
@@ -276,6 +289,9 @@ export default function ReportsSection({
           </button>
         )}
       </div>
+      <p className="card-detail">
+        Patrol session history for review, distance checks, audit, and close-out follow-up.
+      </p>
 
       {showFilters && (
       <div className="action-row">

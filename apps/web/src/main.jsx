@@ -105,6 +105,13 @@ const CONTROL_ROOM_TABS = [
   "Map",
 ];
 
+const CONTROL_ROOM_NAV_SECTIONS = [
+  {
+    label: "Control Room",
+    items: CONTROL_ROOM_TABS.map((label) => ({ label })),
+  },
+];
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -118,7 +125,7 @@ function getPreferredLandingRoute(role) {
     case SYSTEM_ROLES.PATROL:
       return "Patrol Operations";
     case SYSTEM_ROLES.CONTROL_ROOM:
-      return "Incidents";
+      return "Live Overview";
     case SYSTEM_ROLES.INTELLIGENCE_ANALYST:
       return "Intelligence";
     case SYSTEM_ROLES.ADMIN:
@@ -611,6 +618,10 @@ function App() {
   // workflow. The Admin Dashboard is an overview, not a replacement for
   // operational dispatch functions.
   const navSections = useMemo(() => {
+    if (userRole === SYSTEM_ROLES.CONTROL_ROOM) {
+      return CONTROL_ROOM_NAV_SECTIONS;
+    }
+
     return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
   }, [userRole]);
 
@@ -738,6 +749,7 @@ function App() {
     logout();
     resetIncidents();
     setActive("Dashboard");
+    setControlRoomTab("Live Overview");
     resetAdminData();
     resetIntelligence();
   }
@@ -777,7 +789,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   const activePatrols = getActivePatrols(data.patrols);
   // CONTROL_ROOM must always stay inside the local Control Room tabs; old route
   // sections below are explicitly suppressed for this role.
-  const showControlRoomTabs = isControlRoomUser;
+  const showControlRoomWorkspace = isControlRoomUser;
   const controlRoomData = useMemo(() => {
     if (!isControlRoomUser) return data;
 
@@ -1677,9 +1689,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   return (
     <AppShell
       user={user}
-      active={active}
+      active={isControlRoomUser ? controlRoomTab : active}
       navSections={navSections}
-      onNavigate={setActive}
+      onNavigate={isControlRoomUser ? setControlRoomTab : setActive}
       onLogout={handleLogout}
     >
       {/* Admin Dashboard summarizes management data only; operational dispatch remains in Control Room tabs. */}
@@ -1722,30 +1734,13 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
         </div>
       )}
 
-        {showControlRoomTabs && (
+        {showControlRoomWorkspace && (
           <div className="control-room-layout">
-            <div className="control-room-tabs" role="tablist" aria-label="Control Room sections">
-              {CONTROL_ROOM_TABS.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={controlRoomTab === tab}
-                  className={controlRoomTab === tab ? "active" : ""}
-                  onClick={() => setControlRoomTab(tab)}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            <div className="control-room-tab-panel">
-              {renderControlRoomTab()}
-            </div>
+            {renderControlRoomTab()}
           </div>
         )}
 
-        {active === "Incidents" && !showControlRoomTabs && renderIncidentsSection()}
+        {active === "Incidents" && !showControlRoomWorkspace && renderIncidentsSection()}
 
         {/* Patrol sessions represent one vehicle/call-sign with one driver and optional crew members. */}
         {active === "Patrols" && !isControlRoomUser && canViewPatrols && (

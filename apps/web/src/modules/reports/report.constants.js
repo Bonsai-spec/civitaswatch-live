@@ -10,7 +10,7 @@ export const DEFAULT_REPORT_FILTERS = {
 export const REPORT_CATEGORIES = [
   "Incident Reports",
   "Patrol Reports",
-  "Assistance Requests",
+  "Assistance Request Reports",
   "Vehicle Reports",
 ];
 
