@@ -165,10 +165,7 @@ export default function ReportsSection({
     );
   }
 
-  if (
-    reportCategory === "Assistance Request Reports" ||
-    reportCategory === "Assistance Requests"
-  ) {
+  if (reportCategory === "Assistance Request Reports") {
     return (
       <div className="panel">
         <div className="details-header">
@@ -186,7 +183,7 @@ export default function ReportsSection({
 
         <div className="cards">
           <div className="card">
-            <div className="card-title">Assistance Requests</div>
+            <div className="card-title">Assistance Request Reports</div>
             <div className="card-value">{assistanceRequests.length}</div>
             <div className="card-detail">History sourced from Patrol assistance events</div>
           </div>
@@ -243,7 +240,7 @@ export default function ReportsSection({
 
         <div className="cards">
           <div className="card">
-            <div className="card-title">Vehicles</div>
+            <div className="card-title">Vehicle Reports</div>
             <div className="card-value">{vehicles.length}</div>
             <div className="card-detail">Vehicles available for operational reporting</div>
           </div>
