@@ -345,6 +345,37 @@ textarea {
   align-items: flex-start;
 }
 
+.report-bars {
+  display: grid;
+  gap: 10px;
+}
+
+.report-bar-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 2fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.report-bar-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-bar-track {
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.report-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #0369a1;
+}
+
 /* Incident details */
 
 .incident-details {

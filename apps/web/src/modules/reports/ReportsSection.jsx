@@ -56,6 +56,16 @@ function getAssistanceLocationLabel(request) {
   return [street, request?.suburb, request?.locationNotes].filter(Boolean).join(" - ") || "-";
 }
 
+function getAssistanceCrewLabel(request) {
+  return (request?.patrol?.crew || []).map(getCrewName).join(", ") || "-";
+}
+
+function getAssistanceStatus(request) {
+  return request?.resolvedAt || request?.status === "RESOLVED" || request?.sceneActive === false
+    ? "RESOLVED"
+    : "ACTIVE";
+}
+
 function getPatrolCallSign(patrol) {
   return patrol?.callSign || patrol?.patrolCallSign || patrol?.id || "-";
 }
@@ -161,6 +171,96 @@ function formatDateTime(value) {
   return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
 }
 
+function getMonthKey(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getPreviousMonthKey(monthKey) {
+  if (!monthKey) return "";
+  const [year, month] = monthKey.split("-").map(Number);
+  if (!year || !month) return "";
+  const date = new Date(year, month - 2, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getDefaultMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function percentChange(current, previous) {
+  if (!previous && !current) return "0%";
+  if (!previous) return "+100%";
+  const value = ((current - previous) / previous) * 100;
+  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+}
+
+function countBy(rows, getKey) {
+  const counts = new Map();
+
+  rows.forEach((row) => {
+    const key = getKey(row) || "Unknown";
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function sumBy(rows, getValue) {
+  return rows.reduce((sum, row) => sum + Number(getValue(row) || 0), 0);
+}
+
+function getPatrolHours(patrol) {
+  if (!patrol?.startTime || !patrol?.endTime) return 0;
+  const start = new Date(patrol.startTime);
+  const end = new Date(patrol.endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return Math.max(0, (end.getTime() - start.getTime()) / 36e5);
+}
+
+function getCrewName(crew) {
+  const memberName = [crew?.member?.firstName, crew?.member?.surname].filter(Boolean).join(" ");
+
+  return (
+    crew?.member?.callSign ||
+    memberName ||
+    crew?.user?.fullName ||
+    crew?.user?.email ||
+    crew?.member?.email ||
+    "Crew member"
+  );
+}
+
+function getCrewKey(crew) {
+  return crew?.memberId || crew?.member?.id || crew?.userId || crew?.user?.id || getCrewName(crew);
+}
+
+function renderMiniBars(rows, valueKey = "count") {
+  const max = Math.max(1, ...rows.map((row) => Number(row[valueKey] || 0)));
+
+  return (
+    <div className="report-bars">
+      {rows.slice(0, 8).map((row) => (
+        <div className="report-bar-row" key={row.label}>
+          <span>{row.label}</span>
+          <div className="report-bar-track">
+            <div
+              className="report-bar-fill"
+              style={{ width: `${(Number(row[valueKey] || 0) / max) * 100}%` }}
+            />
+          </div>
+          <strong>{Number(row[valueKey] || 0).toFixed(valueKey === "count" ? 0 : 1)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ReportsSection({
   data,
   reportCategory = "Patrol Reports",
@@ -243,8 +343,7 @@ export default function ReportsSection({
       if (reportFilters.serviceType !== "ALL" && service !== reportFilters.serviceType) return false;
       if (reportFilters.referenceNumber && !includesText(request.referenceNumber, reportFilters.referenceNumber)) return false;
       if (reportFilters.status !== "ALL") {
-        const resolved = request.resolvedAt || request.status === "RESOLVED" || request.sceneActive === false ? "RESOLVED" : "ACTIVE";
-        if (resolved !== reportFilters.status) return false;
+        if (getAssistanceStatus(request) !== reportFilters.status) return false;
       }
       return true;
     });
@@ -285,6 +384,156 @@ export default function ReportsSection({
   const serviceTypeOptions = Array.from(new Set(assistanceRequests.map((request) => formatEventService(request) || request.assistance).filter(Boolean)));
   const infrastructureTypeOptions = Array.from(new Set(getInfrastructureRows(filteredPatrolReports).map((event) => event.infrastructureTypeRef?.type).filter(Boolean)));
   const riskLevelOptions = Array.from(new Set(getInfrastructureRows(filteredPatrolReports).map((event) => event.infrastructureTypeRef?.riskLevel).filter(Boolean)));
+  const selectedMonth = reportFilters.month || getDefaultMonth();
+  const previousMonth = getPreviousMonthKey(selectedMonth);
+  const monthlyTrendData = useMemo(() => {
+    const rows = filteredIncidentReports.filter((incident) => {
+      if (reportFilters.sector !== "ALL" && incident.sector !== reportFilters.sector) return false;
+      if (reportFilters.status !== "ALL" && incident.status !== reportFilters.status) return false;
+      if (reportFilters.severity !== "ALL" && incident.severity !== reportFilters.severity) return false;
+      if (reportFilters.incidentCode !== "ALL" && incidentCodeLabel(incident) !== reportFilters.incidentCode) return false;
+      if (!includesText([
+        incident.title,
+        incident.description,
+        incident.suburb,
+        incident.street,
+        incident.sector,
+        incident.incidentType,
+      ].join(" "), reportFilters.search)) return false;
+      return true;
+    });
+    const currentRows = rows.filter((incident) => getMonthKey(getRecordDate(incident)) === selectedMonth);
+    const previousRows = rows.filter((incident) => getMonthKey(getRecordDate(incident)) === previousMonth);
+    const incidentsPerMonth = countBy(rows, (incident) => getMonthKey(getRecordDate(incident))).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+
+    return {
+      rows,
+      currentRows,
+      previousRows,
+      incidentsPerMonth,
+      byCategory: countBy(currentRows, (incident) => {
+        const code = incidentCodeLabel(incident);
+        return code === "-" ? incident.incidentType : code;
+      }),
+      bySuburb: countBy(currentRows, (incident) => incident.suburb),
+      bySector: countBy(currentRows, (incident) => incident.sector),
+      topTypes: countBy(currentRows, (incident) => incident.incidentType || incidentCodeLabel(incident)),
+      topLocations: countBy(currentRows, (incident) =>
+        [incident.street, incident.suburb].filter(Boolean).join(", ")
+      ),
+    };
+  }, [filteredIncidentReports, reportFilters, selectedMonth, previousMonth]);
+  const patrollerActivityRows = useMemo(() => {
+    const byPatroller = new Map();
+
+    function ensurePatroller(key, defaults = {}) {
+      if (!byPatroller.has(key)) {
+        byPatroller.set(key, {
+          id: key,
+          name: defaults.name || "Unknown",
+          callSign: defaults.callSign || "-",
+          patrolCount: 0,
+          totalHours: 0,
+          totalKm: 0,
+          driverCount: 0,
+          crewCount: 0,
+          incidentResponses: 0,
+          assistanceRequests: 0,
+          infrastructureReports: 0,
+          observations: 0,
+          events: 0,
+        });
+      }
+
+      return byPatroller.get(key);
+    }
+
+    filteredPatrolReports.forEach((patrol) => {
+      if (!inDateRange(patrol, reportFilters)) return;
+      if (reportFilters.sector !== "ALL" && patrol.sector !== reportFilters.sector) return;
+      if (reportFilters.status !== "ALL" && patrol.status !== reportFilters.status) return;
+      if (reportFilters.vehicleId !== "ALL" && patrol.vehicleId !== reportFilters.vehicleId) return;
+      if (reportFilters.callSign && !includesText(getPatrolCallSign(patrol), reportFilters.callSign)) return;
+
+      const driver = ensurePatroller(patrol.user?.id || patrol.userId || getPatrolDriverLabel(patrol), {
+        name: getPatrolDriverLabel(patrol),
+        callSign: patrol.user?.callSign || patrol.callSign || "-",
+      });
+      driver.patrolCount += 1;
+      driver.driverCount += 1;
+      driver.totalHours += getPatrolHours(patrol);
+      driver.totalKm += Number(patrol.totalKm || 0);
+
+      (patrol.crew || []).forEach((crew) => {
+        const member = ensurePatroller(getCrewKey(crew), {
+          name: getCrewName(crew),
+          callSign: crew.member?.callSign || "-",
+        });
+        member.patrolCount += 1;
+        member.crewCount += 1;
+        member.totalHours += getPatrolHours(patrol);
+      });
+
+      (patrol.patrolEvents || []).forEach((event) => {
+        const eventPatroller = event.createdBy?.id
+          ? ensurePatroller(event.createdBy.id, {
+              name: event.createdBy.fullName || event.createdBy.email,
+              callSign: event.createdBy.callSign || "-",
+            })
+          : driver;
+        eventPatroller.events += 1;
+        if (event.incidentCodeId || event.incidentCode || event.incidentCodeRef) eventPatroller.incidentResponses += 1;
+        if (event.assistance) eventPatroller.assistanceRequests += 1;
+        if (event.type === "INFRASTRUCTURE" || event.infrastructureTypeRef) eventPatroller.infrastructureReports += 1;
+        if (event.type === "OBSERVATION" || event.observationType) eventPatroller.observations += 1;
+      });
+    });
+
+    return Array.from(byPatroller.values())
+      .filter((row) => reportFilters.patrollerId === "ALL" || row.id === reportFilters.patrollerId)
+      .filter((row) => includesText([row.name, row.callSign].join(" "), reportFilters.search))
+      .sort((a, b) => b.totalHours - a.totalHours || b.patrolCount - a.patrolCount);
+  }, [filteredPatrolReports, reportFilters]);
+  const vehicleUsageRows = useMemo(() => {
+    const byVehicle = new Map();
+
+    vehicleRows.forEach((row) => {
+      const key = row.patrol.vehicleId || row.registration;
+      if (!byVehicle.has(key)) {
+        byVehicle.set(key, {
+          id: key,
+          registration: row.registration,
+          patrolCount: 0,
+          totalKm: 0,
+          drivers: new Set(),
+          sessions: [],
+          incidentsAttended: 0,
+          assistanceRequests: 0,
+          infrastructureReports: 0,
+        });
+      }
+
+      const item = byVehicle.get(key);
+      item.patrolCount += 1;
+      item.totalKm += Number(row.totalKm || 0);
+      item.drivers.add(row.driver);
+      item.sessions.push(row);
+      item.incidentsAttended += (row.patrol.patrolEvents || []).filter((event) =>
+        event.incidentCodeId || event.incidentCode || event.incidentCodeRef
+      ).length;
+      item.assistanceRequests += (row.patrol.patrolEvents || []).filter((event) => event.assistance).length;
+      item.infrastructureReports += (row.patrol.patrolEvents || []).filter((event) =>
+        event.type === "INFRASTRUCTURE" || event.infrastructureTypeRef
+      ).length;
+    });
+
+    return Array.from(byVehicle.values()).map((row) => ({
+      ...row,
+      driversText: Array.from(row.drivers).filter(Boolean).join(", ") || "-",
+    }));
+  }, [vehicleRows]);
 
   function renderReportDetail() {
     if (!selectedReportDetail) return null;
@@ -336,6 +585,310 @@ export default function ReportsSection({
         </select>
         {extraFilters}
         <button onClick={onClearReportFilters}>Clear</button>
+      </div>
+    );
+  }
+
+  if (reportCategory === "Monthly Community Safety Trends") {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Monthly Community Safety Trends</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+        <p className="card-detail">
+          Month-to-month incident trends by category, suburb, sector, and location.
+        </p>
+
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, month: e.target.value })}
+              />
+              <select
+                value={reportFilters.status}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, status: e.target.value })}
+              >
+                <option value="ALL">All Status</option>
+                <option value="OPEN">Open</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="CLOSED">Closed</option>
+                <option value="ARCHIVED">Archived</option>
+              </select>
+              <select
+                value={reportFilters.incidentCode}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, incidentCode: e.target.value })}
+              >
+                <option value="ALL">All Codes</option>
+                {incidentCodeOptions.map((code) => (
+                  <option key={code} value={code}>{code}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv("monthly-community-safety-trends.csv", [
+                    { label: "ID", value: (row) => row.id },
+                    { label: "Month", value: (row) => getMonthKey(getRecordDate(row)) },
+                    { label: "Code", value: incidentCodeLabel },
+                    { label: "Subcode", value: incidentSubcodeLabel },
+                    { label: "Title", value: (row) => row.title },
+                    { label: "Sector", value: (row) => row.sector },
+                    { label: "Suburb", value: (row) => row.suburb },
+                    { label: "Status", value: (row) => row.status },
+                    { label: "Severity", value: (row) => row.severity },
+                    { label: "Created", value: (row) => formatDateTime(row.createdAt) },
+                  ], monthlyTrendData.currentRows)
+                }
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+
+        <div className="cards">
+          <div className="card">
+            <div className="card-title">Selected Month</div>
+            <div className="card-value">{monthlyTrendData.currentRows.length}</div>
+            <div className="card-detail">{selectedMonth}</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Previous Month</div>
+            <div className="card-value">{monthlyTrendData.previousRows.length}</div>
+            <div className="card-detail">{previousMonth || "No comparison"}</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Change</div>
+            <div className="card-value">
+              {percentChange(monthlyTrendData.currentRows.length, monthlyTrendData.previousRows.length)}
+            </div>
+            <div className="card-detail">Selected vs previous month</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Hotspots</div>
+            <div className="card-value">{monthlyTrendData.topLocations.length}</div>
+            <div className="card-detail">Locations in selected month</div>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div className="panel">
+            <h3>Incidents Per Month</h3>
+            {renderMiniBars(monthlyTrendData.incidentsPerMonth)}
+          </div>
+          <div className="panel">
+            <h3>Incidents By Category</h3>
+            {renderMiniBars(monthlyTrendData.byCategory)}
+          </div>
+          <div className="panel">
+            <h3>Incidents By Suburb</h3>
+            {renderMiniBars(monthlyTrendData.bySuburb)}
+          </div>
+          <div className="panel">
+            <h3>Incidents By Sector</h3>
+            {renderMiniBars(monthlyTrendData.bySector)}
+          </div>
+        </div>
+
+        <div className="panel">
+          <h3>Top Locations</h3>
+          {monthlyTrendData.topLocations.length === 0 ? (
+            <p>No incidents for the selected month.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Incidents</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTrendData.topLocations.slice(0, 10).map((row) => (
+                  <tr key={row.label}>
+                    <td>{row.label}</td>
+                    <td>{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="panel">
+          <h3>Top Incident Types</h3>
+          {monthlyTrendData.topTypes.length === 0 ? (
+            <p>No incident types for the selected month.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Incidents</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTrendData.topTypes.slice(0, 10).map((row) => (
+                  <tr key={row.label}>
+                    <td>{row.label}</td>
+                    <td>{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (reportCategory === "Patroller Activity") {
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Patroller Activity</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+        <p className="card-detail">
+          Patroller contribution summary across driver sessions, crew participation, distance, and patrol events.
+        </p>
+
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <select
+                value={reportFilters.patrollerId}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, patrollerId: e.target.value })}
+              >
+                <option value="ALL">All Patrollers</option>
+                {patrollerFilterOptions.map((patroller) => (
+                  <option key={patroller.id} value={patroller.id}>
+                    {patroller.fullName || patroller.email || "Unnamed"}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={reportFilters.vehicleId}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, vehicleId: e.target.value })}
+              >
+                <option value="ALL">All Vehicles</option>
+                {vehicles.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.registration || getVehicleLabel(vehicle)}
+                  </option>
+                ))}
+              </select>
+              <input
+                placeholder="Patrol call sign"
+                value={reportFilters.callSign || ""}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, callSign: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv("patroller-activity.csv", [
+                    { label: "Patroller", value: (row) => row.name },
+                    { label: "Call Sign", value: (row) => row.callSign },
+                    { label: "Patrol Count", value: (row) => row.patrolCount },
+                    { label: "Total Hours", value: (row) => row.totalHours.toFixed(2) },
+                    { label: "Total KM", value: (row) => row.totalKm },
+                    { label: "Driver Count", value: (row) => row.driverCount },
+                    { label: "Crew Count", value: (row) => row.crewCount },
+                    { label: "Incident Responses", value: (row) => row.incidentResponses },
+                    { label: "Assistance Requests", value: (row) => row.assistanceRequests },
+                    { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
+                    { label: "Observations", value: (row) => row.observations },
+                  ], patrollerActivityRows)
+                }
+              >
+                Export CSV
+              </button>
+            </>
+          )}
+
+        <div className="cards">
+          <div className="card">
+            <div className="card-title">Patrollers</div>
+            <div className="card-value">{patrollerActivityRows.length}</div>
+            <div className="card-detail">Matching filters</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Total Hours</div>
+            <div className="card-value">{sumBy(patrollerActivityRows, (row) => row.totalHours).toFixed(1)}</div>
+            <div className="card-detail">Closed patrol sessions</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Total KM</div>
+            <div className="card-value">{sumBy(patrollerActivityRows, (row) => row.totalKm)}</div>
+            <div className="card-detail">Driver distance</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Events</div>
+            <div className="card-value">{sumBy(patrollerActivityRows, (row) => row.events)}</div>
+            <div className="card-detail">Captured patrol events</div>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div className="panel">
+            <h3>Hours By Patroller</h3>
+            {renderMiniBars(patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })), "value")}
+          </div>
+          <div className="panel">
+            <h3>KM By Patroller</h3>
+            {renderMiniBars(patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })), "value")}
+          </div>
+        </div>
+
+        {patrollerActivityRows.length === 0 ? (
+          <p>No patroller activity matches these filters.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Patroller</th>
+                <th>Call Sign</th>
+                <th>Patrols</th>
+                <th>Hours</th>
+                <th>KM</th>
+                <th>Driver</th>
+                <th>Crew</th>
+                <th>Incident</th>
+                <th>Assistance</th>
+                <th>Infrastructure</th>
+                <th>Observations</th>
+              </tr>
+            </thead>
+            <tbody>
+              {patrollerActivityRows.map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{row.callSign}</td>
+                  <td>{row.patrolCount}</td>
+                  <td>{row.totalHours.toFixed(1)}</td>
+                  <td>{row.totalKm}</td>
+                  <td>{row.driverCount}</td>
+                  <td>{row.crewCount}</td>
+                  <td>{row.incidentResponses}</td>
+                  <td>{row.assistanceRequests}</td>
+                  <td>{row.infrastructureReports}</td>
+                  <td>{row.observations}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     );
   }
@@ -532,8 +1085,10 @@ export default function ReportsSection({
                     { label: "ID", value: (row) => row.id },
                     { label: "Service", value: (row) => formatEventService(row) || row.assistance },
                     { label: "Patrol", value: getAssistancePatrolLabel },
+                    { label: "Crew", value: getAssistanceCrewLabel },
                     { label: "Vehicle", value: getAssistanceVehicleLabel },
                     { label: "Sector", value: (row) => row?.patrol?.sector || row?.sector },
+                    { label: "Status", value: getAssistanceStatus },
                     { label: "Reference Number", value: (row) => row.referenceNumber },
                     { label: "Location", value: getAssistanceLocationLabel },
                     { label: "Description", value: (row) => row.description },
@@ -564,8 +1119,10 @@ export default function ReportsSection({
               <tr>
                 <th>Service</th>
                 <th>Patrol</th>
+                <th>Crew</th>
                 <th>Vehicle</th>
                 <th>Sector</th>
+                <th>Status</th>
                 <th>Location</th>
                 <th>Description</th>
                 <th>Requested</th>
@@ -577,8 +1134,10 @@ export default function ReportsSection({
                 <tr key={request.id}>
                   <td>{formatEventService(request) || "-"}</td>
                   <td>{getAssistancePatrolLabel(request)}</td>
+                  <td>{getAssistanceCrewLabel(request)}</td>
                   <td>{getAssistanceVehicleLabel(request)}</td>
                   <td>{request?.patrol?.sector || request?.sector || "-"}</td>
+                  <td>{getAssistanceStatus(request)}</td>
                   <td>{getAssistanceLocationLabel(request)}</td>
                   <td>{request.description || "-"}</td>
                   <td>{formatDateTime(request.createdAt)}</td>
@@ -589,9 +1148,12 @@ export default function ReportsSection({
                         ["ID", request.id],
                         ["Service", formatEventService(request) || request.assistance],
                         ["Patrol", getAssistancePatrolLabel(request)],
+                        ["Crew", getAssistanceCrewLabel(request)],
                         ["Vehicle", getAssistanceVehicleLabel(request)],
                         ["Sector", request?.patrol?.sector || request?.sector],
+                        ["Status", getAssistanceStatus(request)],
                         ["Reference Number", request.referenceNumber],
+                        ["Resolved Time", request.resolvedAt ? formatDateTime(request.resolvedAt) : "Not captured"],
                         ["Location", getAssistanceLocationLabel(request)],
                         ["Description", request.description],
                         ["Requested", formatDateTime(request.createdAt)],
@@ -607,11 +1169,11 @@ export default function ReportsSection({
     );
   }
 
-  if (reportCategory === "Vehicle Reports") {
+  if (reportCategory === "Vehicle Usage") {
     return (
       <div className="panel">
         <div className="details-header">
-          <h2>Vehicle Reports</h2>
+          <h2>Vehicle Usage</h2>
           {refreshHandler && (
             <button className="secondary-btn" onClick={refreshHandler}>
               Refresh
@@ -659,16 +1221,15 @@ export default function ReportsSection({
                 type="button"
                 onClick={() =>
                   exportCsv("vehicle-reports.csv", [
-                    { label: "Patrol ID", value: (row) => row.id },
                     { label: "Registration", value: (row) => row.registration },
-                    { label: "Driver", value: (row) => row.driver },
-                    { label: "Patrol Call Sign", value: (row) => row.callSign },
-                    { label: "Sector", value: (row) => row.sector },
-                    { label: "Status", value: (row) => row.status },
-                    { label: "Start", value: (row) => formatDateTime(row.startTime) },
-                    { label: "End", value: (row) => formatDateTime(row.endTime) },
+                    { label: "Patrol Count", value: (row) => row.patrolCount },
                     { label: "Total KM", value: (row) => row.totalKm },
-                  ], vehicleRows)
+                    { label: "Drivers", value: (row) => row.driversText },
+                    { label: "Incidents Attended", value: (row) => row.incidentsAttended },
+                    { label: "Assistance Requests", value: (row) => row.assistanceRequests },
+                    { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
+                    { label: "Patrol Sessions", value: (row) => row.sessions.map((session) => session.id).join("; ") },
+                  ], vehicleUsageRows)
                 }
               >
                 Export CSV
@@ -680,53 +1241,50 @@ export default function ReportsSection({
 
         <div className="cards">
           <div className="card">
-            <div className="card-title">Vehicle Reports</div>
-            <div className="card-value">{vehicleRows.length}</div>
-            <div className="card-detail">Matching patrol vehicle activity</div>
+            <div className="card-title">Vehicle Usage</div>
+            <div className="card-value">{vehicleUsageRows.length}</div>
+            <div className="card-detail">Vehicles with matching patrol activity</div>
           </div>
         </div>
 
-        {vehicleRows.length === 0 ? (
+        {vehicleUsageRows.length === 0 ? (
           <p>No vehicle activity matches these filters.</p>
         ) : (
           <table>
             <thead>
               <tr>
                 <th>Registration</th>
-                <th>Driver</th>
-                <th>Call Sign</th>
-                <th>Sector</th>
-                <th>Status</th>
-                <th>Start</th>
-                <th>End</th>
+                <th>Patrols</th>
                 <th>Total KM</th>
+                <th>Drivers</th>
+                <th>Incidents</th>
+                <th>Assistance</th>
+                <th>Infrastructure</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {vehicleRows.map((row) => (
+              {vehicleUsageRows.map((row) => (
                 <tr key={row.id}>
                   <td>{row.registration}</td>
-                  <td>{row.driver}</td>
-                  <td>{row.callSign}</td>
-                  <td>{row.sector}</td>
-                  <td>{row.status}</td>
-                  <td>{formatDateTime(row.startTime)}</td>
-                  <td>{formatDateTime(row.endTime)}</td>
-                  <td>{row.totalKm ?? "-"}</td>
+                  <td>{row.patrolCount}</td>
+                  <td>{row.totalKm}</td>
+                  <td>{row.driversText}</td>
+                  <td>{row.incidentsAttended}</td>
+                  <td>{row.assistanceRequests}</td>
+                  <td>{row.infrastructureReports}</td>
                   <td>
                     <button onClick={() => setSelectedReportDetail({
                       title: "Vehicle Report",
                       rows: [
-                        ["Patrol ID", row.id],
                         ["Registration", row.registration],
-                        ["Driver", row.driver],
-                        ["Patrol Call Sign", row.callSign],
-                        ["Sector", row.sector],
-                        ["Status", row.status],
-                        ["Start", formatDateTime(row.startTime)],
-                        ["End", formatDateTime(row.endTime)],
+                        ["Patrol Count", row.patrolCount],
                         ["Total KM", row.totalKm],
+                        ["Drivers", row.driversText],
+                        ["Incidents Attended", row.incidentsAttended],
+                        ["Assistance Requests", row.assistanceRequests],
+                        ["Infrastructure Reports", row.infrastructureReports],
+                        ["Patrol Sessions", row.sessions.map((session) => `${session.callSign} ${formatDateTime(session.startTime)}`).join("; ")],
                       ],
                     })}>View</button>
                   </td>
@@ -739,11 +1297,11 @@ export default function ReportsSection({
     );
   }
 
-  if (reportCategory === "Infrastructure Reports") {
+  if (reportCategory === "Infrastructure Summary / Detail") {
     return (
       <div className="panel">
         <div className="details-header">
-          <h2>Infrastructure Reports</h2>
+          <h2>Infrastructure Summary / Detail</h2>
           {refreshHandler && (
             <button className="secondary-btn" onClick={refreshHandler}>
               Refresh
@@ -751,7 +1309,7 @@ export default function ReportsSection({
           )}
         </div>
         <p className="card-detail">
-          Infrastructure event history captured from patrol activity.
+          Infrastructure event summary and detail history captured from patrol activity.
         </p>
 
         {showFilters &&
@@ -802,6 +1360,25 @@ export default function ReportsSection({
             <div className="card-title">Infrastructure Reports</div>
             <div className="card-value">{infrastructureRows.length}</div>
             <div className="card-detail">Matching infrastructure events</div>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div className="panel">
+            <h3>By Type</h3>
+            {renderMiniBars(countBy(infrastructureRows, (event) => event.infrastructureTypeRef?.type || event.infrastructureType))}
+          </div>
+          <div className="panel">
+            <h3>By Sector</h3>
+            {renderMiniBars(countBy(infrastructureRows, (event) => event.patrol?.sector))}
+          </div>
+          <div className="panel">
+            <h3>By Suburb</h3>
+            {renderMiniBars(countBy(infrastructureRows, (event) => event.suburb))}
+          </div>
+          <div className="panel">
+            <h3>By Month</h3>
+            {renderMiniBars(countBy(infrastructureRows, (event) => getMonthKey(event.createdAt)).sort((a, b) => a.label.localeCompare(b.label)))}
           </div>
         </div>
 

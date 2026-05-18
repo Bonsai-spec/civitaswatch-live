@@ -6,6 +6,7 @@ export const DEFAULT_REPORT_FILTERS = {
   patrollerId: "ALL",
   status: "ALL",
   search: "",
+  month: "",
   callSign: "",
   severity: "ALL",
   incidentCode: "ALL",
@@ -17,11 +18,13 @@ export const DEFAULT_REPORT_FILTERS = {
 };
 
 export const REPORT_CATEGORIES = [
+  "Monthly Community Safety Trends",
+  "Patroller Activity",
   "Incident Reports",
   "Patrol Reports",
   "Assistance Request Reports",
-  "Infrastructure Reports",
-  "Vehicle Reports",
+  "Infrastructure Summary / Detail",
+  "Vehicle Usage",
 ];
 
 export const REPORT_SECTOR_FILTER_OPTIONS = [

@@ -241,6 +241,7 @@ export function useReports({
     reportFilters.patrollerId,
     reportFilters.status,
     reportFilters.callSign,
+    reportFilters.month,
   ]);
 
   return {
