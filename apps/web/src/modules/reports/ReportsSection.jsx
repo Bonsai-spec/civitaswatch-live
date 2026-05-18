@@ -120,6 +120,29 @@ function incidentSubcodeLabel(record) {
   );
 }
 
+function getIncidentCodeParts(record) {
+  const codeRef = record?.incidentCodeRef || record?.incident?.incidentCodeRef || null;
+  const subcodeRef = record?.incidentSubcodeRef || record?.incident?.incidentSubcodeRef || null;
+  const code = codeRef?.code || record?.incidentCode || record?.incident?.incidentCode || "-";
+  const codeName = codeRef?.name || record?.incidentType || record?.incident?.incidentType || "-";
+  const subcode = subcodeRef?.subcode || "-";
+  const subcodeName = subcodeRef?.name || "-";
+  const codeLabel = [code, codeName].filter((value) => value && value !== "-").join(" - ") || "-";
+  const codeSubcodeLabel =
+    subcode && subcode !== "-"
+      ? `${codeLabel} / ${subcode}${subcodeName && subcodeName !== "-" ? ` - ${subcodeName}` : ""}`
+      : codeLabel;
+
+  return {
+    code,
+    codeName,
+    subcode,
+    subcodeName,
+    codeLabel,
+    codeSubcodeLabel,
+  };
+}
+
 function getInfrastructureRows(patrolReports) {
   return patrolReports.flatMap((patrol) =>
     (patrol.patrolEvents || [])
@@ -209,6 +232,23 @@ function countBy(rows, getKey) {
   return Array.from(counts.entries())
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function countByWithParts(rows, getParts, getKey) {
+  const groups = new Map();
+
+  rows.forEach((row) => {
+    const parts = getParts(row);
+    const key = getKey(parts, row);
+
+    if (!groups.has(key)) {
+      groups.set(key, { ...parts, label: key, count: 0 });
+    }
+
+    groups.get(key).count += 1;
+  });
+
+  return Array.from(groups.values()).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
 function sumBy(rows, getValue) {
@@ -407,19 +447,107 @@ export default function ReportsSection({
     const incidentsPerMonth = countBy(rows, (incident) => getMonthKey(getRecordDate(incident))).sort((a, b) =>
       a.label.localeCompare(b.label)
     );
+    const incidentsByCode = countByWithParts(
+      currentRows,
+      getIncidentCodeParts,
+      (parts) => parts.codeLabel
+    );
+    const incidentsByCodeAndSubcode = countByWithParts(
+      currentRows,
+      getIncidentCodeParts,
+      (parts) => parts.codeSubcodeLabel
+    );
+    const previousByCodeSubcode = new Map(
+      countByWithParts(previousRows, getIncidentCodeParts, (parts) => parts.codeSubcodeLabel).map((row) => [
+        row.label,
+        row.count,
+      ])
+    );
+    const currentByCodeSubcode = new Map(
+      incidentsByCodeAndSubcode.map((row) => [row.label, row])
+    );
+
+    previousByCodeSubcode.forEach((count, label) => {
+      if (!currentByCodeSubcode.has(label)) {
+        const previousIncident = previousRows.find(
+          (incident) => getIncidentCodeParts(incident).codeSubcodeLabel === label
+        );
+        currentByCodeSubcode.set(label, {
+          ...getIncidentCodeParts(previousIncident || {}),
+          label,
+          count: 0,
+        });
+      }
+    });
+
+    const trendRows = Array.from(currentByCodeSubcode.values())
+      .map((row) => {
+        const previousCount = previousByCodeSubcode.get(row.label) || 0;
+        const matchingRows = currentRows.filter(
+          (incident) => getIncidentCodeParts(incident).codeSubcodeLabel === row.label
+        );
+        const topSuburb = countBy(matchingRows, (incident) => incident.suburb)[0]?.label || "-";
+        const changeValue = previousCount ? ((row.count - previousCount) / previousCount) * 100 : row.count ? 100 : 0;
+
+        return {
+          ...row,
+          thisMonth: row.count,
+          previousMonth: previousCount,
+          change: percentChange(row.count, previousCount),
+          changeValue,
+          topSuburb,
+        };
+      })
+      .sort((a, b) => b.thisMonth - a.thisMonth || a.label.localeCompare(b.label));
+    const suburbRows = countBy(currentRows, (incident) => incident.suburb);
+    const topSuburbs = suburbRows.slice(0, 8).map((row) => row.label);
+    const codeSuburbMatrix = incidentsByCode.map((codeRow) => {
+      const codeRows = currentRows.filter(
+        (incident) => getIncidentCodeParts(incident).codeLabel === codeRow.label
+      );
+      const suburbCounts = new Map(countBy(codeRows, (incident) => incident.suburb).map((row) => [row.label, row.count]));
+
+      return {
+        ...codeRow,
+        suburbCounts,
+        total: codeRows.length,
+      };
+    });
+    const codeTrendByMonth = rows.reduce((acc, incident) => {
+      const month = getMonthKey(getRecordDate(incident));
+      const parts = getIncidentCodeParts(incident);
+      const key = `${month}|${parts.codeLabel}`;
+      const existing = acc.get(key) || {
+        month,
+        code: parts.code,
+        codeName: parts.codeName,
+        label: parts.codeLabel,
+        count: 0,
+      };
+
+      existing.count += 1;
+      acc.set(key, existing);
+      return acc;
+    }, new Map());
 
     return {
       rows,
       currentRows,
       previousRows,
       incidentsPerMonth,
-      byCategory: countBy(currentRows, (incident) => {
-        const code = incidentCodeLabel(incident);
-        return code === "-" ? incident.incidentType : code;
-      }),
-      bySuburb: countBy(currentRows, (incident) => incident.suburb),
+      incidentsByCode,
+      incidentsByCodeAndSubcode,
+      incidentsBySuburb: suburbRows,
+      incidentsBySector: countBy(currentRows, (incident) => incident.sector),
+      codeTrendByMonth: Array.from(codeTrendByMonth.values()).sort((a, b) =>
+        a.month.localeCompare(b.month) || a.label.localeCompare(b.label)
+      ),
+      codeSuburbMatrix,
+      topSuburbs,
+      trendRows,
+      topIncreasingCodes: trendRows.filter((row) => row.changeValue > 0).sort((a, b) => b.changeValue - a.changeValue).slice(0, 10),
+      topDecreasingCodes: trendRows.filter((row) => row.changeValue < 0).sort((a, b) => a.changeValue - b.changeValue).slice(0, 10),
       bySector: countBy(currentRows, (incident) => incident.sector),
-      topTypes: countBy(currentRows, (incident) => incident.incidentType || incidentCodeLabel(incident)),
       topLocations: countBy(currentRows, (incident) =>
         [incident.street, incident.suburb].filter(Boolean).join(", ")
       ),
@@ -601,7 +729,7 @@ export default function ReportsSection({
           )}
         </div>
         <p className="card-detail">
-          Month-to-month incident trends by category, suburb, sector, and location.
+          Month-to-month incident trends by Incident Code, Incident Subcode, suburb, sector, and repeat locations.
         </p>
 
         {showFilters &&
@@ -638,11 +766,14 @@ export default function ReportsSection({
                   exportCsv("monthly-community-safety-trends.csv", [
                     { label: "ID", value: (row) => row.id },
                     { label: "Month", value: (row) => getMonthKey(getRecordDate(row)) },
-                    { label: "Code", value: incidentCodeLabel },
-                    { label: "Subcode", value: incidentSubcodeLabel },
+                    { label: "Incident Code", value: (row) => getIncidentCodeParts(row).code },
+                    { label: "Incident Name", value: (row) => getIncidentCodeParts(row).codeName },
+                    { label: "Subcode", value: (row) => getIncidentCodeParts(row).subcode },
+                    { label: "Subcode Name", value: (row) => getIncidentCodeParts(row).subcodeName },
                     { label: "Title", value: (row) => row.title },
                     { label: "Sector", value: (row) => row.sector },
                     { label: "Suburb", value: (row) => row.suburb },
+                    { label: "Street / Location", value: (row) => [row.street, row.suburb].filter(Boolean).join(", ") },
                     { label: "Status", value: (row) => row.status },
                     { label: "Severity", value: (row) => row.severity },
                     { label: "Created", value: (row) => formatDateTime(row.createdAt) },
@@ -685,21 +816,148 @@ export default function ReportsSection({
             {renderMiniBars(monthlyTrendData.incidentsPerMonth)}
           </div>
           <div className="panel">
-            <h3>Incidents By Category</h3>
-            {renderMiniBars(monthlyTrendData.byCategory)}
+            <h3>Incidents By Incident Code</h3>
+            {renderMiniBars(monthlyTrendData.incidentsByCode)}
+          </div>
+          <div className="panel">
+            <h3>Incidents By Code + Subcode</h3>
+            {renderMiniBars(monthlyTrendData.incidentsByCodeAndSubcode)}
           </div>
           <div className="panel">
             <h3>Incidents By Suburb</h3>
-            {renderMiniBars(monthlyTrendData.bySuburb)}
+            {renderMiniBars(monthlyTrendData.incidentsBySuburb)}
           </div>
           <div className="panel">
             <h3>Incidents By Sector</h3>
-            {renderMiniBars(monthlyTrendData.bySector)}
+            {renderMiniBars(monthlyTrendData.incidentsBySector)}
           </div>
         </div>
 
         <div className="panel">
-          <h3>Top Locations</h3>
+          <h3>Incident Code Month Comparison</h3>
+          {monthlyTrendData.trendRows.length === 0 ? (
+            <p>No incident code trends for the selected month.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Incident Code</th>
+                  <th>Incident Name</th>
+                  <th>Subcode</th>
+                  <th>Subcode Name</th>
+                  <th>This Month</th>
+                  <th>Previous Month</th>
+                  <th>Change</th>
+                  <th>Top Suburb</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTrendData.trendRows.map((row) => (
+                  <tr key={row.label}>
+                    <td>{row.code}</td>
+                    <td>{row.codeName}</td>
+                    <td>{row.subcode}</td>
+                    <td>{row.subcodeName}</td>
+                    <td>{row.thisMonth}</td>
+                    <td>{row.previousMonth}</td>
+                    <td>{row.change}</td>
+                    <td>{row.topSuburb}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="grid">
+          <div className="panel">
+            <h3>Top 10 Increasing Incident Codes</h3>
+            {monthlyTrendData.topIncreasingCodes.length === 0 ? (
+              <p>No increasing incident codes for the selected month.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Incident Code</th>
+                    <th>This Month</th>
+                    <th>Previous Month</th>
+                    <th>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyTrendData.topIncreasingCodes.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.codeSubcodeLabel}</td>
+                      <td>{row.thisMonth}</td>
+                      <td>{row.previousMonth}</td>
+                      <td>{row.change}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <div className="panel">
+            <h3>Top 10 Decreasing Incident Codes</h3>
+            {monthlyTrendData.topDecreasingCodes.length === 0 ? (
+              <p>No decreasing incident codes for the selected month.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th>Incident Code</th>
+                    <th>This Month</th>
+                    <th>Previous Month</th>
+                    <th>Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monthlyTrendData.topDecreasingCodes.map((row) => (
+                    <tr key={row.label}>
+                      <td>{row.codeSubcodeLabel}</td>
+                      <td>{row.thisMonth}</td>
+                      <td>{row.previousMonth}</td>
+                      <td>{row.change}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        <div className="panel">
+          <h3>Incident Code By Suburb Matrix</h3>
+          {monthlyTrendData.codeSuburbMatrix.length === 0 ? (
+            <p>No incident code by suburb data for the selected month.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Incident Code</th>
+                  <th>Total</th>
+                  {monthlyTrendData.topSuburbs.map((suburb) => (
+                    <th key={suburb}>{suburb}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyTrendData.codeSuburbMatrix.map((row) => (
+                  <tr key={row.label}>
+                    <td>{row.codeLabel}</td>
+                    <td>{row.total}</td>
+                    {monthlyTrendData.topSuburbs.map((suburb) => (
+                      <td key={`${row.label}-${suburb}`}>{row.suburbCounts.get(suburb) || 0}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="panel">
+          <h3>Top Repeat Locations</h3>
           {monthlyTrendData.topLocations.length === 0 ? (
             <p>No incidents for the selected month.</p>
           ) : (
@@ -712,30 +970,6 @@ export default function ReportsSection({
               </thead>
               <tbody>
                 {monthlyTrendData.topLocations.slice(0, 10).map((row) => (
-                  <tr key={row.label}>
-                    <td>{row.label}</td>
-                    <td>{row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        <div className="panel">
-          <h3>Top Incident Types</h3>
-          {monthlyTrendData.topTypes.length === 0 ? (
-            <p>No incident types for the selected month.</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Incidents</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyTrendData.topTypes.slice(0, 10).map((row) => (
                   <tr key={row.label}>
                     <td>{row.label}</td>
                     <td>{row.count}</td>
