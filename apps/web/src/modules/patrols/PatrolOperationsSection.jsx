@@ -53,6 +53,36 @@ const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
 const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
 
+const OBSERVATION_TYPES = [
+  "General",
+  "Suspicious Vehicle",
+  "Suspicious Person",
+  "Suspicious Place",
+  "Community Tip",
+  "Infrastructure Concern",
+];
+
+const OBSERVATION_TAGS = [
+  "Suspicious Vehicle",
+  "Suspicious Person",
+  "Suspicious Place",
+  "Possible CCTV",
+  "Requires Follow-up",
+  "Community Tip",
+  "Unverified",
+];
+
+const COMMUNITY_TIP_SOURCE_TYPES = [
+  "Community member",
+  "WhatsApp",
+  "Anonymous",
+  "CCTV",
+  "Security company",
+  "SAPS",
+  "Municipal",
+  "Other",
+];
+
 const INITIAL_START_FORM = {
   vehicleId: "",
   callSign: "",
@@ -79,6 +109,32 @@ const INITIAL_EVENT_FORM = {
   locationNotes: "",
   latitude: "",
   longitude: "",
+  observationType: "General",
+  observationTags: [],
+  vehicleRegistration: "",
+  vehiclePartialRegistration: "",
+  vehicleMake: "",
+  vehicleModel: "",
+  vehicleColour: "",
+  vehicleType: "",
+  vehicleOccupants: "",
+  vehicleDirection: "",
+  vehicleMarks: "",
+  personAlias: "",
+  personClothing: "",
+  personDescription: "",
+  personBehaviour: "",
+  personDirection: "",
+  personVehicle: "",
+  personAssociates: "",
+  placeName: "",
+  premisesType: "",
+  placeConcernReason: "",
+  placeObservedActivity: "",
+  communityTipSourceType: "Community member",
+  communityTipSummary: "",
+  communityTipInformationStatus: "Unverified",
+  infrastructureConcernNotes: "",
 };
 
 const PATROL_ACTIONS = {
@@ -179,6 +235,101 @@ function getVehicleLabel(patrol) {
       .join(" ") ||
     "Vehicle not set"
   );
+}
+
+function hasValue(value) {
+  return String(value || "").trim().length > 0;
+}
+
+function appendObservationLine(lines, label, value) {
+  const text = String(value || "").trim();
+  if (text) lines.push(`${label}: ${text}`);
+}
+
+function buildObservationDescription(form) {
+  const lines = [`Observation Type: ${form.observationType || "General"}`];
+  const tags = Array.isArray(form.observationTags) ? form.observationTags.filter(Boolean) : [];
+
+  if (tags.length) lines.push(`Tags: ${tags.join(", ")}`);
+
+  if (form.observationType === "Suspicious Vehicle") {
+    appendObservationLine(lines, "Registration", form.vehicleRegistration);
+    appendObservationLine(lines, "Partial Registration", form.vehiclePartialRegistration);
+    appendObservationLine(lines, "Make", form.vehicleMake);
+    appendObservationLine(lines, "Model", form.vehicleModel);
+    appendObservationLine(lines, "Colour", form.vehicleColour);
+    appendObservationLine(lines, "Vehicle Type", form.vehicleType);
+    appendObservationLine(lines, "Occupants", form.vehicleOccupants);
+    appendObservationLine(lines, "Direction of Travel", form.vehicleDirection);
+    appendObservationLine(lines, "Distinguishing Marks", form.vehicleMarks);
+  }
+
+  if (form.observationType === "Suspicious Person") {
+    appendObservationLine(lines, "Alias/Name Volunteered", form.personAlias);
+    appendObservationLine(lines, "Clothing", form.personClothing);
+    appendObservationLine(lines, "Person Description", form.personDescription);
+    appendObservationLine(lines, "Behaviour Observed", form.personBehaviour);
+    appendObservationLine(lines, "Direction of Movement", form.personDirection);
+    appendObservationLine(lines, "Associated Vehicle", form.personVehicle);
+    appendObservationLine(lines, "Associates", form.personAssociates);
+  }
+
+  if (form.observationType === "Suspicious Place") {
+    appendObservationLine(lines, "Place Name", form.placeName);
+    appendObservationLine(lines, "Premises Type", form.premisesType);
+    appendObservationLine(lines, "Reason for Concern", form.placeConcernReason);
+    appendObservationLine(lines, "Observed Activity", form.placeObservedActivity);
+  }
+
+  if (form.observationType === "Community Tip") {
+    appendObservationLine(lines, "Source Type", form.communityTipSourceType);
+    appendObservationLine(lines, "Information Status", form.communityTipInformationStatus || "Unverified");
+    appendObservationLine(lines, "Public/Operational Summary", form.communityTipSummary);
+    appendObservationLine(lines, "Reference Number", form.referenceNumber);
+  }
+
+  if (form.observationType === "Infrastructure Concern") {
+    appendObservationLine(lines, "Infrastructure Type", form.infrastructureType);
+    appendObservationLine(lines, "Reference Number", form.referenceNumber);
+    appendObservationLine(lines, "Notes", form.infrastructureConcernNotes);
+  }
+
+  appendObservationLine(lines, "Description", form.description);
+
+  return lines.join("\n");
+}
+
+function hasStructuredObservationDetails(form) {
+  const fields = [
+    form.description,
+    ...(Array.isArray(form.observationTags) ? form.observationTags : []),
+    form.vehicleRegistration,
+    form.vehiclePartialRegistration,
+    form.vehicleMake,
+    form.vehicleModel,
+    form.vehicleColour,
+    form.vehicleType,
+    form.vehicleOccupants,
+    form.vehicleDirection,
+    form.vehicleMarks,
+    form.personAlias,
+    form.personClothing,
+    form.personDescription,
+    form.personBehaviour,
+    form.personDirection,
+    form.personVehicle,
+    form.personAssociates,
+    form.placeName,
+    form.premisesType,
+    form.placeConcernReason,
+    form.placeObservedActivity,
+    form.communityTipSummary,
+    form.referenceNumber,
+    form.infrastructureType,
+    form.infrastructureConcernNotes,
+  ];
+
+  return fields.some(hasValue);
 }
 
 export default function PatrolOperationsSection({
@@ -362,6 +513,18 @@ export default function PatrolOperationsSection({
     }
   }, [showInfrastructureForm, token, infrastructureTypes.length, infrastructureTypesLoading]);
 
+  useEffect(() => {
+    if (
+      showObservationForm &&
+      eventForm.observationType === "Infrastructure Concern" &&
+      token &&
+      infrastructureTypes.length === 0 &&
+      !infrastructureTypesLoading
+    ) {
+      loadInfrastructureTypes();
+    }
+  }, [showObservationForm, eventForm.observationType, token, infrastructureTypes.length, infrastructureTypesLoading]);
+
   async function loadIncidentCodes() {
     try {
       setIncidentCodesLoading(true);
@@ -519,6 +682,32 @@ export default function PatrolOperationsSection({
       locationNotes: "",
       latitude: "",
       longitude: "",
+      observationType: "General",
+      observationTags: [],
+      vehicleRegistration: "",
+      vehiclePartialRegistration: "",
+      vehicleMake: "",
+      vehicleModel: "",
+      vehicleColour: "",
+      vehicleType: "",
+      vehicleOccupants: "",
+      vehicleDirection: "",
+      vehicleMarks: "",
+      personAlias: "",
+      personClothing: "",
+      personDescription: "",
+      personBehaviour: "",
+      personDirection: "",
+      personVehicle: "",
+      personAssociates: "",
+      placeName: "",
+      premisesType: "",
+      placeConcernReason: "",
+      placeObservedActivity: "",
+      communityTipSourceType: "Community member",
+      communityTipSummary: "",
+      communityTipInformationStatus: "Unverified",
+      infrastructureConcernNotes: "",
     }));
     setIncidentSubcodes([]);
   }
@@ -582,11 +771,18 @@ export default function PatrolOperationsSection({
         return;
       }
 
+      if (selectedPatrolAction === "observation" && !hasStructuredObservationDetails(eventForm)) {
+        setMessage("Add a description, tag, reference, or at least one observation detail.");
+        return;
+      }
+
       const eventType = selectedPatrolAction === "incidentResponse"
         ? "MOBILE"
         : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
       const referenceNumber = eventForm.referenceNumber.trim();
-      const description = eventForm.description.trim();
+      const description = selectedPatrolAction === "observation"
+        ? buildObservationDescription(eventForm)
+        : eventForm.description.trim();
       const assistance = selectedPatrolAction === "emergency"
         ? eventForm.assistance || "Emergency Assistance"
         : eventForm.assistance || null;
@@ -722,6 +918,215 @@ export default function PatrolOperationsSection({
       ...current,
       [field]: value,
     }));
+  }
+
+  function updateObservationType(observationType) {
+    setEventForm((current) => ({
+      ...current,
+      observationType,
+    }));
+  }
+
+  function toggleObservationTag(tag) {
+    setEventForm((current) => {
+      const tags = Array.isArray(current.observationTags) ? current.observationTags : [];
+      const nextTags = tags.includes(tag)
+        ? tags.filter((item) => item !== tag)
+        : [...tags, tag];
+
+      return {
+        ...current,
+        observationTags: nextTags,
+      };
+    });
+  }
+
+  function renderObservationTags() {
+    return (
+      <div className="patrol-observation-tags">
+        {OBSERVATION_TAGS.map((tag) => (
+          <label className="patrol-check-option" key={tag}>
+            <input
+              type="checkbox"
+              checked={(eventForm.observationTags || []).includes(tag)}
+              onChange={() => toggleObservationTag(tag)}
+            />
+            <span>{tag}</span>
+          </label>
+        ))}
+      </div>
+    );
+  }
+
+  function renderObservationTypeFields() {
+    if (eventForm.observationType === "Suspicious Vehicle") {
+      return (
+        <>
+          <label>
+            Registration Number
+            <input value={eventForm.vehicleRegistration} onChange={(event) => updateEventForm("vehicleRegistration", event.target.value)} />
+          </label>
+          <label>
+            Partial Registration
+            <input value={eventForm.vehiclePartialRegistration} onChange={(event) => updateEventForm("vehiclePartialRegistration", event.target.value)} />
+          </label>
+          <label>
+            Make
+            <input value={eventForm.vehicleMake} onChange={(event) => updateEventForm("vehicleMake", event.target.value)} />
+          </label>
+          <label>
+            Model
+            <input value={eventForm.vehicleModel} onChange={(event) => updateEventForm("vehicleModel", event.target.value)} />
+          </label>
+          <label>
+            Colour
+            <input value={eventForm.vehicleColour} onChange={(event) => updateEventForm("vehicleColour", event.target.value)} />
+          </label>
+          <label>
+            Vehicle Type
+            <input value={eventForm.vehicleType} onChange={(event) => updateEventForm("vehicleType", event.target.value)} />
+          </label>
+          <label>
+            Occupants Count
+            <input inputMode="numeric" value={eventForm.vehicleOccupants} onChange={(event) => updateEventForm("vehicleOccupants", event.target.value)} />
+          </label>
+          <label>
+            Direction of Travel
+            <input value={eventForm.vehicleDirection} onChange={(event) => updateEventForm("vehicleDirection", event.target.value)} />
+          </label>
+          <label>
+            Distinguishing Marks
+            <textarea value={eventForm.vehicleMarks} onChange={(event) => updateEventForm("vehicleMarks", event.target.value)} />
+          </label>
+        </>
+      );
+    }
+
+    if (eventForm.observationType === "Suspicious Person") {
+      return (
+        <>
+          <label>
+            Alias/Name if Volunteered
+            <input value={eventForm.personAlias} onChange={(event) => updateEventForm("personAlias", event.target.value)} />
+          </label>
+          <label>
+            Clothing
+            <input value={eventForm.personClothing} onChange={(event) => updateEventForm("personClothing", event.target.value)} />
+          </label>
+          <label>
+            Person Description
+            <textarea value={eventForm.personDescription} onChange={(event) => updateEventForm("personDescription", event.target.value)} />
+          </label>
+          <label>
+            Behaviour Observed
+            <textarea value={eventForm.personBehaviour} onChange={(event) => updateEventForm("personBehaviour", event.target.value)} />
+          </label>
+          <label>
+            Direction of Movement
+            <input value={eventForm.personDirection} onChange={(event) => updateEventForm("personDirection", event.target.value)} />
+          </label>
+          <label>
+            Associated Vehicle
+            <input value={eventForm.personVehicle} onChange={(event) => updateEventForm("personVehicle", event.target.value)} />
+          </label>
+          <label>
+            Associates
+            <input value={eventForm.personAssociates} onChange={(event) => updateEventForm("personAssociates", event.target.value)} />
+          </label>
+        </>
+      );
+    }
+
+    if (eventForm.observationType === "Suspicious Place") {
+      return (
+        <>
+          <label>
+            Place Name
+            <input value={eventForm.placeName} onChange={(event) => updateEventForm("placeName", event.target.value)} />
+          </label>
+          <label>
+            Premises Type
+            <input value={eventForm.premisesType} onChange={(event) => updateEventForm("premisesType", event.target.value)} placeholder="House, business, park, school, street corner..." />
+          </label>
+          <label>
+            Reason for Concern
+            <textarea value={eventForm.placeConcernReason} onChange={(event) => updateEventForm("placeConcernReason", event.target.value)} />
+          </label>
+          <label>
+            Observed Activity
+            <textarea value={eventForm.placeObservedActivity} onChange={(event) => updateEventForm("placeObservedActivity", event.target.value)} />
+          </label>
+        </>
+      );
+    }
+
+    if (eventForm.observationType === "Community Tip") {
+      return (
+        <>
+          <label>
+            Source Type
+            <select
+              value={eventForm.communityTipSourceType}
+              onChange={(event) => updateEventForm("communityTipSourceType", event.target.value)}
+            >
+              {COMMUNITY_TIP_SOURCE_TYPES.map((sourceType) => (
+                <option key={sourceType} value={sourceType}>{sourceType}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Information Status
+            <input value={eventForm.communityTipInformationStatus} readOnly />
+            <span className="patrol-muted">Community tips captured by Patrol are treated as unverified source information.</span>
+          </label>
+          <label>
+            Public/Operational Summary
+            <textarea value={eventForm.communityTipSummary} onChange={(event) => updateEventForm("communityTipSummary", event.target.value)} />
+          </label>
+          <label>
+            Reference Number
+            <input value={eventForm.referenceNumber} onChange={(event) => updateEventForm("referenceNumber", event.target.value)} />
+          </label>
+        </>
+      );
+    }
+
+    if (eventForm.observationType === "Infrastructure Concern") {
+      return (
+        <>
+          {infrastructureTypesLoading && (
+            <p className="patrol-muted">Loading infrastructure types...</p>
+          )}
+          {infrastructureTypeError && (
+            <div className="patrol-message">{infrastructureTypeError}</div>
+          )}
+          <label>
+            Infrastructure Type
+            <select
+              value={eventForm.infrastructureTypeId}
+              onChange={(event) => updateInfrastructureTypeSelection(event.target.value)}
+            >
+              <option value="">Select infrastructure type</option>
+              {infrastructureTypes.map((infrastructureType) => (
+                <option key={infrastructureType.id} value={infrastructureType.id}>
+                  {infrastructureType.type}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Reference Number
+            <input value={eventForm.referenceNumber} onChange={(event) => updateEventForm("referenceNumber", event.target.value)} />
+          </label>
+          <label>
+            Notes
+            <textarea value={eventForm.infrastructureConcernNotes} onChange={(event) => updateEventForm("infrastructureConcernNotes", event.target.value)} />
+          </label>
+        </>
+      );
+    }
+
+    return null;
   }
 
   function renderLocationFields() {
@@ -1153,9 +1558,32 @@ export default function PatrolOperationsSection({
             <form id="patrol-event-form" className="patrol-step-card patrol-mobile-form" onSubmit={submitPatrolEvent}>
               <div className="patrol-step-label">{currentPatrolAction.formTitle}</div>
               <label>
-                Description
+                Observation Type
+                <select
+                  value={eventForm.observationType}
+                  onChange={(event) => updateObservationType(event.target.value)}
+                >
+                  {OBSERVATION_TYPES.map((observationType) => (
+                    <option key={observationType} value={observationType}>
+                      {observationType}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {renderObservationTypeFields()}
+
+              <label>
+                Description / Notes
                 <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />
               </label>
+
+              <div>
+                <div className="patrol-step-label">Optional Tags</div>
+                <p className="patrol-muted">Operational source tags only. No Intelligence labels are shown to Patrol.</p>
+                {renderObservationTags()}
+              </div>
+
               {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
                 {currentPatrolAction.submitLabel}

@@ -636,6 +636,12 @@ textarea {
   gap: 8px;
 }
 
+.patrol-observation-tags {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .patrol-check-option,
 .patrol-step-card .patrol-check-option,
 .patrol-mobile-form .patrol-check-option {
