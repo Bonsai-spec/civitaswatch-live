@@ -32,12 +32,12 @@ export const ADMIN_NAV_SECTIONS = [
   {
     label: "Reports",
     items: [
-      { label: "Monthly Community Safety Trends", permission: "VIEW_REPORTS" },
+      { label: "Monthly Safety Trends", permission: "VIEW_REPORTS" },
       { label: "Patroller Activity", permission: "VIEW_REPORTS" },
       { label: "Incident Reports", permission: "VIEW_REPORTS" },
       { label: "Patrol Reports", permission: "VIEW_REPORTS" },
-      { label: "Assistance Request Reports", permission: "VIEW_REPORTS" },
-      { label: "Infrastructure Summary / Detail", permission: "VIEW_REPORTS" },
+      { label: "Assistance Requests", permission: "VIEW_REPORTS" },
+      { label: "Infrastructure", permission: "VIEW_REPORTS" },
       { label: "Vehicle Usage", permission: "VIEW_REPORTS" },
     ],
   },

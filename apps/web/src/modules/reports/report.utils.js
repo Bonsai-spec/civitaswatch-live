@@ -14,6 +14,12 @@ export function filterPatrolReports(patrolReports, reportFilters) {
       if (startDate > toDate) return false;
     }
 
+    if (reportFilters.month) {
+      if (!startDate) return false;
+      const monthKey = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}`;
+      if (monthKey !== reportFilters.month) return false;
+    }
+
     if (reportFilters.sector !== "ALL" && patrol.sector !== reportFilters.sector) {
       return false;
     }

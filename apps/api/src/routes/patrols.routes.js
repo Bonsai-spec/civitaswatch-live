@@ -316,6 +316,20 @@ function buildPatrolReportWhere(query = {}) {
     where.status = query.status;
   }
 
+  if (query.month && !query.from && !query.to) {
+    const monthStart = new Date(`${query.month}-01T00:00:00.000Z`);
+
+    if (!Number.isNaN(monthStart.getTime())) {
+      const monthEnd = new Date(monthStart);
+      monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
+
+      where.startTime = {
+        gte: monthStart,
+        lt: monthEnd,
+      };
+    }
+  }
+
   if (query.from || query.to) {
     where.startTime = {};
 

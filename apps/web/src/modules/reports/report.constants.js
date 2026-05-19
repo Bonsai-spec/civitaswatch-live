@@ -11,6 +11,7 @@ export const DEFAULT_REPORT_FILTERS = {
   severity: "ALL",
   incidentCode: "ALL",
   incidentSubcode: "ALL",
+  suburb: "",
   serviceType: "ALL",
   referenceNumber: "",
   infrastructureType: "ALL",
@@ -18,12 +19,12 @@ export const DEFAULT_REPORT_FILTERS = {
 };
 
 export const REPORT_CATEGORIES = [
-  "Monthly Community Safety Trends",
+  "Monthly Safety Trends",
   "Patroller Activity",
   "Incident Reports",
   "Patrol Reports",
-  "Assistance Request Reports",
-  "Infrastructure Summary / Detail",
+  "Assistance Requests",
+  "Infrastructure",
   "Vehicle Usage",
 ];
 
