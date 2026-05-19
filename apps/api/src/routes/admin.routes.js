@@ -84,6 +84,12 @@ const patrolInclude = {
           incidentSubcodeId: true,
           title: true,
           status: true,
+          incidentCodeRef: {
+            select: incidentCodeSelect,
+          },
+          incidentSubcodeRef: {
+            select: incidentSubcodeSelect,
+          },
         },
       },
       incidentCodeRef: {
@@ -123,6 +129,35 @@ const patrolInclude = {
 const incidentInclude = {
   linkedPatrol: {
     include: patrolInclude,
+  },
+  patrolEvents: {
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 25,
+    select: {
+      id: true,
+      patrolId: true,
+      incidentId: true,
+      type: true,
+      description: true,
+      createdAt: true,
+      incidentCodeId: true,
+      incidentSubcodeId: true,
+      referenceNumber: true,
+      streetNumber: true,
+      streetName: true,
+      suburb: true,
+      locationNotes: true,
+      latitude: true,
+      longitude: true,
+      incidentCodeRef: {
+        select: incidentCodeSelect,
+      },
+      incidentSubcodeRef: {
+        select: incidentSubcodeSelect,
+      },
+    },
   },
   incidentCodeRef: {
     select: incidentCodeSelect,

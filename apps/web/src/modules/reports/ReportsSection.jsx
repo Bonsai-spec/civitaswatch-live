@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { resolveIncidentClassification } from "./report.utils";
 
 function formatEventClassification(event) {
   return [
@@ -120,32 +121,7 @@ function incidentSubcodeLabel(record) {
 }
 
 function getIncidentCodeParts(record) {
-  const codeRef = record?.incidentCodeRef || record?.incident?.incidentCodeRef || null;
-  const subcodeRef = record?.incidentSubcodeRef || record?.incident?.incidentSubcodeRef || null;
-  const code = codeRef?.code || "Unclassified";
-  const codeName = codeRef?.name || "";
-  const subcode = subcodeRef?.subcode || "";
-  const subcodeName = subcodeRef?.name || "";
-  const codeLabel = codeRef
-    ? [code, codeName].filter(Boolean).join(" - ")
-    : "Unclassified";
-  const subcodeLabel = subcodeRef
-    ? [subcode, subcodeName].filter(Boolean).join(" - ")
-    : "No Subcode";
-  const codeSubcodeLabel =
-    subcodeRef
-      ? `${codeLabel} / ${subcodeLabel}`
-      : codeLabel;
-
-  return {
-    code,
-    codeName,
-    subcode,
-    subcodeName,
-    codeLabel,
-    subcodeLabel,
-    codeSubcodeLabel,
-  };
+  return resolveIncidentClassification(record);
 }
 
 function getIncidentSuburb(record) {
@@ -441,6 +417,10 @@ export default function ReportsSection({
       return true;
     });
   }, [filteredIncidentReports, reportFilters]);
+  const unclassifiedIncidentRows = useMemo(
+    () => incidentRows.filter((incident) => !getIncidentCodeParts(incident).isClassified),
+    [incidentRows]
+  );
   const assistanceRows = useMemo(() => {
     return assistanceRequests.filter((request) => {
       const patrol = request.patrol || {};
@@ -904,6 +884,16 @@ export default function ReportsSection({
           Month-to-month incident trends by Incident Code, Incident Subcode, suburb, sector, and repeat locations.
         </p>
 
+        {monthlyTrendData.currentRows.some((incident) => !getIncidentCodeParts(incident).isClassified) && (
+          <div className="panel">
+            <h3>Unclassified / Needs Classification</h3>
+            <p>
+              {monthlyTrendData.currentRows.filter((incident) => !getIncidentCodeParts(incident).isClassified).length} incident records are
+              unclassified because they do not have a linked SAPS Incident Code. Review/backfill required.
+            </p>
+          </div>
+        )}
+
         {showFilters &&
           renderCommonFilters(
             <>
@@ -1044,7 +1034,7 @@ export default function ReportsSection({
             <>
               {monthlyTrendData.trendRows.slice(0, 5).map((row) => (
                 <p key={row.label}>
-                  {row.code} - {row.codeName} {row.changeValue >= 0 ? "increased" : "decreased"} from{" "}
+                  {row.codeLabel} {row.changeValue >= 0 ? "increased" : "decreased"} from{" "}
                   {row.previousMonth} to {row.thisMonth}
                   {row.topSuburb && row.topSuburb !== "-" ? ` in ${row.topSuburb}` : ""}.
                 </p>
@@ -1524,10 +1514,10 @@ export default function ReportsSection({
                 onClick={() =>
                   exportCsv(buildCsvFilename("incident-reports", reportFilters), [
                     { label: "ID", value: (row) => row.id },
-                    { label: "Code", value: incidentCodeLabel },
-                    { label: "Subcode", value: incidentSubcodeLabel },
-                    { label: "Code Name", value: (row) => getIncidentCodeParts(row).codeName },
-                    { label: "Subcode Name", value: (row) => getIncidentCodeParts(row).subcodeName },
+                    { label: "Incident Code", value: (row) => getIncidentCodeParts(row).code },
+                    { label: "Incident Name", value: (row) => getIncidentCodeParts(row).codeName },
+                    { label: "Incident Subcode", value: (row) => getIncidentCodeParts(row).subcode },
+                    { label: "Incident Subcode Name", value: (row) => getIncidentCodeParts(row).subcodeName },
                     { label: "Title", value: (row) => row.title },
                     { label: "Description", value: (row) => row.description },
                     { label: "Sector", value: (row) => row.sector },
@@ -1556,13 +1546,27 @@ export default function ReportsSection({
           </div>
         </div>
 
+        {unclassifiedIncidentRows.length > 0 && (
+          <div className="panel">
+            <h3>Unclassified / Needs Classification</h3>
+            <p>
+              {unclassifiedIncidentRows.length} incident records are unclassified because they do not have a linked
+              SAPS Incident Code. These are historical records and may need manual backfill/reclassification; no
+              automatic title or free-text mapping was made.
+            </p>
+          </div>
+        )}
+
         {incidentRows.length === 0 ? (
           <p>No incident reports available.</p>
         ) : (
           <table>
             <thead>
               <tr>
-                <th>Code</th>
+                <th>Incident Code</th>
+                <th>Incident Name</th>
+                <th>Incident Subcode</th>
+                <th>Incident Subcode Name</th>
                 <th>Title</th>
                 <th>Type</th>
                 <th>Sector</th>
@@ -1574,9 +1578,15 @@ export default function ReportsSection({
               </tr>
             </thead>
             <tbody>
-              {incidentRows.map((incident) => (
+              {incidentRows.map((incident) => {
+                const classification = getIncidentCodeParts(incident);
+
+                return (
                 <tr key={incident.id}>
-                  <td>{incidentCodeLabel(incident)}</td>
+                  <td>{classification.code}</td>
+                  <td>{classification.codeName || (classification.isClassified ? "-" : "Unclassified")}</td>
+                  <td>{classification.subcode || "-"}</td>
+                  <td>{classification.subcodeName || "-"}</td>
                   <td>{incident.title || "-"}</td>
                   <td>{incident.incidentType || "-"}</td>
                   <td>{incident.sector || "-"}</td>
@@ -1589,8 +1599,10 @@ export default function ReportsSection({
                       title: "Incident Report",
                       rows: [
                         ["ID", incident.id],
-                        ["Code", incidentCodeLabel(incident)],
-                        ["Subcode", incidentSubcodeLabel(incident)],
+                        ["Incident Code", classification.code],
+                        ["Incident Name", classification.codeName || (classification.isClassified ? "-" : "Unclassified")],
+                        ["Incident Subcode", classification.subcode || "-"],
+                        ["Incident Subcode Name", classification.subcodeName || "-"],
                         ["Title", incident.title],
                         ["Description", incident.description],
                         ["Sector", incident.sector],
@@ -1609,7 +1621,8 @@ export default function ReportsSection({
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
