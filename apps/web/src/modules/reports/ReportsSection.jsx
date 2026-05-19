@@ -112,34 +112,29 @@ function includesText(value, search) {
 }
 
 function incidentCodeLabel(record) {
-  return (
-    record?.incidentCodeRef?.code ||
-    record?.incidentCode ||
-    record?.incident?.incidentCodeRef?.code ||
-    record?.incident?.incidentCode ||
-    "-"
-  );
+  return getIncidentCodeParts(record).codeLabel;
 }
 
 function incidentSubcodeLabel(record) {
-  return (
-    record?.incidentSubcodeRef?.subcode ||
-    record?.incident?.incidentSubcodeRef?.subcode ||
-    "-"
-  );
+  return getIncidentCodeParts(record).subcodeLabel;
 }
 
 function getIncidentCodeParts(record) {
   const codeRef = record?.incidentCodeRef || record?.incident?.incidentCodeRef || null;
   const subcodeRef = record?.incidentSubcodeRef || record?.incident?.incidentSubcodeRef || null;
-  const code = codeRef?.code || record?.incidentCode || record?.incident?.incidentCode || "-";
-  const codeName = codeRef?.name || record?.incidentType || record?.incident?.incidentType || "-";
-  const subcode = subcodeRef?.subcode || "-";
-  const subcodeName = subcodeRef?.name || "-";
-  const codeLabel = [code, codeName].filter((value) => value && value !== "-").join(" - ") || "-";
+  const code = codeRef?.code || "Unclassified";
+  const codeName = codeRef?.name || "";
+  const subcode = subcodeRef?.subcode || "";
+  const subcodeName = subcodeRef?.name || "";
+  const codeLabel = codeRef
+    ? [code, codeName].filter(Boolean).join(" - ")
+    : "Unclassified";
+  const subcodeLabel = subcodeRef
+    ? [subcode, subcodeName].filter(Boolean).join(" - ")
+    : "No Subcode";
   const codeSubcodeLabel =
-    subcode && subcode !== "-"
-      ? `${codeLabel} / ${subcode}${subcodeName && subcodeName !== "-" ? ` - ${subcodeName}` : ""}`
+    subcodeRef
+      ? `${codeLabel} / ${subcodeLabel}`
       : codeLabel;
 
   return {
@@ -148,8 +143,31 @@ function getIncidentCodeParts(record) {
     subcode,
     subcodeName,
     codeLabel,
+    subcodeLabel,
     codeSubcodeLabel,
   };
+}
+
+function getIncidentSuburb(record) {
+  return (
+    record?.suburb ||
+    record?.patrolEvents?.find((event) => event.suburb)?.suburb ||
+    record?.incident?.suburb ||
+    "Unknown"
+  );
+}
+
+function getIncidentStreetLocation(record) {
+  const eventWithLocation = record?.patrolEvents?.find((event) =>
+    [event.streetNumber, event.streetName, event.suburb, event.locationNotes].some(Boolean)
+  );
+  const eventStreet = [eventWithLocation?.streetNumber, eventWithLocation?.streetName].filter(Boolean).join(" ");
+  const incidentLocation = [record?.street, record?.suburb].filter(Boolean).join(", ");
+  const eventLocation = [eventStreet, eventWithLocation?.suburb, eventWithLocation?.locationNotes]
+    .filter(Boolean)
+    .join(", ");
+
+  return incidentLocation || eventLocation || "Unknown";
 }
 
 function getInfrastructureRows(patrolReports) {
@@ -400,7 +418,8 @@ export default function ReportsSection({
   const incidentRows = useMemo(() => {
     return filteredIncidentReports.filter((incident) => {
       const search = [
-        incident.incidentCode,
+        incidentCodeLabel(incident),
+        incidentSubcodeLabel(incident),
         incident.title,
         incident.description,
         incident.incidentType,
@@ -408,7 +427,7 @@ export default function ReportsSection({
         incident.status,
         incident.severity,
         incident.street,
-        incident.suburb,
+        getIncidentSuburb(incident),
       ].join(" ");
 
       if (!inDateRange(incident, reportFilters)) return false;
@@ -418,7 +437,7 @@ export default function ReportsSection({
       if (reportFilters.severity !== "ALL" && incident.severity !== reportFilters.severity) return false;
       if (reportFilters.incidentCode !== "ALL" && incidentCodeLabel(incident) !== reportFilters.incidentCode) return false;
       if (reportFilters.incidentSubcode !== "ALL" && incidentSubcodeLabel(incident) !== reportFilters.incidentSubcode) return false;
-      if (reportFilters.suburb && !includesText(incident.suburb, reportFilters.suburb)) return false;
+      if (reportFilters.suburb && !includesText(getIncidentSuburb(incident), reportFilters.suburb)) return false;
       return true;
     });
   }, [filteredIncidentReports, reportFilters]);
@@ -492,11 +511,11 @@ export default function ReportsSection({
       if (reportFilters.severity !== "ALL" && incident.severity !== reportFilters.severity) return false;
       if (reportFilters.incidentCode !== "ALL" && incidentCodeLabel(incident) !== reportFilters.incidentCode) return false;
       if (reportFilters.incidentSubcode !== "ALL" && incidentSubcodeLabel(incident) !== reportFilters.incidentSubcode) return false;
-      if (reportFilters.suburb && !includesText(incident.suburb, reportFilters.suburb)) return false;
+      if (reportFilters.suburb && !includesText(getIncidentSuburb(incident), reportFilters.suburb)) return false;
       if (!includesText([
         incident.title,
         incident.description,
-        incident.suburb,
+        getIncidentSuburb(incident),
         incident.street,
         incident.sector,
         incident.incidentType,
@@ -547,7 +566,7 @@ export default function ReportsSection({
         const matchingRows = currentRows.filter(
           (incident) => getIncidentCodeParts(incident).codeSubcodeLabel === row.label
         );
-        const topSuburb = countBy(matchingRows, (incident) => incident.suburb)[0]?.label || "-";
+        const topSuburb = countBy(matchingRows, getIncidentSuburb)[0]?.label || "-";
         const changeValue = previousCount ? ((row.count - previousCount) / previousCount) * 100 : row.count ? 100 : 0;
 
         return {
@@ -560,13 +579,13 @@ export default function ReportsSection({
         };
       })
       .sort((a, b) => b.thisMonth - a.thisMonth || a.label.localeCompare(b.label));
-    const suburbRows = countBy(currentRows, (incident) => incident.suburb);
+    const suburbRows = countBy(currentRows, getIncidentSuburb);
     const topSuburbs = suburbRows.slice(0, 8).map((row) => row.label);
     const codeSuburbMatrix = incidentsByCode.map((codeRow) => {
       const codeRows = currentRows.filter(
         (incident) => getIncidentCodeParts(incident).codeLabel === codeRow.label
       );
-      const suburbCounts = new Map(countBy(codeRows, (incident) => incident.suburb).map((row) => [row.label, row.count]));
+      const suburbCounts = new Map(countBy(codeRows, getIncidentSuburb).map((row) => [row.label, row.count]));
 
       return {
         ...codeRow,
@@ -590,6 +609,24 @@ export default function ReportsSection({
       acc.set(key, existing);
       return acc;
     }, new Map());
+    const csvRowsByKey = new Map();
+
+    currentRows.forEach((incident) => {
+      const parts = getIncidentCodeParts(incident);
+      const suburb = getIncidentSuburb(incident);
+      const sector = incident.sector || "Unknown";
+      const key = `${parts.codeLabel}|${parts.codeSubcodeLabel}|${suburb}|${sector}`;
+      const row = csvRowsByKey.get(key) || {
+        month: selectedMonth,
+        ...parts,
+        suburb,
+        sector,
+        count: 0,
+      };
+
+      row.count += 1;
+      csvRowsByKey.set(key, row);
+    });
 
     return {
       rows,
@@ -608,12 +645,13 @@ export default function ReportsSection({
       trendRows,
       topIncreasingCodes: trendRows.filter((row) => row.changeValue > 0).sort((a, b) => b.changeValue - a.changeValue).slice(0, 10),
       topDecreasingCodes: trendRows.filter((row) => row.changeValue < 0).sort((a, b) => a.changeValue - b.changeValue).slice(0, 10),
+      csvRows: Array.from(csvRowsByKey.values()).sort((a, b) => b.count - a.count || a.codeSubcodeLabel.localeCompare(b.codeSubcodeLabel)),
       bySector: countBy(currentRows, (incident) => incident.sector),
       dayNightSplit: countBy(currentRows, (incident) => getDayNightBand(getRecordDate(incident))),
       previousDayNightSplit: countBy(previousRows, (incident) => getDayNightBand(getRecordDate(incident))),
       timeBands: countBy(currentRows, (incident) => getDetailedTimeBand(getRecordDate(incident))),
       topLocations: countBy(currentRows, (incident) =>
-        [incident.street, incident.suburb].filter(Boolean).join(", ")
+        getIncidentStreetLocation(incident)
       ),
     };
   }, [filteredIncidentReports, reportFilters, selectedMonth, previousMonth]);
@@ -912,22 +950,15 @@ export default function ReportsSection({
                 type="button"
                 onClick={() =>
                   exportCsv(buildCsvFilename("monthly-safety-trends", reportFilters, selectedMonth), [
-                    { label: "ID", value: (row) => row.id },
-                    { label: "Month", value: (row) => getMonthKey(getRecordDate(row)) },
-                    { label: "Incident Code", value: (row) => getIncidentCodeParts(row).code },
-                    { label: "Incident Name", value: (row) => getIncidentCodeParts(row).codeName },
-                    { label: "Subcode", value: (row) => getIncidentCodeParts(row).subcode },
-                    { label: "Subcode Name", value: (row) => getIncidentCodeParts(row).subcodeName },
-                    { label: "Title", value: (row) => row.title },
+                    { label: "Month", value: (row) => row.month },
+                    { label: "Incident Code", value: (row) => row.code },
+                    { label: "Incident Name", value: (row) => row.codeName },
+                    { label: "Incident Subcode", value: (row) => row.subcode },
+                    { label: "Incident Subcode Name", value: (row) => row.subcodeName },
+                    { label: "Count", value: (row) => row.count },
                     { label: "Sector", value: (row) => row.sector },
                     { label: "Suburb", value: (row) => row.suburb },
-                    { label: "Street / Location", value: (row) => [row.street, row.suburb].filter(Boolean).join(", ") },
-                    { label: "Day/Night", value: (row) => getDayNightBand(getRecordDate(row)) },
-                    { label: "Time Band", value: (row) => getDetailedTimeBand(getRecordDate(row)) },
-                    { label: "Status", value: (row) => row.status },
-                    { label: "Severity", value: (row) => row.severity },
-                    { label: "Created", value: (row) => formatDateTime(row.createdAt) },
-                  ], monthlyTrendData.currentRows)
+                  ], monthlyTrendData.csvRows)
                 }
               >
                 Export CSV
@@ -1502,8 +1533,8 @@ export default function ReportsSection({
                     { label: "Sector", value: (row) => row.sector },
                     { label: "Status", value: (row) => row.status },
                     { label: "Severity", value: (row) => row.severity },
-                    { label: "Suburb", value: (row) => row.suburb },
-                    { label: "Address", value: (row) => [row.street, row.suburb].filter(Boolean).join(", ") },
+                    { label: "Suburb", value: getIncidentSuburb },
+                    { label: "Address", value: getIncidentStreetLocation },
                     { label: "Reported", value: (row) => formatDateTime(row.reportedAt) },
                     { label: "Occurred", value: (row) => formatDateTime(row.occurredAt) },
                     { label: "Created", value: (row) => formatDateTime(row.createdAt) },
@@ -1549,10 +1580,10 @@ export default function ReportsSection({
                   <td>{incident.title || "-"}</td>
                   <td>{incident.incidentType || "-"}</td>
                   <td>{incident.sector || "-"}</td>
-                  <td>{incident.suburb || "-"}</td>
+                  <td>{getIncidentSuburb(incident)}</td>
                   <td>{incident.status || "-"}</td>
                   <td>{incident.severity || "-"}</td>
-                  <td>{[incident.street, incident.suburb].filter(Boolean).join(", ") || "-"}</td>
+                  <td>{getIncidentStreetLocation(incident)}</td>
                   <td>
                     <button onClick={() => onViewIncidentReport ? onViewIncidentReport(incident) : setSelectedReportDetail({
                       title: "Incident Report",
@@ -1565,7 +1596,7 @@ export default function ReportsSection({
                         ["Sector", incident.sector],
                         ["Status", incident.status],
                         ["Severity", incident.severity],
-                        ["Address", [incident.street, incident.suburb].filter(Boolean).join(", ")],
+                        ["Address", getIncidentStreetLocation(incident)],
                       ],
                     })}>View</button>
                     {canPromoteToIntelligence && onPromoteIncidentToIntelligence && (
