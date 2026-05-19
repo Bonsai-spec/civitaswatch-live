@@ -134,6 +134,14 @@ export default function IntelligenceSection({
 
       <div className="cards">
         <div className="card">
+          <div className="card-title">Intelligence Intake / Review Queue</div>
+          <div className="card-value">Planned</div>
+          <div className="card-detail">
+            Future analyst review queue for promoted incidents, patrol events, Control Room flags,
+            and confidential-source intake.
+          </div>
+        </div>
+        <div className="card">
           <div className="card-title">Entities</div>
           <div className="card-value">{intelligenceEntities.length}</div>
           <div className="card-detail">Total intelligence records</div>

@@ -11,11 +11,14 @@ export default function AppShell({
 }) {
   const isPatrol = user?.role === "PATROL" || user?.role === "PATROLLER";
   const isControlRoom = user?.role === "CONTROL_ROOM";
-  const subtitle = isPatrol
-    ? "Patrol Console"
-    : isControlRoom
-      ? "Control Room Operations"
-      : "Admin Dashboard";
+  const isControlRoomTab = isControlRoom && active !== "Intelligence";
+  const subtitle = active === "Intelligence"
+    ? "Intelligence Workspace"
+    : isPatrol
+      ? "Patrol Console"
+      : isControlRoom
+        ? "Control Room Operations"
+        : "Admin Dashboard";
 
   return (
     <div className="admin-shell">
@@ -44,7 +47,7 @@ export default function AppShell({
       <div className="content">
         <div className="header header-row">
           <div>
-            <h1>{isControlRoom ? "Control Room" : active}</h1>
+            <h1>{isControlRoomTab ? "Control Room" : active}</h1>
             <p>
               {user
                 ? `Logged in as ${getDisplayName(user)} (${user.role})`

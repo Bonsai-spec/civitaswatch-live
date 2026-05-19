@@ -49,4 +49,8 @@ export const ADMIN_NAV_SECTIONS = [
   },
 ];
 
+export const INTELLIGENCE_NAV_SECTION = ADMIN_NAV_SECTIONS.find(
+  (section) => section.label === "Intelligence"
+);
+
 export const ADMIN_NAV_ITEMS = ADMIN_NAV_SECTIONS.flatMap((section) => section.items);

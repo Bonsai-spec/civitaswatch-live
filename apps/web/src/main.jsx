@@ -26,10 +26,14 @@ import { useMembers } from "./hooks/useMembers";
 import { usePermissions } from "./hooks/usePermissions";
 import { useReports } from "./hooks/useReports";
 import AppShell from "./layout/AppShell";
-import { ADMIN_NAV_SECTIONS } from "./navigation/admin.navigation";
+import {
+  ADMIN_NAV_SECTIONS,
+  INTELLIGENCE_NAV_SECTION,
+} from "./navigation/admin.navigation";
 import {
   flattenNavigationSections,
   getNavigationSectionsForRole,
+  isNavigationItemVisible,
 } from "./navigation/navigation.helpers";
 import IncidentsSection from "./modules/incidents/IncidentsSection";
 import { getIncidentLinkedPatrolId } from "./modules/incidents/incident.utils";
@@ -667,7 +671,20 @@ function App() {
   // operational dispatch functions.
   const navSections = useMemo(() => {
     if (userRole === SYSTEM_ROLES.CONTROL_ROOM) {
-      return CONTROL_ROOM_NAV_SECTIONS;
+      const permissions = PERMISSIONS_BY_ROLE[userRole] || [];
+      const intelligenceItems = INTELLIGENCE_NAV_SECTION.items.filter((item) =>
+        isNavigationItemVisible(item, permissions)
+      );
+
+      return intelligenceItems.length
+        ? [
+            ...CONTROL_ROOM_NAV_SECTIONS,
+            {
+              ...INTELLIGENCE_NAV_SECTION,
+              items: intelligenceItems,
+            },
+          ]
+        : CONTROL_ROOM_NAV_SECTIONS;
     }
 
     return getNavigationSectionsForRole(ADMIN_NAV_SECTIONS, PERMISSIONS_BY_ROLE, userRole);
@@ -920,8 +937,9 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   // NOTIFIED, EN_ROUTE, ON_SCENE, and STAND_DOWN.
   const activePatrols = getActivePatrols(data.patrols);
   // CONTROL_ROOM must always stay inside the local Control Room tabs; old route
-  // sections below are explicitly suppressed for this role.
-  const showControlRoomWorkspace = isControlRoomUser;
+  // sections below are explicitly suppressed for this role. Intelligence, when
+  // explicitly permitted, remains a separate workspace outside those tabs.
+  const showControlRoomWorkspace = isControlRoomUser && active !== "Intelligence";
   const controlRoomData = useMemo(() => {
     if (!isControlRoomUser) return data;
 
@@ -1826,9 +1844,17 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
   return (
     <AppShell
       user={user}
-      active={isControlRoomUser ? controlRoomTab : active}
+      active={isControlRoomUser && active !== "Intelligence" ? controlRoomTab : active}
       navSections={navSections}
-      onNavigate={isControlRoomUser ? setControlRoomTab : setActive}
+      onNavigate={(route) => {
+        if (isControlRoomUser && CONTROL_ROOM_TABS.includes(route)) {
+          setControlRoomTab(route);
+          setActive("Live Overview");
+          return;
+        }
+
+        setActive(route);
+      }}
       onLogout={handleLogout}
     >
       {/* Admin Dashboard summarizes management data only; operational dispatch remains in Control Room tabs. */}
@@ -1938,7 +1964,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
 
 
-        {active === "Intelligence" && !isControlRoomUser && canViewIntelligence && (
+        {active === "Intelligence" && canViewIntelligence && (
           <IntelligenceSection
             intelligenceEntities={intelligenceEntities}
             filteredIntelligenceEntities={filteredIntelligenceEntities}
