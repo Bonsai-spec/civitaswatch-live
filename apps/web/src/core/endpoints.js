@@ -56,6 +56,7 @@ export const VEHICLE_ENDPOINTS = {
 
 export const INTELLIGENCE_ENDPOINTS = {
   list: `${API}/intelligence`,
+  observationReview: `${API}/intelligence/observation-review`,
   detail: (id) => `${API}/intelligence/${id}`,
   connections: (id) => `${API}/intelligence/${id}/connections`,
   links: `${API}/intelligence/links`,

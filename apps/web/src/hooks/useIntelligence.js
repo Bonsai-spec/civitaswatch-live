@@ -94,6 +94,9 @@ export function useIntelligence({
   getJsonAuthHeaders,
 }) {
   const [intelligenceEntities, setIntelligenceEntities] = useState([]);
+  const [observationReviewEvents, setObservationReviewEvents] = useState([]);
+  const [observationReviewLoading, setObservationReviewLoading] = useState(false);
+  const [observationReviewError, setObservationReviewError] = useState("");
   const [selectedIntelEntity, setSelectedIntelEntity] = useState(null);
   const [intelForm, setIntelForm] = useState(null);
   const [isEditingIntel, setIsEditingIntel] = useState(false);
@@ -150,8 +153,35 @@ export function useIntelligence({
     }
   }
 
+  async function loadObservationReviewEvents() {
+    if (!token || !canViewIntelligence) return;
+
+    try {
+      setObservationReviewLoading(true);
+      setObservationReviewError("");
+
+      const res = await fetch(INTELLIGENCE_ENDPOINTS.observationReview, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+
+      if (!res.ok) {
+        setObservationReviewError(json.error || "Failed to load observation review events");
+        return;
+      }
+
+      setObservationReviewEvents(Array.isArray(json) ? json : json.events || []);
+    } catch (err) {
+      console.error(err);
+      setObservationReviewError("Failed to load observation review events");
+    } finally {
+      setObservationReviewLoading(false);
+    }
+  }
+
   async function refreshIntelligence() {
     await loadIntelligence();
+    await loadObservationReviewEvents();
 
     if (selectedIntelEntity?.id) {
       await viewIntelEntity(selectedIntelEntity);
@@ -521,12 +551,17 @@ export function useIntelligence({
   useEffect(() => {
     if (active === "Intelligence" && canViewIntelligence) {
       loadIntelligence();
+      loadObservationReviewEvents();
     }
   }, [active, canViewIntelligence]);
 
   return {
     intelligenceEntities,
     setIntelligenceEntities,
+    observationReviewEvents,
+    observationReviewLoading,
+    observationReviewError,
+    loadObservationReviewEvents,
     selectedIntelEntity,
     setSelectedIntelEntity,
     intelForm,

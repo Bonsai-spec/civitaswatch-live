@@ -47,6 +47,10 @@ import {
   getEntityLatLng,
   getIntelRiskBadge,
 } from "./modules/intelligence/intelligence.utils";
+import {
+  getObservationPromotionDefaults,
+  isStructuredObservationEvent,
+} from "./modules/intelligence/observationReview.utils";
 import IntelligenceSection from "./modules/intelligence/IntelligenceSection";
 import IntelGeoMap from "./modules/intelligence/IntelGeoMap";
 import IntelSpiderGraph from "./modules/intelligence/IntelSpiderGraph";
@@ -535,6 +539,10 @@ function getIncidentPromotionDefaults(incident) {
 }
 
 function getPatrolEventPromotionDefaults(event) {
+  if (isStructuredObservationEvent(event)) {
+    return getObservationPromotionDefaults(event);
+  }
+
   const code = event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode;
   const codeName = event?.incidentCodeRef?.name || event?.incident?.incidentCodeRef?.name;
   const location = [event?.streetNumber, event?.streetName, event?.suburb].filter(Boolean).join(" ");
@@ -785,6 +793,10 @@ function App() {
     setIntelSearch,
     intelTimeFilter,
     setIntelTimeFilter,
+    observationReviewEvents,
+    observationReviewLoading,
+    observationReviewError,
+    loadObservationReviewEvents,
     intelLinkForm,
     setIntelLinkForm,
     autoLinkSuggestions,
@@ -862,6 +874,19 @@ function App() {
       ...(isIncidentPromotion
         ? { roleInIncident: intelligencePromotionForm.roleInIncident || "PROMOTED_FROM_INCIDENT" }
         : { observationType: intelligencePromotionForm.observationType || "PATROL_EVENT" }),
+      ...(!isIncidentPromotion && intelligencePromotionForm.entityType === "VEHICLE"
+        ? {
+            vehicle: {
+              registrationNumber: intelligencePromotionForm.vehicleRegistration || "",
+              make: intelligencePromotionForm.vehicleMake || "",
+              model: intelligencePromotionForm.vehicleModel || "",
+              colour: intelligencePromotionForm.vehicleColour || "",
+              vehicleType: intelligencePromotionForm.vehicleType || "",
+              distinguishingMarks: intelligencePromotionForm.vehicleMarks || "",
+              notes: intelligencePromotionForm.vehicleNotes || "",
+            },
+          }
+        : {}),
     };
 
     try {
@@ -1972,6 +1997,11 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             setIntelSearch={setIntelSearch}
             intelTimeFilter={intelTimeFilter}
             setIntelTimeFilter={setIntelTimeFilter}
+            observationReviewEvents={observationReviewEvents}
+            observationReviewLoading={observationReviewLoading}
+            observationReviewError={observationReviewError}
+            onRefreshObservationReview={loadObservationReviewEvents}
+            onPromoteObservation={openPatrolEventIntelligencePromotion}
             intelForm={intelForm}
             setIntelForm={setIntelForm}
             isEditingIntel={isEditingIntel}

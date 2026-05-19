@@ -100,5 +100,7 @@ These concepts need future schema work before real intake logging is implemented
 - `SourceReliability`: controlled values for source credibility and historical confidence.
 - `VisibilityLevel`: controlled values that define who may see source details, summaries, or anonymised outputs.
 - `IntelligenceReviewStatus`: controlled workflow states such as new, under review, linked, archived, and false report.
+- Extracted observation fields such as `extractedVehicleRegistration`, `extractedPersonAlias`, and `extractedPlaceName`.
+- Review metadata such as `confidence`, `verificationStatus`, `reviewStatus`, and `assignedAnalyst`.
 
 Future implementation should include migrations, API authorization checks, audit logging, and UI controls that prevent Patrol, Control Room, Admin, and Reports from seeing confidential source details outside their authorised scope.

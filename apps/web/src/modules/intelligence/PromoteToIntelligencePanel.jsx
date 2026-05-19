@@ -194,6 +194,62 @@ export default function PromoteToIntelligencePanel({
             />
           </label>
 
+          {sourceType !== "incident" && form.entityType === "VEHICLE" && (
+            <div className="panel">
+              <h3>Vehicle Details</h3>
+              <label>
+                Registration Number
+                <input
+                  value={form.vehicleRegistration || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleRegistration: event.target.value })}
+                  placeholder="Use confirmed full registration where available"
+                />
+              </label>
+              <label>
+                Make
+                <input
+                  value={form.vehicleMake || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleMake: event.target.value })}
+                />
+              </label>
+              <label>
+                Model
+                <input
+                  value={form.vehicleModel || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleModel: event.target.value })}
+                />
+              </label>
+              <label>
+                Colour
+                <input
+                  value={form.vehicleColour || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleColour: event.target.value })}
+                />
+              </label>
+              <label>
+                Vehicle Type
+                <input
+                  value={form.vehicleType || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleType: event.target.value })}
+                />
+              </label>
+              <label>
+                Distinguishing Marks
+                <textarea
+                  value={form.vehicleMarks || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleMarks: event.target.value })}
+                />
+              </label>
+              <label>
+                Vehicle Notes
+                <textarea
+                  value={form.vehicleNotes || ""}
+                  onChange={(event) => onFormChange({ ...form, vehicleNotes: event.target.value })}
+                />
+              </label>
+            </div>
+          )}
+
           <label>
             Analyst Notes
             <textarea

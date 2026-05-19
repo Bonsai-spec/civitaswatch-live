@@ -31,6 +31,39 @@ const patrolEventIntelInclude = {
       callSign: true,
       sector: true,
       status: true,
+      user: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          role: true,
+        },
+      },
+      vehicle: {
+        select: {
+          id: true,
+          registration: true,
+          make: true,
+          colour: true,
+          type: true,
+        },
+      },
+      crew: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              email: true,
+              role: true,
+            },
+          },
+          member: true,
+        },
+        orderBy: {
+          joinedAt: "asc",
+        },
+      },
     },
   },
   incident: {
@@ -114,6 +147,27 @@ router.get("/", async (req, res) => {
   } catch (error) {
     console.error("GET /intelligence failed:", error);
     res.status(500).json({ error: "Failed to fetch intelligence entities" });
+  }
+});
+
+router.get("/observation-review", async (req, res) => {
+  try {
+    const events = await prisma.patrolEvent.findMany({
+      where: {
+        OR: [
+          { type: "OBSERVATION" },
+          { description: { contains: "Observation Type:", mode: "insensitive" } },
+        ],
+      },
+      include: patrolEventIntelInclude,
+      orderBy: [{ createdAt: "desc" }],
+      take: 100,
+    });
+
+    res.json(events);
+  } catch (error) {
+    console.error("GET /intelligence/observation-review failed:", error);
+    res.status(500).json({ error: "Failed to fetch observation review events" });
   }
 });
 

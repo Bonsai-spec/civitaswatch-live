@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
+import { getObservationReviewRows } from "./observationReview.utils";
 
 function formatIntelPatrolEventLocation(event) {
   const street = [event?.streetNumber, event?.streetName].filter(Boolean).join(" ");
@@ -22,6 +23,32 @@ function formatIntelPatrolEventClassification(event) {
   ].filter(Boolean).join(" / ");
 }
 
+function formatReviewDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleString();
+}
+
+function getObservationPlace(event, fields) {
+  return [fields.placeName, event?.suburb || fields.suburb].filter(Boolean).join(" / ") || "-";
+}
+
+function getVehicleRegistration(fields) {
+  return [fields.registration, fields.partialRegistration ? `Partial: ${fields.partialRegistration}` : null]
+    .filter(Boolean)
+    .join(" / ") || "-";
+}
+
+function getVehicleMakeColour(fields) {
+  return [fields.colour, fields.make, fields.model, fields.vehicleType].filter(Boolean).join(" ") || "-";
+}
+
+function getPersonSummary(fields) {
+  return [fields.aliasName, fields.physicalDescription, fields.clothing, fields.behaviour]
+    .filter(Boolean)
+    .join(" / ") || "-";
+}
+
 export default function IntelligenceSection({
   intelligenceEntities,
   filteredIntelligenceEntities,
@@ -29,6 +56,11 @@ export default function IntelligenceSection({
   setIntelSearch,
   intelTimeFilter,
   setIntelTimeFilter,
+  observationReviewEvents,
+  observationReviewLoading,
+  observationReviewError,
+  onRefreshObservationReview,
+  onPromoteObservation,
   intelForm,
   setIntelForm,
   isEditingIntel,
@@ -60,6 +92,12 @@ export default function IntelligenceSection({
   getEntityLatLng,
   getIntelAgeLabel,
 }) {
+  const [selectedObservationSource, setSelectedObservationSource] = useState(null);
+  const observationReviewRows = useMemo(
+    () => getObservationReviewRows(observationReviewEvents),
+    [observationReviewEvents]
+  );
+
   return (
     <div className="panel">
       <div className="details-header">
@@ -135,10 +173,9 @@ export default function IntelligenceSection({
       <div className="cards">
         <div className="card">
           <div className="card-title">Intelligence Intake / Review Queue</div>
-          <div className="card-value">Planned</div>
+          <div className="card-value">{observationReviewRows.length}</div>
           <div className="card-detail">
-            Future analyst review queue for promoted incidents, patrol events, Control Room flags,
-            and confidential-source intake.
+            Structured Patrol Observations available for analyst review.
           </div>
         </div>
         <div className="card">
@@ -172,6 +209,109 @@ export default function IntelligenceSection({
           </div>
           <div className="card-detail">Currently monitored</div>
         </div>
+      </div>
+
+      <div className="panel">
+        <div className="details-header">
+          <div>
+            <h3>Intelligence Intake / Observation Review</h3>
+            <p className="card-detail">
+              Structured Patrol Observation source records for analyst review. The original PatrolEvent remains read-only.
+            </p>
+          </div>
+          <button className="secondary-btn" type="button" onClick={onRefreshObservationReview}>
+            Refresh Observations
+          </button>
+        </div>
+
+        {observationReviewLoading && <p>Loading observation review records...</p>}
+        {observationReviewError && <div className="error">{observationReviewError}</div>}
+        {!observationReviewLoading && observationReviewRows.length === 0 && (
+          <p>No structured Patrol Observations found for review.</p>
+        )}
+
+        {observationReviewRows.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>Date/time</th>
+                <th>Patrol call sign</th>
+                <th>Sector</th>
+                <th>Observation Type</th>
+                <th>Vehicle Reg / Partial Reg</th>
+                <th>Vehicle make/colour</th>
+                <th>Person alias/description</th>
+                <th>Place/suburb</th>
+                <th>Tags</th>
+                <th>Source status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {observationReviewRows.map(({ event, fields }) => (
+                <tr key={event.id}>
+                  <td>{formatReviewDateTime(event.createdAt)}</td>
+                  <td>{event.patrol?.callSign || "-"}</td>
+                  <td>{event.patrol?.sector || event.incident?.sector || "-"}</td>
+                  <td>{fields.observationType || event.type || "-"}</td>
+                  <td>{getVehicleRegistration(fields)}</td>
+                  <td>{getVehicleMakeColour(fields)}</td>
+                  <td>{getPersonSummary(fields)}</td>
+                  <td>{getObservationPlace(event, fields)}</td>
+                  <td>{fields.tags || "-"}</td>
+                  <td>{fields.informationStatus || fields.sourceType || event.type || "-"}</td>
+                  <td>
+                    <button type="button" onClick={() => setSelectedObservationSource({ event, fields })}>
+                      View source
+                    </button>
+                    <button type="button" onClick={() => onPromoteObservation(event)}>
+                      Promote to Intelligence
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {selectedObservationSource && (
+          <div className="incident-details">
+            <div className="details-header">
+              <div>
+                <h3>Observation Source</h3>
+                <p className="card-detail">
+                  PatrolEvent source record. Analysts may promote it, but this panel does not edit the event.
+                </p>
+              </div>
+              <button className="secondary-btn" type="button" onClick={() => setSelectedObservationSource(null)}>
+                Close
+              </button>
+            </div>
+            <div className="grid">
+              <div className="panel">
+                <h3>Source Context</h3>
+                <p><strong>Date/time:</strong> {formatReviewDateTime(selectedObservationSource.event.createdAt)}</p>
+                <p><strong>Patrol call sign:</strong> {selectedObservationSource.event.patrol?.callSign || "-"}</p>
+                <p><strong>Sector:</strong> {selectedObservationSource.event.patrol?.sector || "-"}</p>
+                <p><strong>Location:</strong> {formatIntelPatrolEventLocation(selectedObservationSource.event) || "-"}</p>
+                <p><strong>Reference:</strong> {selectedObservationSource.event.referenceNumber || selectedObservationSource.fields.referenceNumber || "-"}</p>
+              </div>
+              <div className="panel">
+                <h3>Extracted Fields</h3>
+                {Object.entries(selectedObservationSource.fields).map(([key, value]) => (
+                  <p key={key}><strong>{key}:</strong> {value || "-"}</p>
+                ))}
+              </div>
+            </div>
+            <div className="panel">
+              <h3>Original Description</h3>
+              <pre>{selectedObservationSource.event.description || "-"}</pre>
+            </div>
+            <button type="button" className="primary-btn" onClick={() => onPromoteObservation(selectedObservationSource.event)}>
+              Promote to Intelligence
+            </button>
+          </div>
+        )}
       </div>
 
       {intelForm && (
