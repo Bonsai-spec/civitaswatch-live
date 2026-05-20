@@ -12,7 +12,7 @@ const CONFIRM_ENV = "CONFIRM_OPERATIONAL_TEST_DATA_CLEANUP";
 const CONFIRM_VALUE = "YES";
 const { Pool } = pg;
 
-const OPERATIONAL_MODELS = [
+export const OPERATIONAL_MODELS = [
   {
     modelName: "IncidentServiceLog",
     tableName: "IncidentServiceLog",
@@ -75,7 +75,7 @@ const OPERATIONAL_MODELS = [
   },
 ];
 
-const PRESERVED_REGISTER_MODELS = [
+export const MASTER_DATA_MODELS = [
   "User",
   "Member",
   "Vehicle",
@@ -88,17 +88,30 @@ const PRESERVED_REGISTER_MODELS = [
   "InfrastructureType",
   "EmergencyContactType",
   "Service",
+  "_prisma_migrations",
 ];
 
-function hasApplyFlag() {
-  return process.argv.slice(2).includes(APPLY_FLAG);
+export function hasApplyFlag(args = process.argv.slice(2)) {
+  return args.includes(APPLY_FLAG);
 }
 
-function getModelNames(schema) {
+export function isApplyConfirmed(args = process.argv.slice(2), env = process.env) {
+  return hasApplyFlag(args) && env[CONFIRM_ENV] === CONFIRM_VALUE;
+}
+
+export function getCleanupTargets() {
+  return OPERATIONAL_MODELS.map((model) => ({ ...model }));
+}
+
+export function buildDeletePlan() {
+  return getCleanupTargets();
+}
+
+export function getModelNames(schema) {
   return Array.from(schema.matchAll(/^model\s+(\w+)\s+\{/gm), (match) => match[1]);
 }
 
-function quoteIdentifier(identifier) {
+export function quoteIdentifier(identifier) {
   return `"${String(identifier).replace(/"/g, '""')}"`;
 }
 
@@ -113,20 +126,23 @@ async function countRows(client, models) {
   return Object.fromEntries(entries);
 }
 
-function printCounts(title, counts) {
-  console.log(title);
-
-  for (const model of OPERATIONAL_MODELS) {
-    console.log(`- ${model.modelName}: ${counts[model.modelName] ?? 0}`);
-  }
+export function formatCounts(title, counts, models = OPERATIONAL_MODELS) {
+  return [
+    title,
+    ...models.map((model) => `- ${model.modelName}: ${counts[model.modelName] ?? 0}`),
+  ].join("\n");
 }
 
-function printBackupReminder() {
-  console.log("Backup required before apply:");
-  console.log("mkdir -p ~/Desktop/civitaswatch-backups");
-  console.log("pg_dump --format=custom --verbose --no-owner --no-acl \\");
-  console.log("  --file=\"$HOME/Desktop/civitaswatch-backups/civitaswatch_live_before_operational_cleanup_$(date +%Y%m%d_%H%M%S).dump\" \\");
-  console.log("  civitaswatch_live");
+function printCounts(title, counts) {
+  console.log(formatCounts(title, counts));
+}
+
+function printBackupReminder(log = console.log) {
+  log("Backup required before apply:");
+  log("mkdir -p ~/Desktop/civitaswatch-backups");
+  log("pg_dump --format=custom --verbose --no-owner --no-acl \\");
+  log("  --file=\"$HOME/Desktop/civitaswatch-backups/civitaswatch_live_before_operational_cleanup_$(date +%Y%m%d_%H%M%S).dump\" \\");
+  log("  civitaswatch_live");
 }
 
 async function deleteOperationalData(client) {
@@ -135,7 +151,7 @@ async function deleteOperationalData(client) {
   await client.query("BEGIN");
 
   try {
-    for (const model of OPERATIONAL_MODELS) {
+    for (const model of buildDeletePlan()) {
       const result = await client.query(`DELETE FROM ${quoteIdentifier(model.tableName)}`);
       deleted[model.modelName] = result.rowCount;
     }
@@ -148,71 +164,109 @@ async function deleteOperationalData(client) {
   }
 }
 
-async function main() {
-  const apply = hasApplyFlag();
-  const schema = await fs.readFile(SCHEMA_FILE, "utf8");
+export async function runCleanup({
+  client,
+  schema,
+  args = process.argv.slice(2),
+  env = process.env,
+  log = console.log,
+  error = console.error,
+} = {}) {
+  if (!client) {
+    throw new Error("A database client is required.");
+  }
+
+  if (!schema) {
+    throw new Error("A Prisma schema string is required.");
+  }
+
+  const apply = hasApplyFlag(args);
   const schemaModels = new Set(getModelNames(schema));
+
+  log("Operational test data cleanup");
+  log(`Schema inspected: ${SCHEMA_FILE}`);
+  log(`Mode: ${apply ? "APPLY" : "DRY RUN"}`);
+  log("");
+  printBackupReminder(log);
+  log("");
+  log("Preserved register/master models:");
+  log(MASTER_DATA_MODELS.map((modelName) => `- ${modelName}`).join("\n"));
+  log("");
+  log("Operational models selected for cleanup:");
+
+  for (const model of OPERATIONAL_MODELS) {
+    if (!schemaModels.has(model.modelName)) {
+      throw new Error(`Expected operational model ${model.modelName} was not found in schema.prisma.`);
+    }
+
+    log(`- ${model.modelName}: ${model.description}`);
+  }
+
+  log("");
+  const beforeCounts = await countRows(client, OPERATIONAL_MODELS);
+  log(formatCounts("Counts before cleanup:", beforeCounts));
+
+  if (!apply) {
+    log("");
+    log("Dry run complete. No data was deleted.");
+    log(`To apply, rerun with ${APPLY_FLAG} and ${CONFIRM_ENV}=${CONFIRM_VALUE}.`);
+    return { mode: "dry-run", applied: false, refused: false, beforeCounts };
+  }
+
+  if (!isApplyConfirmed(args, env)) {
+    log("");
+    error(`Apply mode refused. Set ${CONFIRM_ENV}=${CONFIRM_VALUE} to confirm cleanup.`);
+    return { mode: "apply", applied: false, refused: true, beforeCounts };
+  }
+
+  log("");
+  log("Confirmation received. Deleting operational test data in dependency-safe order.");
+  const deletedCounts = await deleteOperationalData(client);
+  log(formatCounts("Deleted rows:", deletedCounts));
+
+  log("");
+  const afterCounts = await countRows(client, OPERATIONAL_MODELS);
+  log(formatCounts("Counts after cleanup:", afterCounts));
+  log("");
+  log("Operational test data cleanup complete. Register/master data was not targeted.");
+
+  return {
+    mode: "apply",
+    applied: true,
+    refused: false,
+    beforeCounts,
+    deletedCounts,
+    afterCounts,
+  };
+}
+
+async function main() {
+  const schema = await fs.readFile(SCHEMA_FILE, "utf8");
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
   });
   const client = await pool.connect();
 
   try {
-    console.log("Operational test data cleanup");
-    console.log(`Schema inspected: ${SCHEMA_FILE}`);
-    console.log(`Mode: ${apply ? "APPLY" : "DRY RUN"}`);
-    console.log("");
-    printBackupReminder();
-    console.log("");
-    console.log("Preserved register/master models:");
-    console.log(PRESERVED_REGISTER_MODELS.map((modelName) => `- ${modelName}`).join("\n"));
-    console.log("");
-    console.log("Operational models selected for cleanup:");
+    const result = await runCleanup({
+      client,
+      schema,
+      args: process.argv.slice(2),
+      env: process.env,
+    });
 
-    for (const model of OPERATIONAL_MODELS) {
-      if (!schemaModels.has(model.modelName)) {
-        throw new Error(`Expected operational model ${model.modelName} was not found in schema.prisma.`);
-      }
-
-      console.log(`- ${model.modelName}: ${model.description}`);
-    }
-
-    console.log("");
-    const beforeCounts = await countRows(client, OPERATIONAL_MODELS);
-    printCounts("Counts before cleanup:", beforeCounts);
-
-    if (!apply) {
-      console.log("");
-      console.log("Dry run complete. No data was deleted.");
-      console.log(`To apply, rerun with ${APPLY_FLAG} and ${CONFIRM_ENV}=${CONFIRM_VALUE}.`);
-      return;
-    }
-
-    if (process.env[CONFIRM_ENV] !== CONFIRM_VALUE) {
-      console.log("");
-      console.error(`Apply mode refused. Set ${CONFIRM_ENV}=${CONFIRM_VALUE} to confirm cleanup.`);
+    if (result?.refused) {
       process.exitCode = 1;
-      return;
     }
-
-    console.log("");
-    console.log("Confirmation received. Deleting operational test data in dependency-safe order.");
-    const deletedCounts = await deleteOperationalData(client);
-    printCounts("Deleted rows:", deletedCounts);
-
-    console.log("");
-    const afterCounts = await countRows(client, OPERATIONAL_MODELS);
-    printCounts("Counts after cleanup:", afterCounts);
-    console.log("");
-    console.log("Operational test data cleanup complete. Register/master data was not targeted.");
   } finally {
     client.release();
     await pool.end();
   }
 }
 
-main()
-  .catch((error) => {
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((error) => {
     console.error("Operational test data cleanup failed:", error);
     process.exitCode = 1;
-  })
+  });
+}
