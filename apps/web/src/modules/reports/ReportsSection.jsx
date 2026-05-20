@@ -1,5 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { resolveIncidentClassification } from "./report.utils";
+import {
+  getIncidentClassificationCsvColumns,
+  getIncidentSuburb,
+  resolveIncidentClassification,
+} from "./report.utils";
 
 function formatEventClassification(event) {
   return [
@@ -122,15 +126,6 @@ function incidentSubcodeLabel(record) {
 
 function getIncidentCodeParts(record) {
   return resolveIncidentClassification(record);
-}
-
-function getIncidentSuburb(record) {
-  return (
-    record?.suburb ||
-    record?.patrolEvents?.find((event) => event.suburb)?.suburb ||
-    record?.incident?.suburb ||
-    "Unknown"
-  );
 }
 
 function getIncidentStreetLocation(record) {
@@ -1514,10 +1509,7 @@ export default function ReportsSection({
                 onClick={() =>
                   exportCsv(buildCsvFilename("incident-reports", reportFilters), [
                     { label: "ID", value: (row) => row.id },
-                    { label: "Incident Code", value: (row) => getIncidentCodeParts(row).code },
-                    { label: "Incident Name", value: (row) => getIncidentCodeParts(row).codeName },
-                    { label: "Incident Subcode", value: (row) => getIncidentCodeParts(row).subcode },
-                    { label: "Incident Subcode Name", value: (row) => getIncidentCodeParts(row).subcodeName },
+                    ...getIncidentClassificationCsvColumns(),
                     { label: "Title", value: (row) => row.title },
                     { label: "Description", value: (row) => row.description },
                     { label: "Sector", value: (row) => row.sector },

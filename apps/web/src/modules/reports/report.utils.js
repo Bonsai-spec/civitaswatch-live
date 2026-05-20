@@ -124,3 +124,22 @@ export function resolveIncidentClassification(record) {
 
   return buildCodeParts(null, null);
 }
+
+export function getIncidentSuburb(record) {
+  return (
+    record?.suburb ||
+    record?.patrolEvents?.find((event) => event.suburb)?.suburb ||
+    record?.linkedPatrol?.patrolEvents?.find((event) => event.suburb)?.suburb ||
+    record?.incident?.suburb ||
+    "Unknown"
+  );
+}
+
+export function getIncidentClassificationCsvColumns() {
+  return [
+    { label: "Incident Code", value: (row) => resolveIncidentClassification(row).code },
+    { label: "Incident Name", value: (row) => resolveIncidentClassification(row).codeName },
+    { label: "Incident Subcode", value: (row) => resolveIncidentClassification(row).subcode },
+    { label: "Incident Subcode Name", value: (row) => resolveIncidentClassification(row).subcodeName },
+  ];
+}
