@@ -6,7 +6,7 @@ Call signs used: WV61, WW75, WP12, CR01
 
 Source scope: supplied WhatsApp-style and Control Room test examples only.
 
-Import status: all rows have `includeInImport: false` by default.
+Import status: reviewed safe TEST_DATA rows now have `includeInImport: true`; SAPS manual-review rows remain excluded.
 
 ## Summary Count By Proposed Record Type
 
@@ -30,9 +30,9 @@ These rows are marked `needsManualReview: true` because the examples indicate pr
 | 2026-05-16 | 03:40 | WP12 | Incident | Garage premises, Clubview | Attempted break-in with damaged lock needs manual SAPS classification review. |
 | 2026-05-19 | 12:15 | WV61 | Incident | Sports field parking, Clubview | Theft from parked vehicle needs manual SAPS classification review. |
 
-## Rows Ready For Import Once Enabled
+## Rows Approved For Import
 
-These rows have enough structure for test-data import review once `includeInImport` is deliberately changed to `true`. They are still internal test data and should not be imported until reviewed.
+These rows have `includeInImport: true` because they are `TEST_DATA` rows with `needsManualReview: false`. They are still internal test data and should not be imported until the import step is explicitly requested.
 
 | Date | Time | Call sign | Proposed type | Classification | Location |
 | --- | --- | --- | --- | --- | --- |
@@ -66,36 +66,36 @@ These rows have enough structure for test-data import review once `includeInImpo
 
 | Date | Time | Source | Call sign | Proposed type | Observation / classification | Sector | Suburb | Location | SAPS code/name | Manual review | Import |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-05-06 | 22:00 | WhatsApp | WV61 | Observation | Suspicious Person | Sector 1 | | Roedolf Ave | | No | No |
-| 2026-05-06 | 22:30 | WhatsApp | WV61 | Assistance Request | Welfare Check | Sector 2 | Clubview | Edinburgh Ave, school side of park | | No | No |
-| 2026-05-06 | 23:00 | WhatsApp | WV61 | Assistance Request | Safety Concern | Sector 2 | | Highway after Jean Ave | | No | No |
+| 2026-05-06 | 22:00 | WhatsApp | WV61 | Observation | Suspicious Person | Sector 1 | | Roedolf Ave | | No | Yes |
+| 2026-05-06 | 22:30 | WhatsApp | WV61 | Assistance Request | Welfare Check | Sector 2 | Clubview | Edinburgh Ave, school side of park | | No | Yes |
+| 2026-05-06 | 23:00 | WhatsApp | WV61 | Assistance Request | Safety Concern | Sector 2 | | Highway after Jean Ave | | No | Yes |
 | 2026-05-07 | 06:45 | WhatsApp | WP12 | Incident | Property Crime | Sector 1 | | Aswood | | Yes | No |
 | 2026-05-08 | 02:10 | WhatsApp | WW75 | Incident | Property Crime | Sector 1 | Valhalla | Vinstra Foodzone | | Yes | No |
-| 2026-05-08 | 19:40 | WhatsApp | WV61 | Observation | Suspicious Vehicle | Sector 1 | Valhalla | Shopping complex | | No | No |
-| 2026-05-09 | 21:15 | WhatsApp | WW75 | Incident | Burglar Alarm | Sector 1 | Valhalla | Broadway | 037 - Burglar Alarm | No | No |
-| 2026-05-10 | 18:25 | WhatsApp | WP12 | Infrastructure | Street Light / Lighting | Sector 2 | Clubview | Park entrance | | No | No |
-| 2026-05-11 | 20:50 | WhatsApp | WV61 | Observation | Suspicious Person | Sector 2 | Clubview | Residential street | | No | No |
-| 2026-05-12 | 07:35 | Control Room Note | CR01 | Assistance Request | EMS / Medical | Sector 2 | Clubview | Edinburgh Ave | | No | No |
-| 2026-05-13 | 20:15 | WhatsApp | WW75 | Incident | Burglar Alarm | Sector 2 | Clubview | Old Johannesburg Road | 037 - Burglar Alarm | No | No |
-| 2026-05-14 | 01:20 | WhatsApp | WV61 | Incident | Suspicious Person | Sector 1 | Valhalla | Parking area near shopping centre | 038 - Suspicious Person | No | No |
+| 2026-05-08 | 19:40 | WhatsApp | WV61 | Observation | Suspicious Vehicle | Sector 1 | Valhalla | Shopping complex | | No | Yes |
+| 2026-05-09 | 21:15 | WhatsApp | WW75 | Incident | Burglar Alarm | Sector 1 | Valhalla | Broadway | 037 - Burglar Alarm | No | Yes |
+| 2026-05-10 | 18:25 | WhatsApp | WP12 | Infrastructure | Street Light / Lighting | Sector 2 | Clubview | Park entrance | | No | Yes |
+| 2026-05-11 | 20:50 | WhatsApp | WV61 | Observation | Suspicious Person | Sector 2 | Clubview | Residential street | | No | Yes |
+| 2026-05-12 | 07:35 | Control Room Note | CR01 | Assistance Request | EMS / Medical | Sector 2 | Clubview | Edinburgh Ave | | No | Yes |
+| 2026-05-13 | 20:15 | WhatsApp | WW75 | Incident | Burglar Alarm | Sector 2 | Clubview | Old Johannesburg Road | 037 - Burglar Alarm | No | Yes |
+| 2026-05-14 | 01:20 | WhatsApp | WV61 | Incident | Suspicious Person | Sector 1 | Valhalla | Parking area near shopping centre | 038 - Suspicious Person | No | Yes |
 | 2026-05-14 | 07:10 | WhatsApp | WP12 | Incident | Vehicle Crime | Sector 3 | Lyttelton | Residential complex parking | | Yes | No |
-| 2026-05-14 | 18:45 | WhatsApp | WV61 | Observation | Suspicious Vehicle | Sector 1 | Valhalla | Roedolf Ave | | No | No |
-| 2026-05-15 | 09:30 | Control Room Note | CR01 | Assistance Request | SAPS | Sector 2 | Clubview | Residential street | | No | No |
-| 2026-05-15 | 22:05 | WhatsApp | WW75 | Incident | Burglar Alarm | Sector 1 | Valhalla | Warehouse entrance | 037 - Burglar Alarm | No | No |
+| 2026-05-14 | 18:45 | WhatsApp | WV61 | Observation | Suspicious Vehicle | Sector 1 | Valhalla | Roedolf Ave | | No | Yes |
+| 2026-05-15 | 09:30 | Control Room Note | CR01 | Assistance Request | SAPS | Sector 2 | Clubview | Residential street | | No | Yes |
+| 2026-05-15 | 22:05 | WhatsApp | WW75 | Incident | Burglar Alarm | Sector 1 | Valhalla | Warehouse entrance | 037 - Burglar Alarm | No | Yes |
 | 2026-05-16 | 03:40 | WhatsApp | WP12 | Incident | Property Crime | Sector 2 | Clubview | Garage premises | | Yes | No |
-| 2026-05-16 | 11:25 | WhatsApp | WV61 | Infrastructure | Traffic Light | Sector 1 | Valhalla | Main intersection | | No | No |
-| 2026-05-16 | 19:55 | WhatsApp | WV61 | Observation | Suspicious Person | Sector 3 | Lyttelton | Complex entrance | | No | No |
-| 2026-05-17 | 00:30 | WhatsApp | WW75 | Incident | Suspicious Person | Sector 1 | Valhalla | Shopping complex parking | 038 - Suspicious Person | No | No |
-| 2026-05-17 | 08:50 | Control Room Note | CR01 | Assistance Request | EMS / Medical | Sector 1 | Valhalla | Shop entrance | | No | No |
-| 2026-05-17 | 16:35 | WhatsApp | WP12 | Infrastructure | Road Hazard | Sector 2 | Clubview | School entrance | | No | No |
-| 2026-05-18 | 21:10 | WhatsApp | WV61 | Incident | Burglar Alarm | Sector 1 | Valhalla | Broadway | 037 - Burglar Alarm | No | No |
-| 2026-05-18 | 23:45 | WhatsApp | WW75 | Observation | Suspicious Vehicle | Sector 1 | Valhalla | Shopping complex | | No | No |
-| 2026-05-19 | 06:20 | Control Room Note | CR01 | Assistance Request | Fire Services | Sector 3 | Lyttelton | Behind business premises | | No | No |
+| 2026-05-16 | 11:25 | WhatsApp | WV61 | Infrastructure | Traffic Light | Sector 1 | Valhalla | Main intersection | | No | Yes |
+| 2026-05-16 | 19:55 | WhatsApp | WV61 | Observation | Suspicious Person | Sector 3 | Lyttelton | Complex entrance | | No | Yes |
+| 2026-05-17 | 00:30 | WhatsApp | WW75 | Incident | Suspicious Person | Sector 1 | Valhalla | Shopping complex parking | 038 - Suspicious Person | No | Yes |
+| 2026-05-17 | 08:50 | Control Room Note | CR01 | Assistance Request | EMS / Medical | Sector 1 | Valhalla | Shop entrance | | No | Yes |
+| 2026-05-17 | 16:35 | WhatsApp | WP12 | Infrastructure | Road Hazard | Sector 2 | Clubview | School entrance | | No | Yes |
+| 2026-05-18 | 21:10 | WhatsApp | WV61 | Incident | Burglar Alarm | Sector 1 | Valhalla | Broadway | 037 - Burglar Alarm | No | Yes |
+| 2026-05-18 | 23:45 | WhatsApp | WW75 | Observation | Suspicious Vehicle | Sector 1 | Valhalla | Shopping complex | | No | Yes |
+| 2026-05-19 | 06:20 | Control Room Note | CR01 | Assistance Request | Fire Services | Sector 3 | Lyttelton | Behind business premises | | No | Yes |
 | 2026-05-19 | 12:15 | WhatsApp | WV61 | Incident | Vehicle Crime | Sector 2 | Clubview | Sports field parking | | Yes | No |
-| 2026-05-19 | 18:05 | WhatsApp | WP12 | Observation | Suspicious Place | Sector 1 | Valhalla | Vacant property | | No | No |
-| 2026-05-20 | 02:25 | WhatsApp | WW75 | Incident | Suspicious Person | Sector 2 | Clubview | Residential gate | 038 - Suspicious Person | No | No |
-| 2026-05-20 | 14:40 | WhatsApp | WV61 | Infrastructure | Camera / CCTV | Sector 1 | Valhalla | Street camera pole | | No | No |
-| 2026-05-20 | 21:50 | Control Room Note | CR01 | Assistance Request | SAPS | Sector 1 | Valhalla | Shopping complex | | No | No |
+| 2026-05-19 | 18:05 | WhatsApp | WP12 | Observation | Suspicious Place | Sector 1 | Valhalla | Vacant property | | No | Yes |
+| 2026-05-20 | 02:25 | WhatsApp | WW75 | Incident | Suspicious Person | Sector 2 | Clubview | Residential gate | 038 - Suspicious Person | No | Yes |
+| 2026-05-20 | 14:40 | WhatsApp | WV61 | Infrastructure | Camera / CCTV | Sector 1 | Valhalla | Street camera pole | | No | Yes |
+| 2026-05-20 | 21:50 | Control Room Note | CR01 | Assistance Request | SAPS | Sector 1 | Valhalla | Shopping complex | | No | Yes |
 
 ## Privacy Note
 

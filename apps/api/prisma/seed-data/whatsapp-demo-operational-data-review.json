@@ -29,7 +29,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-06",
@@ -61,7 +61,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-06",
@@ -93,7 +93,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-07",
@@ -189,7 +189,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-09",
@@ -221,7 +221,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-10",
@@ -253,7 +253,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-11",
@@ -285,7 +285,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-12",
@@ -317,7 +317,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_IMPORT_UNVERIFIED",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-13",
@@ -349,7 +349,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-14",
@@ -381,7 +381,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-14",
@@ -445,7 +445,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-15",
@@ -477,7 +477,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-15",
@@ -509,7 +509,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-16",
@@ -573,7 +573,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-16",
@@ -605,7 +605,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-17",
@@ -637,7 +637,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-17",
@@ -669,7 +669,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-17",
@@ -701,7 +701,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-18",
@@ -733,7 +733,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-18",
@@ -765,7 +765,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-19",
@@ -797,7 +797,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-19",
@@ -861,7 +861,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-20",
@@ -893,7 +893,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-20",
@@ -925,7 +925,7 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   },
   {
     "messageDate": "2026-05-20",
@@ -957,6 +957,6 @@
     "verificationStatus": "TEST_DATA",
     "sourceReliability": "TEST_SAMPLE",
     "needsManualReview": false,
-    "includeInImport": false
+    "includeInImport": true
   }
 ]
