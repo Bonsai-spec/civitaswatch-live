@@ -170,11 +170,13 @@ model Incident {
   incidentType      String?
   incidentCodeId    String?
   incidentSubcodeId String?
+  areaId            String?
   street            String?
   suburb            String?
 
   createdBy          User                 @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
   linkedPatrol       PatrolSession?       @relation(fields: [linkedPatrolId], references: [id])
+  areaRef            Area?                @relation(fields: [areaId], references: [id])
   incidentCodeRef    IncidentCode?        @relation(fields: [incidentCodeId], references: [id])
   incidentSubcodeRef IncidentSubcode?     @relation(fields: [incidentSubcodeId], references: [id])
   patrolEvents       PatrolEvent[]
@@ -185,6 +187,7 @@ model Incident {
   @@index([linkedPatrolId])
   @@index([incidentCodeId])
   @@index([incidentSubcodeId])
+  @@index([areaId])
   @@index([sector])
   @@index([status])
   @@index([severity])
@@ -206,6 +209,7 @@ model PatrolEvent {
   incidentId           String?
   incidentCodeId       String?
   incidentSubcodeId    String?
+  areaId               String?
   referenceNumber      String?
   streetNumber         String?
   streetName           String?
@@ -218,6 +222,7 @@ model PatrolEvent {
   createdByUserId      String?
 
   incident              Incident?            @relation(fields: [incidentId], references: [id])
+  areaRef               Area?                @relation(fields: [areaId], references: [id])
   incidentCodeRef       IncidentCode?        @relation(fields: [incidentCodeId], references: [id])
   incidentSubcodeRef    IncidentSubcode?     @relation(fields: [incidentSubcodeId], references: [id])
   serviceTypeRef        ServiceType?         @relation(fields: [serviceTypeId], references: [id])
@@ -230,6 +235,7 @@ model PatrolEvent {
   @@index([incidentId])
   @@index([incidentCodeId])
   @@index([incidentSubcodeId])
+  @@index([areaId])
   @@index([serviceTypeId])
   @@index([infrastructureTypeId])
   @@index([createdByUserId])
@@ -305,9 +311,46 @@ model Sector {
   userAccess            UserSectorAccess[]
   incidentCodes         IncidentCode[]
   incidentSubcodes      IncidentSubcode[]
+  areas                 Area[]
   serviceTypes          ServiceType[]
   infrastructureTypes   InfrastructureType[]
   emergencyContactTypes EmergencyContactType[]
+}
+
+model Area {
+  id           String        @id @default(cuid())
+  officialName String
+  sectorId     String?
+  type         String        @default("SUBURB")
+  active       Boolean       @default(true)
+  notes        String?
+  sortOrder    Int?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  sector       Sector?       @relation(fields: [sectorId], references: [id])
+  aliases      AreaAlias[]
+  incidents    Incident[]
+  patrolEvents PatrolEvent[]
+
+  @@unique([sectorId, officialName])
+  @@index([sectorId])
+  @@index([active])
+  @@index([type])
+}
+
+model AreaAlias {
+  id              String   @id @default(cuid())
+  areaId          String
+  alias           String
+  normalizedAlias String
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  area            Area     @relation(fields: [areaId], references: [id], onDelete: Cascade)
+
+  @@unique([areaId, normalizedAlias])
+  @@index([normalizedAlias])
+  @@index([active])
 }
 
 model IncidentCode {

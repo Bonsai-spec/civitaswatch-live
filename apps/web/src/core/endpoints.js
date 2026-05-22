@@ -42,6 +42,7 @@ export const PATROL_ENDPOINTS = {
 export const ADMIN_REGISTER_ENDPOINTS = {
   incidentCodes: `${API}/admin/incident-codes`,
   incidentSubcodes: `${API}/admin/incident-subcodes`,
+  areas: `${API}/admin/areas`,
   serviceTypes: `${API}/admin/service-types`,
   emergencyContactTypes: `${API}/admin/emergency-contact-types`,
 };

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildAreaAliasRows,
   getIncidentClassificationCsvColumns,
   getIncidentSuburb,
   resolveIncidentClassification,
@@ -88,6 +89,39 @@ test("resolves suburb from incident, then linked patrol event, then Unknown", ()
     "Patrol Event Suburb"
   );
   assert.equal(getIncidentSuburb({}), "Unknown");
+});
+
+test("normalises report area through Area aliases", () => {
+  const aliases = buildAreaAliasRows([
+    {
+      officialName: "Valhalla",
+      aliases: [
+        { alias: "Vahalla", normalizedAlias: "vahalla", active: true },
+        { alias: "Valhala", normalizedAlias: "valhala", active: true },
+      ],
+    },
+    {
+      officialName: "Clubview",
+      aliases: [{ alias: "Club View", normalizedAlias: "clubview", active: true }],
+    },
+  ]);
+
+  assert.equal(getIncidentSuburb({ suburb: "Vahalla" }, aliases), "Valhalla");
+  assert.equal(getIncidentSuburb({ suburb: "Valhala" }, aliases), "Valhalla");
+  assert.equal(getIncidentSuburb({ suburb: "Valhalla" }, aliases), "Valhalla");
+  assert.equal(getIncidentSuburb({ suburb: "Club View" }, aliases), "Clubview");
+  assert.equal(getIncidentSuburb({ suburb: "Unknown Area" }, aliases), "Unknown Area");
+  assert.equal(getIncidentSuburb({ suburb: "" }, aliases), "Unknown");
+});
+
+test("canonical area reference takes priority over raw suburb text", () => {
+  assert.equal(
+    getIncidentSuburb({
+      areaRef: { officialName: "Valhalla" },
+      suburb: "Vahalla",
+    }),
+    "Valhalla"
+  );
 });
 
 test("classification CSV columns expose SAPS classification fields only", () => {

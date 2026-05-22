@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { DASHBOARD_ENDPOINTS, MEMBER_ENDPOINTS, PATROL_ENDPOINTS } from "../core/endpoints";
+import {
+  ADMIN_REGISTER_ENDPOINTS,
+  DASHBOARD_ENDPOINTS,
+  MEMBER_ENDPOINTS,
+  PATROL_ENDPOINTS,
+} from "../core/endpoints";
 import { getAuthHeaders as buildAuthHeaders } from "../core/http.utils";
 import { buildLocalWorkload } from "../modules/patrols/patrol.utils";
 
@@ -10,6 +15,7 @@ const EMPTY_ADMIN_DATA = {
   organisations: [],
   members: [],
   assistanceRequests: [],
+  areas: [],
 };
 
 const ASSISTANCE_REQUEST_ROLES = new Set(["ADMIN", "MASTER_ADMIN", "CONTROL_ROOM"]);
@@ -36,6 +42,7 @@ export function useAdminData({
       organisations: [],
       members: [],
       assistanceRequests: [],
+      areas: [],
     });
   }
 
@@ -76,6 +83,7 @@ export function useAdminData({
 
       let members = [];
       let assistanceRequests = [];
+      let areas = [];
 
       try {
         const membersRes = await fetch(MEMBER_ENDPOINTS.list, {
@@ -106,6 +114,18 @@ export function useAdminData({
         }
       }
 
+      try {
+        const areasRes = await fetch(`${ADMIN_REGISTER_ENDPOINTS.areas}?active=true`, {
+          headers: getAuthHeaders(),
+        });
+
+        if (areasRes.ok) {
+          areas = await areasRes.json();
+        }
+      } catch (err) {
+        console.warn("Failed to load areas", err);
+      }
+
       const nextData = {
         incidents,
         patrols: json.patrols || [],
@@ -113,6 +133,7 @@ export function useAdminData({
         organisations: json.organisations || [],
         members,
         assistanceRequests,
+        areas,
       };
 
       setData(nextData);

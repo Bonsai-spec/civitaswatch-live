@@ -3,6 +3,7 @@ import { API } from "../../core/api";
 import {
   MEMBER_ENDPOINTS,
   PATROL_ENDPOINTS,
+  ADMIN_REGISTER_ENDPOINTS,
   VEHICLE_ENDPOINTS,
 } from "../../core/endpoints";
 
@@ -101,6 +102,7 @@ const INITIAL_EVENT_FORM = {
   serviceTypeId: "",
   infrastructureTypeId: "",
   infrastructureType: "",
+  areaId: "",
   description: "",
   assistance: "",
   streetNumber: "",
@@ -353,6 +355,7 @@ export default function PatrolOperationsSection({
   const [incidentSubcodes, setIncidentSubcodes] = useState([]);
   const [serviceTypes, setServiceTypes] = useState([]);
   const [infrastructureTypes, setInfrastructureTypes] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [incidentCodesLoading, setIncidentCodesLoading] = useState(false);
   const [incidentSubcodesLoading, setIncidentSubcodesLoading] = useState(false);
   const [serviceTypesLoading, setServiceTypesLoading] = useState(false);
@@ -360,6 +363,7 @@ export default function PatrolOperationsSection({
   const [incidentRegisterError, setIncidentRegisterError] = useState("");
   const [serviceTypeError, setServiceTypeError] = useState("");
   const [infrastructureTypeError, setInfrastructureTypeError] = useState("");
+  const [areaError, setAreaError] = useState("");
   const [selectedPatrolAction, setSelectedPatrolAction] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -515,6 +519,23 @@ export default function PatrolOperationsSection({
 
   useEffect(() => {
     if (
+      (showIncidentResponseForm || showObservationForm || showEmergencyForm || showInfrastructureForm) &&
+      token &&
+      areas.length === 0
+    ) {
+      loadAreas();
+    }
+  }, [
+    showIncidentResponseForm,
+    showObservationForm,
+    showEmergencyForm,
+    showInfrastructureForm,
+    token,
+    areas.length,
+  ]);
+
+  useEffect(() => {
+    if (
       showObservationForm &&
       eventForm.observationType === "Infrastructure Concern" &&
       token &&
@@ -602,6 +623,19 @@ export default function PatrolOperationsSection({
     }
   }
 
+  async function loadAreas() {
+    try {
+      setAreaError("");
+      const json = await loadJson(`${ADMIN_REGISTER_ENDPOINTS.areas}?active=true`, {
+        headers: getAuthHeaders(),
+      });
+
+      setAreas(Array.isArray(json) ? json : []);
+    } catch (error) {
+      setAreaError(error.message || "Failed to load areas.");
+    }
+  }
+
   function updateStartForm(field, value) {
     setStartForm((current) => ({
       ...current,
@@ -657,6 +691,16 @@ export default function PatrolOperationsSection({
     }));
   }
 
+  function updateAreaSelection(areaId) {
+    const selectedArea = areas.find((item) => item.id === areaId);
+
+    setEventForm((current) => ({
+      ...current,
+      areaId,
+      suburb: selectedArea?.officialName || current.suburb,
+    }));
+  }
+
   function selectPatrolAction(action) {
     setSelectedPatrolAction(action.id);
     setMessage("");
@@ -674,6 +718,7 @@ export default function PatrolOperationsSection({
       serviceTypeId: "",
       infrastructureTypeId: "",
       infrastructureType: "",
+      areaId: "",
       description: action.description,
       assistance: "",
       streetNumber: "",
@@ -799,6 +844,7 @@ export default function PatrolOperationsSection({
           incidentCodeId: eventForm.incidentCodeId || null,
           incidentSubcodeId: eventForm.incidentSubcodeId || null,
           infrastructureTypeId: eventForm.infrastructureTypeId || null,
+          areaId: eventForm.areaId || null,
           streetNumber: eventForm.streetNumber || null,
           streetName: eventForm.streetName || null,
           suburb: eventForm.suburb || null,
@@ -1141,7 +1187,19 @@ export default function PatrolOperationsSection({
           <input value={eventForm.streetName} onChange={(event) => updateEventForm("streetName", event.target.value)} />
         </label>
         <label>
-          Suburb
+          Area / Suburb
+          <select value={eventForm.areaId} onChange={(event) => updateAreaSelection(event.target.value)}>
+            <option value="">Other / Not Listed</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.officialName}
+              </option>
+            ))}
+          </select>
+        </label>
+        {areaError && <p className="card-detail">{areaError}</p>}
+        <label>
+          Raw Suburb / Area Text
           <input value={eventForm.suburb} onChange={(event) => updateEventForm("suburb", event.target.value)} />
         </label>
         <label>

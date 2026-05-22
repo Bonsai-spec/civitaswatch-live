@@ -50,6 +50,13 @@ const incidentSubcodeSelect = {
   name: true,
 };
 
+const areaSelect = {
+  id: true,
+  officialName: true,
+  type: true,
+  sectorId: true,
+};
+
 const PATROL_EVENT_INCLUDE = {
   incident: {
     select: {
@@ -72,6 +79,9 @@ const PATROL_EVENT_INCLUDE = {
   },
   incidentSubcodeRef: {
     select: incidentSubcodeSelect,
+  },
+  areaRef: {
+    select: areaSelect,
   },
   serviceTypeRef: {
     select: {

@@ -28,8 +28,7 @@ function normalizeLookup(value) {
   return String(value || "")
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9]+/g, "")
     .trim();
 }
 
@@ -183,6 +182,7 @@ function buildIncidentDescription(row) {
 function buildEventData(row, lookups, patrolId, createdByUserId) {
   const base = {
     patrolId,
+    areaId: lookups.areaIds.get(normalizeLookup(row.suburb)) || null,
     referenceNumber: toNullableString(row.referenceNumber),
     streetName: toNullableString(row.streetName),
     suburb: toNullableString(row.suburb),
@@ -265,11 +265,19 @@ async function loadRows() {
 }
 
 async function loadLookups() {
-  const [incidentCodes, incidentSubcodes, serviceTypes, infrastructureTypes] = await Promise.all([
+  const [incidentCodes, incidentSubcodes, serviceTypes, infrastructureTypes, areas] = await Promise.all([
     prisma.incidentCode.findMany({ where: { active: true } }),
     prisma.incidentSubcode.findMany({ where: { active: true } }),
     prisma.serviceType.findMany({ where: { active: true } }),
     prisma.infrastructureType.findMany({ where: { active: true } }),
+    prisma.area.findMany({
+      where: { active: true },
+      include: {
+        aliases: {
+          where: { active: true },
+        },
+      },
+    }),
   ]);
 
   const incidentCodeByCode = new Map();
@@ -294,11 +302,20 @@ async function loadLookups() {
     infrastructureTypeIds.set(normalizeLookup(infrastructureType.type), infrastructureType.id);
   }
 
+  const areaIds = new Map();
+  for (const area of areas) {
+    areaIds.set(normalizeLookup(area.officialName), area.id);
+    for (const alias of area.aliases || []) {
+      areaIds.set(alias.normalizedAlias || normalizeLookup(alias.alias), area.id);
+    }
+  }
+
   return {
     incidentCodeByCode,
     incidentSubcodeByKey,
     serviceTypeIds,
     infrastructureTypeIds,
+    areaIds,
   };
 }
 

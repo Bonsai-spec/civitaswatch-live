@@ -36,6 +36,13 @@ const incidentSubcodeSelect = {
   name: true,
 };
 
+const areaSelect = {
+  id: true,
+  officialName: true,
+  type: true,
+  sectorId: true,
+};
+
 const patrolInclude = {
   user: {
     select: {
@@ -98,6 +105,9 @@ const patrolInclude = {
       incidentSubcodeRef: {
         select: incidentSubcodeSelect,
       },
+      areaRef: {
+        select: areaSelect,
+      },
       serviceTypeRef: {
         select: {
           id: true,
@@ -151,6 +161,9 @@ const incidentInclude = {
       locationNotes: true,
       latitude: true,
       longitude: true,
+      areaRef: {
+        select: areaSelect,
+      },
       incidentCodeRef: {
         select: incidentCodeSelect,
       },
@@ -164,6 +177,9 @@ const incidentInclude = {
   },
   incidentSubcodeRef: {
     select: incidentSubcodeSelect,
+  },
+  areaRef: {
+    select: areaSelect,
   },
 };
 
@@ -225,6 +241,35 @@ function parseOptionalBoolean(value) {
 function nullableText(value) {
   return value === undefined ? undefined : cleanText(value);
 }
+
+function parseOptionalNumber(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : NaN;
+}
+
+function normalizeAreaAlias(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+const areaInclude = {
+  sector: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+    },
+  },
+  aliases: {
+    orderBy: {
+      alias: "asc",
+    },
+  },
+};
 
 function parseIncidentDateTime(date, time) {
   if (!date || !time) return null;
@@ -539,6 +584,282 @@ router.delete("/incident-subcodes/:id", async (req, res) => {
 
     console.error("DELETE /admin/incident-subcodes/:id failed:", err);
     res.status(500).json({ error: "Failed to deactivate incident subcode." });
+  }
+});
+
+router.get("/areas", async (req, res) => {
+  try {
+    const { sectorId, active, type, q } = req.query;
+    const where = {};
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
+
+    if (resolvedSectorId) {
+      where.OR = [
+        { sectorId: null },
+        { sectorId: resolvedSectorId },
+      ];
+    }
+    if (type !== undefined) where.type = cleanText(type);
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      where.active = parsedActive;
+    }
+
+    const search = cleanText(q);
+    if (search) {
+      const searchOr = [
+        { officialName: { contains: search, mode: "insensitive" } },
+        { notes: { contains: search, mode: "insensitive" } },
+        { aliases: { some: { alias: { contains: search, mode: "insensitive" } } } },
+      ];
+      where.AND = [{ OR: searchOr }];
+    }
+
+    const areas = await prisma.area.findMany({
+      where,
+      include: areaInclude,
+      orderBy: [{ sortOrder: "asc" }, { officialName: "asc" }],
+    });
+
+    res.json(areas);
+  } catch (err) {
+    console.error("GET /admin/areas failed:", err);
+    res.status(500).json({ error: "Failed to fetch areas." });
+  }
+});
+
+router.post("/areas", async (req, res) => {
+  try {
+    const { sectorId, officialName, name, type, active, notes, sortOrder } = req.body;
+    const cleanName = cleanText(officialName || name);
+    const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
+
+    if (!cleanName) {
+      return res.status(400).json({ error: "officialName is required." });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const parsedSortOrder = parseOptionalNumber(sortOrder);
+    if (Number.isNaN(parsedSortOrder)) {
+      return res.status(400).json({ error: "sortOrder must be a whole number." });
+    }
+
+    const area = await prisma.area.create({
+      data: {
+        sectorId: resolvedSectorId,
+        officialName: cleanName,
+        type: cleanText(type) || "SUBURB",
+        active: parsedActive === undefined ? true : parsedActive,
+        notes: cleanText(notes),
+        sortOrder: parsedSortOrder,
+      },
+      include: areaInclude,
+    });
+
+    res.status(201).json(area);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Area already exists for this sector." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("POST /admin/areas failed:", err);
+    res.status(500).json({ error: "Failed to create area." });
+  }
+});
+
+router.patch("/areas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { sectorId, officialName, name, type, active, notes, sortOrder } = req.body;
+    const data = {};
+
+    if (sectorId !== undefined) data.sectorId = cleanText(resolveSectorId(req, sectorId));
+
+    if (officialName !== undefined || name !== undefined) {
+      const cleanName = cleanText(officialName || name);
+      if (!cleanName) {
+        return res.status(400).json({ error: "officialName cannot be empty." });
+      }
+      data.officialName = cleanName;
+    }
+
+    if (type !== undefined) data.type = cleanText(type) || "SUBURB";
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    if (notes !== undefined) data.notes = cleanText(notes);
+
+    if (sortOrder !== undefined) {
+      const parsedSortOrder = parseOptionalNumber(sortOrder);
+      if (Number.isNaN(parsedSortOrder)) {
+        return res.status(400).json({ error: "sortOrder must be a whole number." });
+      }
+      data.sortOrder = parsedSortOrder;
+    }
+
+    const area = await prisma.area.update({
+      where: { id },
+      data,
+      include: areaInclude,
+    });
+
+    res.json(area);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Area not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Area already exists for this sector." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid sectorId." });
+    }
+
+    console.error("PATCH /admin/areas/:id failed:", err);
+    res.status(500).json({ error: "Failed to update area." });
+  }
+});
+
+router.delete("/areas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const area = await prisma.area.update({
+      where: { id },
+      data: { active: false },
+      include: areaInclude,
+    });
+
+    res.json(area);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Area not found." });
+    }
+
+    console.error("DELETE /admin/areas/:id failed:", err);
+    res.status(500).json({ error: "Failed to deactivate area." });
+  }
+});
+
+router.post("/areas/:id/aliases", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { alias, active } = req.body;
+    const cleanAlias = cleanText(alias);
+
+    if (!cleanAlias) {
+      return res.status(400).json({ error: "alias is required." });
+    }
+
+    const parsedActive = parseOptionalBoolean(active);
+    if (parsedActive === null) {
+      return res.status(400).json({ error: "active must be true or false." });
+    }
+
+    const areaAlias = await prisma.areaAlias.create({
+      data: {
+        areaId: id,
+        alias: cleanAlias,
+        normalizedAlias: normalizeAreaAlias(cleanAlias),
+        active: parsedActive === undefined ? true : parsedActive,
+      },
+    });
+
+    res.status(201).json(areaAlias);
+  } catch (err) {
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Area alias already exists for this area." });
+    }
+
+    if (err.code === "P2003") {
+      return res.status(400).json({ error: "Invalid areaId." });
+    }
+
+    console.error("POST /admin/areas/:id/aliases failed:", err);
+    res.status(500).json({ error: "Failed to create area alias." });
+  }
+});
+
+router.patch("/area-aliases/:aliasId", async (req, res) => {
+  try {
+    const { aliasId } = req.params;
+    const { alias, active } = req.body;
+    const data = {};
+
+    if (alias !== undefined) {
+      const cleanAlias = cleanText(alias);
+      if (!cleanAlias) {
+        return res.status(400).json({ error: "alias cannot be empty." });
+      }
+      data.alias = cleanAlias;
+      data.normalizedAlias = normalizeAreaAlias(cleanAlias);
+    }
+
+    if (active !== undefined) {
+      const parsedActive = parseOptionalBoolean(active);
+      if (parsedActive === null) {
+        return res.status(400).json({ error: "active must be true or false." });
+      }
+      data.active = parsedActive;
+    }
+
+    const areaAlias = await prisma.areaAlias.update({
+      where: { id: aliasId },
+      data,
+    });
+
+    res.json(areaAlias);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Area alias not found." });
+    }
+
+    if (err.code === "P2002") {
+      return res.status(409).json({ error: "Area alias already exists for this area." });
+    }
+
+    console.error("PATCH /admin/area-aliases/:aliasId failed:", err);
+    res.status(500).json({ error: "Failed to update area alias." });
+  }
+});
+
+router.delete("/area-aliases/:aliasId", async (req, res) => {
+  try {
+    const { aliasId } = req.params;
+
+    const areaAlias = await prisma.areaAlias.update({
+      where: { id: aliasId },
+      data: { active: false },
+    });
+
+    res.json(areaAlias);
+  } catch (err) {
+    if (err.code === "P2025") {
+      return res.status(404).json({ error: "Area alias not found." });
+    }
+
+    console.error("DELETE /admin/area-aliases/:aliasId failed:", err);
+    res.status(500).json({ error: "Failed to deactivate area alias." });
   }
 });
 
@@ -1102,6 +1423,7 @@ router.post("/incidents", async (req, res) => {
       time,
       incidentCodeId,
       incidentSubcodeId,
+      areaId,
     } = req.body;
 
     if (!title || !incidentType || !street || !suburb || !sector || !severity || !date || !time) {
@@ -1140,6 +1462,7 @@ router.post("/incidents", async (req, res) => {
         incidentType: cleanText(incidentType),
         incidentCodeId: cleanText(incidentCodeId),
         incidentSubcodeId: cleanText(incidentSubcodeId),
+        areaId: cleanText(areaId),
         street: cleanText(street),
         suburb: cleanText(suburb),
         sector: cleanText(sector),
@@ -1156,7 +1479,7 @@ router.post("/incidents", async (req, res) => {
     res.status(201).json(incident);
   } catch (err) {
     if (err.code === "P2003") {
-      return res.status(400).json({ error: "Invalid incidentCodeId or incidentSubcodeId." });
+      return res.status(400).json({ error: "Invalid incidentCodeId, incidentSubcodeId, or areaId." });
     }
 
     console.error("POST /admin/incidents failed:", err);
@@ -1182,6 +1505,7 @@ router.patch("/incidents/:id", async (req, res) => {
       linkedPatrolId,
       incidentCodeId,
       incidentSubcodeId,
+      areaId,
     } = req.body;
 
     const data = {};
@@ -1190,6 +1514,7 @@ router.patch("/incidents/:id", async (req, res) => {
     if (incidentType !== undefined) data.incidentType = cleanText(incidentType);
     if (incidentCodeId !== undefined) data.incidentCodeId = cleanText(incidentCodeId);
     if (incidentSubcodeId !== undefined) data.incidentSubcodeId = cleanText(incidentSubcodeId);
+    if (areaId !== undefined) data.areaId = cleanText(areaId);
     if (street !== undefined) data.street = cleanText(street);
     if (suburb !== undefined) data.suburb = cleanText(suburb);
     if (description !== undefined) data.description = cleanText(description);
@@ -1237,7 +1562,7 @@ router.patch("/incidents/:id", async (req, res) => {
     res.json(incident);
   } catch (err) {
     if (err.code === "P2003") {
-      return res.status(400).json({ error: "Invalid incidentCodeId or incidentSubcodeId." });
+      return res.status(400).json({ error: "Invalid incidentCodeId, incidentSubcodeId, or areaId." });
     }
 
     console.error("PATCH /admin/incidents/:id failed:", err);

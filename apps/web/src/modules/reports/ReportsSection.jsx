@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from "react";
 import {
+  buildAreaAliasRows,
   getIncidentClassificationCsvColumns,
-  getIncidentSuburb,
+  getIncidentSuburb as getCanonicalIncidentSuburb,
+  getRawIncidentSuburb,
   resolveIncidentClassification,
 } from "./report.utils";
 
@@ -34,7 +36,12 @@ function formatEventLocation(event) {
       ? `${event.latitude}, ${event.longitude}`
       : null;
 
-  return [street, event?.suburb, event?.locationNotes, coordinates].filter(Boolean).join(" - ");
+  return [
+    street,
+    event?.areaRef?.officialName || event?.suburb,
+    event?.locationNotes,
+    coordinates,
+  ].filter(Boolean).join(" - ");
 }
 
 function getAssistancePatrolLabel(request) {
@@ -58,7 +65,11 @@ function getAssistanceVehicleLabel(request) {
 
 function getAssistanceLocationLabel(request) {
   const street = [request?.streetNumber, request?.streetName].filter(Boolean).join(" ");
-  return [street, request?.suburb, request?.locationNotes].filter(Boolean).join(" - ") || "-";
+  return [
+    street,
+    request?.areaRef?.officialName || request?.suburb,
+    request?.locationNotes,
+  ].filter(Boolean).join(" - ") || "-";
 }
 
 function getAssistanceCrewLabel(request) {
@@ -107,6 +118,7 @@ function buildPatrolEventIncidentReport(event, patrol) {
     linkedPatrol: patrol,
     incidentCodeRef: event.incidentCodeRef || null,
     incidentSubcodeRef: event.incidentSubcodeRef || null,
+    areaRef: event.areaRef || null,
     incidentCode: event.incidentCode || classification.code,
     incidentCodeId: event.incidentCodeId || null,
     incidentSubcodeId: event.incidentSubcodeId || null,
@@ -179,12 +191,20 @@ function getIncidentCodeParts(record) {
 
 function getIncidentStreetLocation(record) {
   const eventWithLocation = record?.patrolEvents?.find((event) =>
-    [event.streetNumber, event.streetName, event.suburb, event.locationNotes].some(Boolean)
+    [event.streetNumber, event.streetName, event.areaRef?.officialName, event.suburb, event.locationNotes].some(Boolean)
   );
   const eventStreet = [eventWithLocation?.streetNumber, eventWithLocation?.streetName].filter(Boolean).join(" ");
   const incidentStreet = record?.street || [record?.streetNumber, record?.streetName].filter(Boolean).join(" ");
-  const incidentLocation = [incidentStreet, record?.suburb, record?.locationNotes].filter(Boolean).join(", ");
-  const eventLocation = [eventStreet, eventWithLocation?.suburb, eventWithLocation?.locationNotes]
+  const incidentLocation = [
+    incidentStreet,
+    record?.areaRef?.officialName || record?.suburb,
+    record?.locationNotes,
+  ].filter(Boolean).join(", ");
+  const eventLocation = [
+    eventStreet,
+    eventWithLocation?.areaRef?.officialName || eventWithLocation?.suburb,
+    eventWithLocation?.locationNotes,
+  ]
     .filter(Boolean)
     .join(", ");
 
@@ -809,6 +829,8 @@ export default function ReportsSection({
 }) {
   const assistanceRequests = data.assistanceRequests || [];
   const vehicles = data.vehicles || [];
+  const areaAliasRows = useMemo(() => buildAreaAliasRows(data.areas || []), [data.areas]);
+  const getIncidentSuburb = (record) => getCanonicalIncidentSuburb(record, areaAliasRows);
   const [selectedReportDetail, setSelectedReportDetail] = useState(null);
   const [executiveNotes, setExecutiveNotes] = useState({
     keyConcerns: "",
@@ -851,7 +873,7 @@ export default function ReportsSection({
       if (reportFilters.suburb && !includesText(getIncidentSuburb(incident), reportFilters.suburb)) return false;
       return true;
     });
-  }, [incidentReportSourceRows, reportFilters]);
+  }, [incidentReportSourceRows, reportFilters, areaAliasRows]);
   const unclassifiedIncidentRows = useMemo(
     () => incidentRows.filter((incident) => !getIncidentCodeParts(incident).isClassified),
     [incidentRows]
@@ -865,6 +887,7 @@ export default function ReportsSection({
         getAssistancePatrolLabel(request),
         getAssistanceVehicleLabel(request),
         getAssistanceLocationLabel(request),
+        getIncidentSuburb(request),
         request.description,
         request.referenceNumber,
       ].join(" ");
@@ -872,6 +895,7 @@ export default function ReportsSection({
       if (!inDateRange(request, reportFilters)) return false;
       if (!includesText(search, reportFilters.search)) return false;
       if (reportFilters.sector !== "ALL" && (patrol.sector || request.sector) !== reportFilters.sector) return false;
+      if (reportFilters.suburb && !includesText(getIncidentSuburb(request), reportFilters.suburb)) return false;
       if (reportFilters.callSign && !includesText(patrol.callSign, reportFilters.callSign)) return false;
       if (reportFilters.serviceType !== "ALL" && service !== reportFilters.serviceType) return false;
       if (reportFilters.referenceNumber && !includesText(request.referenceNumber, reportFilters.referenceNumber)) return false;
@@ -880,7 +904,7 @@ export default function ReportsSection({
       }
       return true;
     });
-  }, [assistanceRequests, reportFilters]);
+  }, [assistanceRequests, reportFilters, areaAliasRows]);
   const infrastructureRows = useMemo(() => {
     return getInfrastructureRows(filteredPatrolReports).filter((event) => {
       const search = [
@@ -888,6 +912,7 @@ export default function ReportsSection({
         event.infrastructureTypeRef?.riskLevel,
         event.description,
         formatEventLocation(event),
+        getIncidentSuburb(event),
         event.patrol?.sector,
         getPatrolCallSign(event.patrol),
       ].join(" ");
@@ -895,11 +920,12 @@ export default function ReportsSection({
       if (!inDateRange(event, reportFilters)) return false;
       if (!includesText(search, reportFilters.search)) return false;
       if (reportFilters.sector !== "ALL" && event.patrol?.sector !== reportFilters.sector) return false;
+      if (reportFilters.suburb && !includesText(getIncidentSuburb(event), reportFilters.suburb)) return false;
       if (reportFilters.infrastructureType !== "ALL" && event.infrastructureTypeRef?.type !== reportFilters.infrastructureType) return false;
       if (reportFilters.riskLevel !== "ALL" && event.infrastructureTypeRef?.riskLevel !== reportFilters.riskLevel) return false;
       return true;
     });
-  }, [filteredPatrolReports, reportFilters]);
+  }, [filteredPatrolReports, reportFilters, areaAliasRows]);
   const vehicleRows = useMemo(() => {
     return getVehicleReportRows(filteredPatrolReports).filter((row) => {
       if (!inDateRange(row.patrol, reportFilters)) return false;
@@ -1069,7 +1095,7 @@ export default function ReportsSection({
         getIncidentStreetLocation(incident)
       ),
     };
-  }, [incidentReportSourceRows, reportFilters, selectedMonth, previousMonth]);
+  }, [incidentReportSourceRows, reportFilters, selectedMonth, previousMonth, areaAliasRows]);
   const patrollerActivityRows = useMemo(() => {
     const byPatroller = new Map();
 
@@ -1140,7 +1166,7 @@ export default function ReportsSection({
       .filter((row) => reportFilters.patrollerId === "ALL" || row.id === reportFilters.patrollerId)
       .filter((row) => includesText([row.name, row.callSign].join(" "), reportFilters.search))
       .sort((a, b) => b.totalHours - a.totalHours || b.patrolCount - a.patrolCount);
-  }, [filteredPatrolReports, reportFilters]);
+  }, [filteredPatrolReports, reportFilters, areaAliasRows]);
   const patrollerSessionRows = useMemo(() => {
     const rows = [];
 
@@ -1270,8 +1296,8 @@ export default function ReportsSection({
     [infrastructureRows]
   );
   const infrastructureBySuburbRows = useMemo(
-    () => countBy(infrastructureRows, (event) => event.suburb),
-    [infrastructureRows]
+    () => countBy(infrastructureRows, getIncidentSuburb),
+    [infrastructureRows, areaAliasRows]
   );
   const vehicleKmRows = useMemo(
     () => vehicleUsageRows.map((row) => ({ label: row.registration, value: row.totalKm })),
@@ -1294,7 +1320,7 @@ export default function ReportsSection({
       if (!inDateRange(event, reportFilters)) return false;
       if (!includesText(search, reportFilters.search)) return false;
       if (reportFilters.sector !== "ALL" && event.patrol?.sector !== reportFilters.sector) return false;
-      if (reportFilters.suburb && !includesText(event.suburb, reportFilters.suburb)) return false;
+      if (reportFilters.suburb && !includesText(getIncidentSuburb(event), reportFilters.suburb)) return false;
       return true;
     });
   }, [filteredPatrolReports, reportFilters]);
@@ -1349,7 +1375,7 @@ export default function ReportsSection({
         nightCount: split.night,
       };
     });
-  }, [monthlyTrendData]);
+  }, [monthlyTrendData, areaAliasRows]);
 
   function renderReportDetail() {
     if (!selectedReportDetail) return null;
@@ -2268,7 +2294,7 @@ export default function ReportsSection({
                     { label: "Incident Subcode Name", value: (row) => row.subcodeName },
                     { label: "Count", value: (row) => row.count },
                     { label: "Sector", value: (row) => row.sector },
-                    { label: "Suburb", value: (row) => row.suburb },
+                    { label: "Report Area", value: (row) => row.suburb },
                   ], monthlyTrendData.csvRows)
                 }
               >
@@ -2899,7 +2925,8 @@ export default function ReportsSection({
                     { label: "Sector", value: (row) => row.sector },
                     { label: "Status", value: (row) => row.status },
                     { label: "Severity", value: (row) => row.severity },
-                    { label: "Suburb", value: getIncidentSuburb },
+                    { label: "Report Area", value: getIncidentSuburb },
+                    { label: "Raw Suburb", value: getRawIncidentSuburb },
                     { label: "Address", value: getIncidentStreetLocation },
                     { label: "Reported", value: (row) => formatDateTime(row.reportedAt) },
                     { label: "Occurred", value: (row) => formatDateTime(row.occurredAt) },
@@ -3084,6 +3111,8 @@ export default function ReportsSection({
                     { label: "Crew", value: getAssistanceCrewLabel },
                     { label: "Vehicle", value: getAssistanceVehicleLabel },
                     { label: "Sector", value: (row) => row?.patrol?.sector || row?.sector },
+                    { label: "Report Area", value: getIncidentSuburb },
+                    { label: "Raw Suburb", value: getRawIncidentSuburb },
                     { label: "Status", value: getAssistanceStatus },
                     { label: "Reference Number", value: (row) => row.referenceNumber },
                     { label: "Location", value: getAssistanceLocationLabel },
@@ -3425,7 +3454,8 @@ export default function ReportsSection({
                     { label: "Reference Number", value: (row) => row.referenceNumber },
                     { label: "Street Number", value: (row) => row.streetNumber },
                     { label: "Street Name", value: (row) => row.streetName },
-                    { label: "Suburb", value: (row) => row.suburb },
+                    { label: "Report Area", value: getIncidentSuburb },
+                    { label: "Raw Suburb", value: getRawIncidentSuburb },
                     { label: "Landmark / Location Notes", value: (row) => row.locationNotes },
                     { label: "Latitude", value: (row) => row.latitude },
                     { label: "Longitude", value: (row) => row.longitude },

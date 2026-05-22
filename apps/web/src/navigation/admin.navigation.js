@@ -21,6 +21,7 @@ export const ADMIN_NAV_SECTIONS = [
       { label: "Vehicles", permission: "VIEW_REGISTERS" },
       { label: "Residents", permission: "VIEW_REGISTERS" },
       { label: "Organisations", permission: "VIEW_REGISTERS" },
+      { label: "Areas / Suburbs", permission: "VIEW_REGISTERS" },
       { label: "Incident Codes", permission: "VIEW_REGISTERS" },
       { label: "Incident Subcodes", permission: "VIEW_REGISTERS" },
       { label: "Service Types", permission: "VIEW_REGISTERS" },

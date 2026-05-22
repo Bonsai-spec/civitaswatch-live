@@ -67,6 +67,13 @@ const incidentSubcodeSelect = {
   name: true,
 };
 
+const areaSelect = {
+  id: true,
+  officialName: true,
+  type: true,
+  sectorId: true,
+};
+
 const incidentInclude = {
   createdBy: {
     select: {
@@ -108,6 +115,9 @@ const incidentInclude = {
       incidentSubcodeRef: {
         select: incidentSubcodeSelect,
       },
+      areaRef: {
+        select: areaSelect,
+      },
       serviceTypeRef: {
         select: {
           id: true,
@@ -143,6 +153,9 @@ const incidentInclude = {
   incidentSubcodeRef: {
     select: incidentSubcodeSelect,
   },
+  areaRef: {
+    select: areaSelect,
+  },
 };
 
 router.post("/report", requireAuth, async (req, res) => {
@@ -160,6 +173,7 @@ router.post("/report", requireAuth, async (req, res) => {
       incidentType,
       incidentCodeId,
       incidentSubcodeId,
+      areaId,
     } = req.body;
 
     const normalizedTitle = toNullableString(title);
@@ -214,6 +228,7 @@ router.post("/report", requireAuth, async (req, res) => {
           incidentType: toNullableString(incidentType),
           incidentCodeId: toNullableString(incidentCodeId),
           incidentSubcodeId: toNullableString(incidentSubcodeId),
+          areaId: toNullableString(areaId),
           linkedPatrolId: linkedPatrolId || null,
           createdByUserId: req.user.id,
           reportedAt: new Date(),
@@ -231,6 +246,7 @@ router.post("/report", requireAuth, async (req, res) => {
             incidentCode: createdIncident.incidentCode,
             incidentCodeId: createdIncident.incidentCodeId,
             incidentSubcodeId: createdIncident.incidentSubcodeId,
+            areaId: createdIncident.areaId,
             description: createdIncident.title,
             sceneActive: true,
             createdByUserId: req.user.id,
@@ -244,7 +260,7 @@ router.post("/report", requireAuth, async (req, res) => {
     return res.status(201).json(incident);
   } catch (error) {
     if (error.code === "P2003") {
-      return badRequest(res, "Invalid incidentCodeId or incidentSubcodeId.");
+      return badRequest(res, "Invalid incidentCodeId, incidentSubcodeId, areaId, or linkedPatrolId.");
     }
 
     console.error("POST /incidents/report failed:", error);
@@ -380,6 +396,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
       incidentType,
       incidentCodeId,
       incidentSubcodeId,
+      areaId,
     } = req.body;
 
     const data = {};
@@ -406,6 +423,10 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     if (incidentSubcodeId !== undefined) {
       data.incidentSubcodeId = toNullableString(incidentSubcodeId);
+    }
+
+    if (areaId !== undefined) {
+      data.areaId = toNullableString(areaId);
     }
 
     if (sector !== undefined) {
@@ -472,7 +493,7 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return res.json(incident);
   } catch (error) {
     if (error.code === "P2003") {
-      return badRequest(res, "Invalid incidentCodeId or incidentSubcodeId.");
+      return badRequest(res, "Invalid incidentCodeId, incidentSubcodeId, or areaId.");
     }
 
     console.error("PATCH /incidents/:id failed:", error);

@@ -57,7 +57,7 @@ function getAssistanceLocationLabel(request) {
 
   return [
     street,
-    request?.suburb,
+    request?.areaRef?.officialName || request?.suburb,
     request?.locationNotes,
     coordinates,
   ].filter(Boolean).join(" - ") || "-";
@@ -113,6 +113,7 @@ export default function IncidentsSection({
   onPromoteIncidentToIntelligence,
 }) {
   const assistanceRequests = data.assistanceRequests || [];
+  const areas = data.areas || [];
   const showAssistanceRequests =
     shouldShowAssistanceRequests && canAssignPatrol && !isPatrol;
 
@@ -219,7 +220,28 @@ export default function IncidentsSection({
               </label>
 
               <label>
-                Suburb
+                Area / Suburb
+                <select
+                  value={form.areaId || ""}
+                  onChange={(e) => {
+                    const selectedArea = areas.find((area) => area.id === e.target.value);
+                    onIncidentFormFieldChange("areaId", e.target.value);
+                    if (selectedArea?.officialName) {
+                      onIncidentFormFieldChange("suburb", selectedArea.officialName);
+                    }
+                  }}
+                >
+                  <option value="">Other / Not Listed</option>
+                  {areas.map((area) => (
+                    <option key={area.id} value={area.id}>
+                      {area.officialName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Raw Suburb / Area Text
                 <input
                   value={form.suburb}
                   onChange={(e) => onIncidentFormFieldChange("suburb", e.target.value)}
@@ -313,7 +335,7 @@ export default function IncidentsSection({
               </p>
               <p>
                 <strong>Address:</strong> {selectedIncident.street || "N/A"},{" "}
-                {selectedIncident.suburb || "N/A"}
+                {selectedIncident.areaRef?.officialName || selectedIncident.suburb || "N/A"}
               </p>
               <p>
                 <strong>Sector:</strong> {selectedIncident.sector || "N/A"}

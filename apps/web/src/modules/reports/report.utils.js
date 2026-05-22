@@ -125,14 +125,74 @@ export function resolveIncidentClassification(record) {
   return buildCodeParts(null, null);
 }
 
-export function getIncidentSuburb(record) {
+function findAreaRef(record) {
+  if (record?.areaRef?.officialName) return record.areaRef;
+  if (record?.area?.officialName) return record.area;
+
+  const linkedEvent = getLinkedPatrolEvents(record).find((event) =>
+    event?.areaRef?.officialName || event?.area?.officialName
+  );
+
+  if (linkedEvent?.areaRef?.officialName) return linkedEvent.areaRef;
+  if (linkedEvent?.area?.officialName) return linkedEvent.area;
+  if (record?.incident?.areaRef?.officialName) return record.incident.areaRef;
+  if (record?.incident?.area?.officialName) return record.incident.area;
+
+  return null;
+}
+
+export function normalizeReportAreaKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+export function getRawIncidentSuburb(record) {
   return (
     record?.suburb ||
     record?.patrolEvents?.find((event) => event.suburb)?.suburb ||
     record?.linkedPatrol?.patrolEvents?.find((event) => event.suburb)?.suburb ||
     record?.incident?.suburb ||
-    "Unknown"
+    ""
   );
+}
+
+export function buildAreaAliasRows(areas = []) {
+  return areas.flatMap((area) => {
+    const officialName = area?.officialName || area?.name || "";
+    if (!officialName) return [];
+
+    return [
+      {
+        officialName,
+        normalizedAlias: normalizeReportAreaKey(officialName),
+      },
+      ...(Array.isArray(area.aliases) ? area.aliases : [])
+        .filter((alias) => alias?.active !== false)
+        .map((alias) => ({
+          officialName,
+          normalizedAlias: alias.normalizedAlias || normalizeReportAreaKey(alias.alias),
+        })),
+    ];
+  });
+}
+
+export function resolveReportArea(record, areaAliasRows = []) {
+  const areaRef = findAreaRef(record);
+  if (areaRef?.officialName) return areaRef.officialName;
+
+  const rawSuburb = String(getRawIncidentSuburb(record) || "").trim();
+  const key = normalizeReportAreaKey(rawSuburb);
+
+  if (!key) return "Unknown";
+
+  const match = areaAliasRows.find((alias) => alias.normalizedAlias === key);
+  return match?.officialName || rawSuburb;
+}
+
+export function getIncidentSuburb(record, areaAliasRows = []) {
+  return resolveReportArea(record, areaAliasRows);
 }
 
 export function getIncidentClassificationCsvColumns() {

@@ -6,6 +6,7 @@ import { getResidentImportMetadata } from "./register.utils";
 
 const INFRASTRUCTURE_RISK_LEVEL_OPTIONS = ["Low", "Medium", "High", "Critical"];
 const EMERGENCY_CONTACT_ESCALATION_OPTIONS = ["Level 1", "Level 2", "Level 3", "Critical"];
+const AREA_TYPE_OPTIONS = ["SUBURB", "AREA", "BUSINESS_AREA", "PARK", "SCHOOL", "OTHER"];
 const MASTER_REGISTER_INCOMPLETE_MESSAGE = "Complete the current row before adding another.";
 const MASTER_REGISTER_PERSISTED_MESSAGE = "Records are saved to the backend and persist after refresh.";
 const MASTER_REGISTER_SUCCESS_MESSAGE = "Saved.";
@@ -35,6 +36,7 @@ const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
 const SERVICES_ENDPOINT = `${API}/services`;
+const AREAS_ENDPOINT = `${API}/admin/areas`;
 const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
 const EMERGENCY_CONTACT_TYPES_ENDPOINT = `${API}/admin/emergency-contact-types`;
 
@@ -51,6 +53,11 @@ const MASTER_REGISTER_PLACEHOLDERS = {
     description: "Detailed classifications linked to Incident Codes.",
     addLabel: "Add Incident Subcode",
     columns: ["Parent Code", "Subcode", "Name", "Active"],
+  },
+  "Areas / Suburbs": {
+    description: "Canonical reporting areas and known aliases for suburb spelling variants.",
+    addLabel: "Add Area / Suburb",
+    columns: ["Official Name", "Type", "Sector", "Aliases", "Active"],
   },
   "Service Types": {
     description: "External and internal service categories coordinated by Control Room.",
@@ -152,6 +159,11 @@ export default function RegistersSection({
   const [incidentSubcodesLoaded, setIncidentSubcodesLoaded] = useState(false);
   const [incidentSubcodesError, setIncidentSubcodesError] = useState("");
   const [incidentSubcodeSavingIds, setIncidentSubcodeSavingIds] = useState([]);
+  const [areaRows, setAreaRows] = useState([]);
+  const [areasLoading, setAreasLoading] = useState(false);
+  const [areasLoaded, setAreasLoaded] = useState(false);
+  const [areasError, setAreasError] = useState("");
+  const [areaSavingIds, setAreaSavingIds] = useState([]);
   // Service Types define standardized response categories. Control Room will
   // use them for dispatch, escalation, and coordination, and Patrol assistance
   // should eventually reference them instead of free-text assistance values.
@@ -196,6 +208,7 @@ export default function RegistersSection({
   const [registerTypeFilter, setRegisterTypeFilter] = useState(ALL_FILTER_VALUE);
   const isIncidentCodesRegister = registerTab === "Incident Codes";
   const isIncidentSubcodesRegister = registerTab === "Incident Subcodes";
+  const isAreasRegister = registerTab === "Areas / Suburbs";
   const isServiceTypesRegister = registerTab === "Service Types";
   const isEmergencyServicesRegister = registerTab === "Emergency Services";
   const isInfrastructureTypesRegister = registerTab === "Infrastructure Types";
@@ -203,6 +216,7 @@ export default function RegistersSection({
   const isEditableMasterRegister =
     isIncidentCodesRegister ||
     isIncidentSubcodesRegister ||
+    isAreasRegister ||
     isServiceTypesRegister ||
     isEmergencyServicesRegister ||
     isInfrastructureTypesRegister ||
@@ -245,6 +259,12 @@ export default function RegistersSection({
       loadServiceTypes();
     }
   }, [isServiceTypesRegister, serviceTypesLoaded, serviceTypesLoading]);
+
+  useEffect(() => {
+    if (isAreasRegister && !areasLoaded && !areasLoading) {
+      loadAreas();
+    }
+  }, [isAreasRegister, areasLoaded, areasLoading]);
 
   useEffect(() => {
     if (isEmergencyServicesRegister && !servicesLoaded && !servicesLoading) {
@@ -305,6 +325,10 @@ export default function RegistersSection({
     return String(row?.id || "").startsWith("incident-subcode-draft-");
   }
 
+  function isDraftArea(row) {
+    return String(row?.id || "").startsWith("area-draft-");
+  }
+
   function isDraftServiceType(row) {
     return String(row?.id || "").startsWith("service-type-draft-");
   }
@@ -330,6 +354,13 @@ export default function RegistersSection({
 
   function setIncidentSubcodeSaving(id, isSaving) {
     setIncidentSubcodeSavingIds((current) => {
+      if (isSaving) return current.includes(id) ? current : [...current, id];
+      return current.filter((item) => item !== id);
+    });
+  }
+
+  function setAreaSaving(id, isSaving) {
+    setAreaSavingIds((current) => {
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
@@ -394,6 +425,42 @@ export default function RegistersSection({
       active: Boolean(row.active),
       templateSourceId: row.templateSourceId || null,
     };
+  }
+
+  function normalizeArea(row) {
+    return {
+      ...row,
+      officialName: row.officialName || row.name || "",
+      type: row.type || "SUBURB",
+      sectorId: row.sectorId || "",
+      active: row.active ?? true,
+      notes: row.notes || "",
+      sortOrder: row.sortOrder ?? "",
+      aliasText: Array.isArray(row.aliases)
+        ? row.aliases
+            .filter((alias) => alias.active !== false)
+            .map((alias) => alias.alias)
+            .join(", ")
+        : row.aliasText || "",
+    };
+  }
+
+  function areaPayload(row) {
+    return {
+      sectorId: row.sectorId || null,
+      officialName: String(row.officialName || "").trim(),
+      type: String(row.type || "SUBURB").trim() || "SUBURB",
+      active: Boolean(row.active),
+      notes: String(row.notes || "").trim() || null,
+      sortOrder: row.sortOrder === "" || row.sortOrder === null ? null : Number(row.sortOrder),
+    };
+  }
+
+  function areaAliasesFromText(value) {
+    return String(value || "")
+      .split(",")
+      .map((alias) => alias.trim())
+      .filter(Boolean);
   }
 
   function normalizeServiceType(row) {
@@ -637,6 +704,131 @@ export default function RegistersSection({
 
   function isServiceTypeComplete(row) {
     return hasText(row?.type);
+  }
+
+  function isAreaComplete(row) {
+    return hasText(row?.officialName);
+  }
+
+  async function loadAreas() {
+    setAreasLoading(true);
+    setAreasError("");
+
+    try {
+      const res = await fetch(AREAS_ENDPOINT, {
+        headers: getAuthHeaders(getToken()),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to load areas.");
+      }
+
+      setAreaRows(Array.isArray(json) ? json.map((row) => normalizeArea(row)) : []);
+      setAreasLoaded(true);
+    } catch (err) {
+      console.error("Failed to load areas", err);
+      setAreasError(err.message || "Failed to load areas.");
+      setAreasLoaded(true);
+    } finally {
+      setAreasLoading(false);
+    }
+  }
+
+  async function saveAreaAliases(area, aliasText) {
+    const requestedAliases = areaAliasesFromText(aliasText);
+    const requestedKeys = new Set(requestedAliases.map((alias) => alias.toLowerCase()));
+    const existingAliases = new Map(
+      (area.aliases || []).map((alias) => [String(alias.alias || "").trim().toLowerCase(), alias])
+    );
+
+    for (const existingAlias of area.aliases || []) {
+      const key = String(existingAlias.alias || "").trim().toLowerCase();
+      if (!requestedKeys.has(key) && existingAlias.active !== false) {
+        const res = await fetch(`${AREAS_ENDPOINT.replace("/areas", "/area-aliases")}/${existingAlias.id}`, {
+          method: "PATCH",
+          headers: getJsonAuthHeaders(getToken()),
+          body: JSON.stringify({ active: false }),
+        });
+        const json = await parseApiResponse(res);
+
+        if (!res.ok) {
+          throw new Error(json?.error || `Failed to deactivate alias ${existingAlias.alias}.`);
+        }
+      }
+    }
+
+    for (const alias of requestedAliases) {
+      const key = alias.toLowerCase();
+      const existingAlias = existingAliases.get(key);
+
+      if (existingAlias) {
+        if (existingAlias.active === false) {
+          const res = await fetch(`${AREAS_ENDPOINT.replace("/areas", "/area-aliases")}/${existingAlias.id}`, {
+            method: "PATCH",
+            headers: getJsonAuthHeaders(getToken()),
+            body: JSON.stringify({ active: true }),
+          });
+          const json = await parseApiResponse(res);
+
+          if (!res.ok) {
+            throw new Error(json?.error || `Failed to reactivate alias ${alias}.`);
+          }
+        }
+        continue;
+      }
+
+      const res = await fetch(`${AREAS_ENDPOINT}/${area.id}/aliases`, {
+        method: "POST",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ alias, active: true }),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || `Failed to save alias ${alias}.`);
+      }
+    }
+  }
+
+  async function saveAreaRow(row) {
+    if (!row || areaSavingIds.includes(row.id)) return;
+
+    if (!isAreaComplete(row)) {
+      setMasterRegisterValidationTab("Areas / Suburbs");
+      return;
+    }
+
+    const isDraft = isDraftArea(row);
+    const endpoint = isDraft ? AREAS_ENDPOINT : `${AREAS_ENDPOINT}/${row.id}`;
+    const method = isDraft ? "POST" : "PATCH";
+
+    setAreaSaving(row.id, true);
+    setAreasError("");
+    setMasterRegisterSuccessTab("");
+
+    try {
+      const res = await fetch(endpoint, {
+        method,
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify(areaPayload(row)),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save area.");
+      }
+
+      await saveAreaAliases(json, row.aliasText);
+      await loadAreas();
+      setMasterRegisterValidationTab("");
+      setMasterRegisterSuccessTab("Areas / Suburbs");
+    } catch (err) {
+      console.error("Failed to save area", err);
+      setAreasError(err.message || "Failed to save area.");
+    } finally {
+      setAreaSaving(row.id, false);
+    }
   }
 
   async function loadServiceTypes() {
@@ -948,6 +1140,10 @@ export default function RegistersSection({
       return latestRowIsIncomplete(incidentSubcodeRows, isIncidentSubcodeComplete);
     }
 
+    if (tab === "Areas / Suburbs") {
+      return latestRowIsIncomplete(areaRows, isAreaComplete);
+    }
+
     if (tab === "Service Types") {
       return latestRowIsIncomplete(serviceTypeRows, isServiceTypeComplete);
     }
@@ -1092,6 +1288,70 @@ export default function RegistersSection({
       setIncidentSubcodesError(err.message || "Failed to deactivate incident subcode.");
     } finally {
       setIncidentSubcodeSaving(id, false);
+    }
+  }
+
+  function addAreaRow() {
+    if (hasLatestIncompleteMasterRow("Areas / Suburbs")) {
+      setMasterRegisterValidationTab("Areas / Suburbs");
+      return;
+    }
+
+    setMasterRegisterValidationTab("");
+    setAreaRows((current) => [
+      ...current,
+      {
+        id: `area-draft-${Date.now()}-${current.length}`,
+        officialName: "",
+        type: "SUBURB",
+        sectorId: "",
+        aliasText: "",
+        active: true,
+      },
+    ]);
+  }
+
+  function updateAreaRow(id, field, value) {
+    setAreaRows((current) =>
+      current.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  }
+
+  async function deleteAreaRow(id) {
+    const row = areaRows.find((item) => item.id === id);
+
+    if (!row || isDraftArea(row)) {
+      setAreaRows((current) => current.filter((item) => item.id !== id));
+      return;
+    }
+
+    setAreasError("");
+    setMasterRegisterSuccessTab("");
+    setAreaSaving(id, true);
+
+    try {
+      const res = await fetch(`${AREAS_ENDPOINT}/${id}`, {
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ active: false }),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to deactivate area.");
+      }
+
+      const nextRow = normalizeArea(json);
+
+      setAreaRows((current) =>
+        current.map((item) => (item.id === id ? nextRow : item))
+      );
+      setMasterRegisterSuccessTab("Areas / Suburbs");
+    } catch (err) {
+      console.error("Failed to deactivate area", err);
+      setAreasError(err.message || "Failed to deactivate area.");
+    } finally {
+      setAreaSaving(id, false);
     }
   }
 
@@ -1404,6 +1664,7 @@ export default function RegistersSection({
     if (tab === "Incident Subcodes") {
       return record.parentCode || record.incidentCode?.code || "";
     }
+    if (tab === "Areas / Suburbs") return record.type || "";
     if (tab === "Service Types") return record.category || "";
     if (tab === "Emergency Services") return record.type || "";
     if (tab === "Infrastructure Types") return record.riskLevel || "";
@@ -1430,6 +1691,19 @@ export default function RegistersSection({
         record.incidentCode?.code,
         record.subcode,
         record.name,
+        record.active ? "active" : "inactive",
+      ];
+    }
+
+    if (tab === "Areas / Suburbs") {
+      return [
+        record.officialName,
+        record.type,
+        record.sectorId,
+        record.sector?.name,
+        record.sector?.code,
+        record.aliasText,
+        record.notes,
         record.active ? "active" : "inactive",
       ];
     }
@@ -1517,6 +1791,7 @@ export default function RegistersSection({
     if (registerTab === "Organisations") return filteredRegisterOrganisations;
     if (registerTab === "Incident Codes") return incidentCodeRows;
     if (registerTab === "Incident Subcodes") return incidentSubcodeRows;
+    if (registerTab === "Areas / Suburbs") return areaRows;
     if (registerTab === "Service Types") return serviceTypeRows;
     if (registerTab === "Emergency Services") return serviceRows;
     if (registerTab === "Infrastructure Types") return infrastructureTypeRows;
@@ -1545,6 +1820,7 @@ export default function RegistersSection({
     incidentSubcodeRows,
     "Incident Subcodes"
   );
+  const displayedAreaRows = applyRegisterFilters(areaRows, "Areas / Suburbs");
   const displayedServiceTypeRows = applyRegisterFilters(serviceTypeRows, "Service Types");
   const displayedServiceRows = applyRegisterFilters(serviceRows, "Emergency Services");
   const displayedInfrastructureTypeRows = applyRegisterFilters(
@@ -2630,6 +2906,7 @@ export default function RegistersSection({
             disabled={
               !isIncidentCodesRegister &&
               !isIncidentSubcodesRegister &&
+              !isAreasRegister &&
               !isServiceTypesRegister &&
               !isEmergencyServicesRegister &&
               !isInfrastructureTypesRegister &&
@@ -2640,15 +2917,17 @@ export default function RegistersSection({
                 ? addIncidentCodeRow
                 : isIncidentSubcodesRegister
                   ? addIncidentSubcodeRow
-                  : isServiceTypesRegister
-                    ? addServiceTypeRow
-                    : isEmergencyServicesRegister
-                      ? addServiceRow
-                      : isInfrastructureTypesRegister
-                        ? addInfrastructureTypeRow
-                        : isEmergencyContactTypesRegister
-                          ? addEmergencyContactTypeRow
-                          : undefined
+                  : isAreasRegister
+                    ? addAreaRow
+                    : isServiceTypesRegister
+                      ? addServiceTypeRow
+                      : isEmergencyServicesRegister
+                        ? addServiceRow
+                        : isInfrastructureTypesRegister
+                          ? addInfrastructureTypeRow
+                          : isEmergencyContactTypesRegister
+                            ? addEmergencyContactTypeRow
+                            : undefined
             }
           >
             {MASTER_REGISTER_PLACEHOLDERS[registerTab].addLabel}
@@ -2683,6 +2962,12 @@ export default function RegistersSection({
           )}
           {isServiceTypesRegister && serviceTypesError && (
             <p className="card-detail">{serviceTypesError}</p>
+          )}
+          {isAreasRegister && areasLoading && (
+            <p className="card-detail">Loading areas and aliases...</p>
+          )}
+          {isAreasRegister && areasError && (
+            <p className="card-detail">{areasError}</p>
           )}
           {isEmergencyServicesRegister && servicesLoading && (
             <p className="card-detail">Loading emergency services...</p>
@@ -2868,6 +3153,93 @@ export default function RegistersSection({
                       {incidentSubcodeSavingIds.includes(row.id)
                         ? "Saving..."
                         : isDraftIncidentSubcode(row)
+                          ? "Remove"
+                          : row.active
+                            ? "Deactivate"
+                            : "Inactive"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+
+              {isAreasRegister && displayedAreaRows.map((row) => (
+                <tr key={row.id}>
+                  <td>
+                    <input
+                      value={row.officialName}
+                      placeholder="Valhalla"
+                      onChange={(event) =>
+                        updateAreaRow(row.id, "officialName", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveAreaRow({ ...row, officialName: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <select
+                      value={row.type}
+                      onChange={(event) => {
+                        const nextRow = { ...row, type: event.target.value };
+                        updateAreaRow(row.id, "type", event.target.value);
+                        saveAreaRow(nextRow);
+                      }}
+                    >
+                      {AREA_TYPE_OPTIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {type.replaceAll("_", " ")}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <input
+                      value={row.sectorId || ""}
+                      placeholder={row.sector?.name || "Optional sector ID"}
+                      onChange={(event) =>
+                        updateAreaRow(row.id, "sectorId", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveAreaRow({ ...row, sectorId: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      value={row.aliasText || ""}
+                      placeholder="Vahalla, Valhala"
+                      onChange={(event) =>
+                        updateAreaRow(row.id, "aliasText", event.target.value)
+                      }
+                      onBlur={(event) =>
+                        saveAreaRow({ ...row, aliasText: event.target.value })
+                      }
+                    />
+                  </td>
+                  <td>
+                    <label className="inline-status-toggle">
+                      <input
+                        type="checkbox"
+                        checked={row.active}
+                        onChange={(event) => {
+                          const nextRow = { ...row, active: event.target.checked };
+                          updateAreaRow(row.id, "active", event.target.checked);
+                          saveAreaRow(nextRow);
+                        }}
+                      />
+                      <span className={row.active ? "status-pill active" : "status-pill inactive"}>
+                        {row.active ? "Active" : "Inactive"}
+                      </span>
+                    </label>
+                  </td>
+                  <td>
+                    <button
+                      disabled={areaSavingIds.includes(row.id) || (!isDraftArea(row) && !row.active)}
+                      onClick={() => deleteAreaRow(row.id)}
+                    >
+                      {areaSavingIds.includes(row.id)
+                        ? "Saving..."
+                        : isDraftArea(row)
                           ? "Remove"
                           : row.active
                             ? "Deactivate"
@@ -3250,12 +3622,14 @@ export default function RegistersSection({
               */}
               {((!isIncidentCodesRegister &&
                 !isIncidentSubcodesRegister &&
+                !isAreasRegister &&
                 !isServiceTypesRegister &&
                 !isEmergencyServicesRegister &&
                 !isInfrastructureTypesRegister &&
                 !isEmergencyContactTypesRegister) ||
                 (isIncidentCodesRegister && displayedIncidentCodeRows.length === 0) ||
                 (isIncidentSubcodesRegister && displayedIncidentSubcodeRows.length === 0) ||
+                (isAreasRegister && displayedAreaRows.length === 0) ||
                 (isServiceTypesRegister && displayedServiceTypeRows.length === 0) ||
                 (isEmergencyServicesRegister && displayedServiceRows.length === 0) ||
                 (isInfrastructureTypesRegister && displayedInfrastructureTypeRows.length === 0) ||
@@ -3272,13 +3646,15 @@ export default function RegistersSection({
                         ? incidentCodeRows
                         : isIncidentSubcodesRegister
                           ? incidentSubcodeRows
-                          : isServiceTypesRegister
-                            ? serviceTypeRows
-                            : isEmergencyServicesRegister
-                              ? serviceRows
-                              : isInfrastructureTypesRegister
-                                ? infrastructureTypeRows
-                                : emergencyContactTypeRows
+                          : isAreasRegister
+                            ? areaRows
+                            : isServiceTypesRegister
+                              ? serviceTypeRows
+                              : isEmergencyServicesRegister
+                                ? serviceRows
+                                : isInfrastructureTypesRegister
+                                  ? infrastructureTypeRows
+                                  : emergencyContactTypeRows
                     )}
                   </td>
                 </tr>

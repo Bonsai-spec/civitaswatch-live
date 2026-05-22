@@ -50,6 +50,13 @@ const incidentSubcodeSelect = {
   name: true,
 };
 
+const areaSelect = {
+  id: true,
+  officialName: true,
+  type: true,
+  sectorId: true,
+};
+
 const incidentClassificationInclude = {
   incidentCodeRef: {
     select: incidentCodeSelect,
@@ -61,6 +68,9 @@ const incidentClassificationInclude = {
 
 const patrolEventOperationalInclude = {
   ...incidentClassificationInclude,
+  areaRef: {
+    select: areaSelect,
+  },
   serviceTypeRef: {
     select: {
       id: true,
@@ -109,6 +119,7 @@ router.post(
         incidentSubcodeId,
         incidentType,
         referenceNumber,
+        areaId,
         streetNumber,
         streetName,
         suburb,
@@ -199,6 +210,7 @@ router.post(
         const normalizedIncidentCodeId = toNullableString(incidentCodeId);
         const normalizedIncidentSubcodeId = toNullableString(incidentSubcodeId);
         const normalizedIncidentType = toNullableString(incidentType);
+        const normalizedAreaId = toNullableString(areaId);
         const normalizedLatitude = toNullableNumber(latitude);
         const normalizedLongitude = toNullableNumber(longitude);
 
@@ -304,6 +316,7 @@ router.post(
             incidentCodeId: normalizedIncidentCodeId || linkedIncident?.incidentCodeId || null,
             incidentSubcodeId:
               normalizedIncidentSubcodeId || linkedIncident?.incidentSubcodeId || null,
+            areaId: normalizedAreaId,
             referenceNumber: toNullableString(referenceNumber),
             streetNumber: toNullableString(streetNumber),
             streetName: toNullableString(streetName),
@@ -342,7 +355,7 @@ router.post(
 
       if (error.code === "P2003") {
         return res.status(400).json({
-          error: "Invalid incidentCodeId, incidentSubcodeId, serviceTypeId, infrastructureTypeId, or createdByUserId.",
+          error: "Invalid incidentCodeId, incidentSubcodeId, areaId, serviceTypeId, infrastructureTypeId, or createdByUserId.",
         });
       }
 

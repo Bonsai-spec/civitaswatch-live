@@ -239,7 +239,7 @@ function formatPatrolEventLocation(event) {
   const street = [event?.streetNumber, event?.streetName].filter(Boolean).join(" ");
   const parts = [
     street,
-    event?.suburb,
+    event?.areaRef?.officialName || event?.suburb,
     event?.locationNotes,
     event?.latitude !== null && event?.latitude !== undefined && event?.longitude !== null && event?.longitude !== undefined
       ? `${event.latitude}, ${event.longitude}`
@@ -263,7 +263,8 @@ function getPatrolEventLocationDetails(event) {
   return [
     event.streetNumber ? `Street Number: ${event.streetNumber}` : null,
     event.streetName ? `Street Name: ${event.streetName}` : null,
-    event.suburb ? `Suburb: ${event.suburb}` : null,
+    event.areaRef?.officialName ? `Area / Suburb: ${event.areaRef.officialName}` : null,
+    event.suburb ? `Raw Suburb: ${event.suburb}` : null,
     event.locationNotes ? `Landmark / Location Notes: ${event.locationNotes}` : null,
     event.latitude !== null && event.latitude !== undefined ? `Latitude: ${event.latitude}` : null,
     event.longitude !== null && event.longitude !== undefined ? `Longitude: ${event.longitude}` : null,
@@ -545,7 +546,11 @@ function getPatrolEventPromotionDefaults(event) {
 
   const code = event?.incidentCodeRef?.code || event?.incident?.incidentCodeRef?.code || event?.incidentCode;
   const codeName = event?.incidentCodeRef?.name || event?.incident?.incidentCodeRef?.name;
-  const location = [event?.streetNumber, event?.streetName, event?.suburb].filter(Boolean).join(" ");
+  const location = [
+    event?.streetNumber,
+    event?.streetName,
+    event?.areaRef?.officialName || event?.suburb,
+  ].filter(Boolean).join(" ");
   const displayName =
     [code, codeName].filter(Boolean).join(" - ") ||
     [event?.type || "Patrol Event", location].filter(Boolean).join(" - ");

@@ -6,6 +6,7 @@ export const REGISTER_TABS = [
   "Vehicles",
   "Residents",
   "Organisations",
+  "Areas / Suburbs",
   "Incident Codes",
   "Incident Subcodes",
   "Service Types",
@@ -38,6 +39,11 @@ export const REGISTER_METADATA = {
   Organisations: {
     title: "Organisations",
     description: "Linked organisations and their sector associations for administrative configuration.",
+  },
+  "Areas / Suburbs": {
+    title: "Areas / Suburbs",
+    description: "Canonical reporting areas with aliases for spelling variations and local names.",
+    typeFilterLabel: "Area type",
   },
   "Emergency Services": {
     title: "Emergency Services",

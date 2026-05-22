@@ -4,6 +4,7 @@ import { INCIDENT_ENDPOINTS } from "../core/endpoints";
 const emptyForm = {
   title: "",
   incidentType: "ASSAULT",
+  areaId: "",
   street: "",
   suburb: "",
   description: "",
