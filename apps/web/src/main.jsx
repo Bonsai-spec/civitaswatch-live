@@ -721,7 +721,7 @@ function App() {
   const isRegisterRoute = REGISTER_TABS.includes(active);
   const isReportRoute = REPORT_CATEGORIES.includes(active);
   const activeRegisterTab = isRegisterRoute ? active : registerTab;
-  const activeReportCategory = isReportRoute ? active : "Patrol Reports";
+  const activeReportCategory = isReportRoute ? active : "Executive Monthly Report";
   // Control Room report summaries are part of the local overview, so loading follows
   // the active local tab instead of the global Reports route.
   const reportActiveRoute =

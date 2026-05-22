@@ -19,6 +19,7 @@ export const DEFAULT_REPORT_FILTERS = {
 };
 
 export const REPORT_CATEGORIES = [
+  "Executive Monthly Report",
   "Monthly Safety Trends",
   "Patroller Activity",
   "Incident Reports",

@@ -446,6 +446,35 @@ function getPatrolEventCounts(patrol) {
   };
 }
 
+function getObservationType(event) {
+  const match = String(event?.description || "").match(/^Observation Type:\s*(.+)$/im);
+  return match?.[1]?.trim() || (event?.type === "OBSERVATION" ? "Observation" : "");
+}
+
+function getObservationRows(patrolReports) {
+  return patrolReports.flatMap((patrol) =>
+    (patrol.patrolEvents || [])
+      .filter(isObservationEvent)
+      .map((event) => ({
+        ...event,
+        patrol,
+        observationType: getObservationType(event),
+      }))
+  );
+}
+
+function getDayNightCounts(rows) {
+  const split = countBy(rows, (row) => getDayNightBand(getRecordDate(row)));
+  return {
+    day: split.find((row) => row.label === "Daytime")?.count || 0,
+    night: split.find((row) => row.label === "Night-time")?.count || 0,
+  };
+}
+
+function getTopLabel(rows, fallback = "-") {
+  return rows?.[0]?.label || fallback;
+}
+
 function getCrewName(crew) {
   const memberName = [crew?.member?.firstName, crew?.member?.surname].filter(Boolean).join(" ");
 
@@ -524,7 +553,7 @@ function renderExportableBars({
 
 export default function ReportsSection({
   data,
-  reportCategory = "Patrol Reports",
+  reportCategory = "Executive Monthly Report",
   reportFilters,
   onReportFiltersChange,
   onClearReportFilters,
@@ -561,6 +590,13 @@ export default function ReportsSection({
   const assistanceRequests = data.assistanceRequests || [];
   const vehicles = data.vehicles || [];
   const [selectedReportDetail, setSelectedReportDetail] = useState(null);
+  const [executiveNotes, setExecutiveNotes] = useState({
+    keyConcerns: "",
+    patrolFocus: "",
+    leFollowUp: "",
+    infrastructureEscalation: "",
+    communityAwareness: "",
+  });
   const refreshHandler =
     reportCategory === "Patrol Reports" ? onRefreshReports : onRefreshOperationalData || onRefreshReports;
   const incidentReportSourceRows = useMemo(
@@ -1025,6 +1061,75 @@ export default function ReportsSection({
     () => vehicleUsageRows.map((row) => ({ label: row.registration, value: row.patrolCount })),
     [vehicleUsageRows]
   );
+  const observationRows = useMemo(() => {
+    return getObservationRows(filteredPatrolReports).filter((event) => {
+      const search = [
+        event.observationType,
+        event.description,
+        formatEventLocation(event),
+        event.patrol?.sector,
+        getPatrolCallSign(event.patrol),
+      ].join(" ");
+
+      if (!inDateRange(event, reportFilters)) return false;
+      if (!includesText(search, reportFilters.search)) return false;
+      if (reportFilters.sector !== "ALL" && event.patrol?.sector !== reportFilters.sector) return false;
+      if (reportFilters.suburb && !includesText(event.suburb, reportFilters.suburb)) return false;
+      return true;
+    });
+  }, [filteredPatrolReports, reportFilters]);
+  const observationsByTypeRows = useMemo(
+    () => countBy(observationRows, (event) => event.observationType || "Observation"),
+    [observationRows]
+  );
+  const observationsByLocationRows = useMemo(
+    () => countBy(observationRows, (event) => formatEventLocation(event) || event.suburb || event.locationNotes),
+    [observationRows]
+  );
+  const executiveSummary = useMemo(() => {
+    const classifiedIncidents = monthlyTrendData.currentRows.filter(
+      (incident) => getIncidentCodeParts(incident).isClassified
+    );
+    const night = monthlyTrendData.dayNightSplit.find((row) => row.label === "Night-time")?.count || 0;
+    const totalIncidents = monthlyTrendData.currentRows.length;
+
+    return {
+      classifiedIncidents: classifiedIncidents.length,
+      topIncidentCode: getTopLabel(monthlyTrendData.incidentsByCode.filter((row) => row.isClassified)),
+      topSuburb: getTopLabel(monthlyTrendData.incidentsBySuburb),
+      topSector: getTopLabel(monthlyTrendData.incidentsBySector),
+      nightPercentage: totalIncidents ? `${((night / totalIncidents) * 100).toFixed(0)}%` : "0%",
+      patrolSessions: filteredPatrolReports.length,
+      patrolHours: sumBy(filteredPatrolReports, getPatrolHours),
+      totalKm: sumBy(filteredPatrolReports, (patrol) => patrol.totalKm),
+      assistanceRequests: assistanceRows.length,
+      infrastructureReports: infrastructureRows.length,
+      activePatrollers: patrollerActivityRows.length,
+      vehiclesUsed: vehicleUsageRows.length,
+    };
+  }, [
+    monthlyTrendData,
+    filteredPatrolReports,
+    assistanceRows,
+    infrastructureRows,
+    patrollerActivityRows,
+    vehicleUsageRows,
+  ]);
+  const executiveIncidentRows = useMemo(() => {
+    return monthlyTrendData.incidentsByCode.filter((row) => row.isClassified).map((row) => {
+      const matchingRows = monthlyTrendData.currentRows.filter(
+        (incident) => getIncidentCodeParts(incident).codeLabel === row.codeLabel
+      );
+      const split = getDayNightCounts(matchingRows);
+
+      return {
+        ...row,
+        topSuburb: countBy(matchingRows, getIncidentSuburb)[0]?.label || "-",
+        dayCount: split.day,
+        nightCount: split.night,
+      };
+    });
+  }, [monthlyTrendData]);
 
   function renderReportDetail() {
     if (!selectedReportDetail) return null;
@@ -1076,6 +1181,561 @@ export default function ReportsSection({
         </select>
         {extraFilters}
         <button onClick={onClearReportFilters}>Clear</button>
+      </div>
+    );
+  }
+
+  if (reportCategory === "Executive Monthly Report") {
+    const executiveCsvRows = [
+      { metric: "Total classified incidents", value: executiveSummary.classifiedIncidents },
+      { metric: "Top incident code", value: executiveSummary.topIncidentCode },
+      { metric: "Top suburb", value: executiveSummary.topSuburb },
+      { metric: "Top sector", value: executiveSummary.topSector },
+      { metric: "Night-time percentage", value: executiveSummary.nightPercentage },
+      { metric: "Total patrol sessions", value: executiveSummary.patrolSessions },
+      { metric: "Total patrol hours", value: executiveSummary.patrolHours.toFixed(1) },
+      { metric: "Total KM patrolled", value: executiveSummary.totalKm },
+      { metric: "Assistance requests", value: executiveSummary.assistanceRequests },
+      { metric: "Infrastructure reports", value: executiveSummary.infrastructureReports },
+      { metric: "Active patrollers", value: executiveSummary.activePatrollers },
+      { metric: "Vehicles used", value: executiveSummary.vehiclesUsed },
+    ];
+
+    return (
+      <div className="panel executive-report">
+        <div className="details-header">
+          <h2>Executive Monthly Report</h2>
+          {refreshHandler && (
+            <button className="secondary-btn" onClick={refreshHandler}>
+              Refresh
+            </button>
+          )}
+        </div>
+        <p className="card-detail">
+          Combined operational monthly summary for LE/community feedback. Intelligence-sensitive details are excluded.
+        </p>
+        <p className="report-export-note">
+          Graphs export current filtered data and are intended for internal/monthly feedback presentations.
+        </p>
+
+        {showFilters &&
+          renderCommonFilters(
+            <>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, month: e.target.value })}
+              />
+              <input
+                placeholder="Suburb"
+                value={reportFilters.suburb || ""}
+                onChange={(e) => onReportFiltersChange({ ...reportFilters, suburb: e.target.value })}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv(buildCsvFilename("executive-monthly-report-summary", reportFilters, selectedMonth), [
+                    { label: "Metric", value: (row) => row.metric },
+                    { label: "Value", value: (row) => row.value },
+                  ], executiveCsvRows)
+                }
+              >
+                Export Executive Summary CSV
+              </button>
+              <button type="button" onClick={() => window.print()}>
+                Print Report
+              </button>
+            </>
+          )}
+
+        <section className="executive-section">
+          <h3>Executive Summary</h3>
+          <div className="cards executive-summary-cards">
+            <div className="card">
+              <div className="card-title">Classified Incidents</div>
+              <div className="card-value">{executiveSummary.classifiedIncidents}</div>
+              <div className="card-detail">SAPS code/name linked</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Top Incident Code</div>
+              <div className="card-value compact-value">{executiveSummary.topIncidentCode}</div>
+              <div className="card-detail">Selected month</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Top Suburb</div>
+              <div className="card-value compact-value">{executiveSummary.topSuburb}</div>
+              <div className="card-detail">Incident concentration</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Top Sector</div>
+              <div className="card-value compact-value">{executiveSummary.topSector}</div>
+              <div className="card-detail">Incident concentration</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Night-time</div>
+              <div className="card-value">{executiveSummary.nightPercentage}</div>
+              <div className="card-detail">Incident share</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Patrol Sessions</div>
+              <div className="card-value">{executiveSummary.patrolSessions}</div>
+              <div className="card-detail">Filtered period</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Patrol Hours</div>
+              <div className="card-value">{executiveSummary.patrolHours.toFixed(1)}</div>
+              <div className="card-detail">Closed sessions</div>
+            </div>
+            <div className="card">
+              <div className="card-title">KM Patrolled</div>
+              <div className="card-value">{executiveSummary.totalKm}</div>
+              <div className="card-detail">Driver distance</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Assistance</div>
+              <div className="card-value">{executiveSummary.assistanceRequests}</div>
+              <div className="card-detail">Requests captured</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Infrastructure</div>
+              <div className="card-value">{executiveSummary.infrastructureReports}</div>
+              <div className="card-detail">Reports captured</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Patrollers</div>
+              <div className="card-value">{executiveSummary.activePatrollers}</div>
+              <div className="card-detail">Active contributors</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Vehicles Used</div>
+              <div className="card-value">{executiveSummary.vehiclesUsed}</div>
+              <div className="card-detail">Patrol vehicles</div>
+            </div>
+          </div>
+        </section>
+
+        <section className="executive-section">
+          <h3>Key Safety Trends</h3>
+          <div className="grid">
+            <div className="panel">
+              {renderExportableBars({
+                title: "Top 5 Incident Codes",
+                rows: monthlyTrendData.incidentsByCode.slice(0, 5),
+                reportFilters,
+                filenameBase: "executive-incident-codes",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+            <div className="panel">
+              {renderExportableBars({
+                title: "Day vs Night Split",
+                rows: monthlyTrendData.dayNightSplit,
+                reportFilters,
+                filenameBase: "executive-day-night",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+            <div className="panel">
+              {renderExportableBars({
+                title: "Incidents By Suburb",
+                rows: monthlyTrendData.incidentsBySuburb,
+                reportFilters,
+                filenameBase: "executive-incidents-by-suburb",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+            <div className="panel">
+              <h3>Repeat Hotspots</h3>
+              {monthlyTrendData.topLocations.length === 0 ? (
+                <p>No repeat locations for the selected period.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Location</th>
+                      <th>Incidents</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyTrendData.topLocations.slice(0, 5).map((row) => (
+                      <tr key={row.label}>
+                        <td>{row.label}</td>
+                        <td>{row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+          <div className="grid">
+            <div className="panel">
+              <h3>Top Increasing Codes</h3>
+              {monthlyTrendData.topIncreasingCodes.length === 0 ? (
+                <p>No increase comparison available.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>This Month</th>
+                      <th>Previous</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyTrendData.topIncreasingCodes.slice(0, 5).map((row) => (
+                      <tr key={row.label}>
+                        <td>{row.codeLabel}</td>
+                        <td>{row.thisMonth}</td>
+                        <td>{row.previousMonth}</td>
+                        <td>{row.change}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="panel">
+              <h3>Top Decreasing Codes</h3>
+              {monthlyTrendData.topDecreasingCodes.length === 0 ? (
+                <p>No decrease comparison available.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>This Month</th>
+                      <th>Previous</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {monthlyTrendData.topDecreasingCodes.slice(0, 5).map((row) => (
+                      <tr key={row.label}>
+                        <td>{row.codeLabel}</td>
+                        <td>{row.thisMonth}</td>
+                        <td>{row.previousMonth}</td>
+                        <td>{row.change}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="executive-section">
+          <h3>Incident Classification Summary</h3>
+          {executiveIncidentRows.length === 0 ? (
+            <p>No classified incidents for this filter.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Incident Code</th>
+                  <th>Incident Name</th>
+                  <th>Count</th>
+                  <th>Top Suburb</th>
+                  <th>Day</th>
+                  <th>Night</th>
+                </tr>
+              </thead>
+              <tbody>
+                {executiveIncidentRows.slice(0, 10).map((row) => (
+                  <tr key={row.label}>
+                    <td>{row.code}</td>
+                    <td>{row.codeName || "-"}</td>
+                    <td>{row.count}</td>
+                    <td>{row.topSuburb}</td>
+                    <td>{row.dayCount}</td>
+                    <td>{row.nightCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+
+        <section className="executive-section">
+          <h3>Patrol Contribution Summary</h3>
+          <div className="grid">
+            <div className="panel">
+              {renderExportableBars({
+                title: "Top Patrollers By Hours",
+                rows: patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })),
+                reportFilters,
+                filenameBase: "executive-patroller-hours",
+                fallbackMonth: selectedMonth,
+                valueKey: "value",
+                valueLabel: "Hours",
+              })}
+            </div>
+            <div className="panel">
+              {renderExportableBars({
+                title: "Top Patrollers By KM",
+                rows: patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })),
+                reportFilters,
+                filenameBase: "executive-patroller-km",
+                fallbackMonth: selectedMonth,
+                valueKey: "value",
+                valueLabel: "KM",
+              })}
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Patroller</th>
+                <th>Hours</th>
+                <th>KM</th>
+                <th>Patrols</th>
+                <th>Driver</th>
+                <th>Crew</th>
+              </tr>
+            </thead>
+            <tbody>
+              {patrollerActivityRows.slice(0, 8).map((row) => (
+                <tr key={row.id}>
+                  <td>{row.name}</td>
+                  <td>{row.totalHours.toFixed(1)}</td>
+                  <td>{row.totalKm}</td>
+                  <td>{row.patrolCount}</td>
+                  <td>{row.driverCount}</td>
+                  <td>{row.crewCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="card-detail">
+            Average patrol duration:{" "}
+            {filteredPatrolReports.length
+              ? (sumBy(filteredPatrolReports, getPatrolHours) / filteredPatrolReports.length).toFixed(1)
+              : "0.0"}{" "}
+            hours.
+          </p>
+        </section>
+
+        <section className="executive-section">
+          <h3>Assistance Request Summary</h3>
+          <div className="grid">
+            <div className="panel">
+              {renderExportableBars({
+                title: "Requests By Service Type",
+                rows: assistanceByServiceRows,
+                reportFilters,
+                filenameBase: "executive-assistance-service-type",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+            <div className="panel">
+              {renderExportableBars({
+                title: "Requests By Sector",
+                rows: assistanceBySectorRows,
+                reportFilters,
+                filenameBase: "executive-assistance-sector",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Service Type</th>
+                <th>Requests</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assistanceByServiceRows.slice(0, 8).map((row) => (
+                <tr key={row.label}>
+                  <td>{row.label}</td>
+                  <td>{row.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="executive-section">
+          <h3>Infrastructure Summary</h3>
+          <div className="grid">
+            <div className="panel">
+              {renderExportableBars({
+                title: "Infrastructure Issues By Type",
+                rows: infrastructureByTypeRows,
+                reportFilters,
+                filenameBase: "executive-infrastructure-type",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+            <div className="panel">
+              {renderExportableBars({
+                title: "Infrastructure Issues By Suburb",
+                rows: infrastructureBySuburbRows,
+                reportFilters,
+                filenameBase: "executive-infrastructure-suburb",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Reports</th>
+              </tr>
+            </thead>
+            <tbody>
+              {infrastructureByTypeRows.slice(0, 8).map((row) => (
+                <tr key={row.label}>
+                  <td>{row.label}</td>
+                  <td>{row.count}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="executive-section">
+          <h3>Vehicle Usage Summary</h3>
+          <div className="grid">
+            <div className="panel">
+              {renderExportableBars({
+                title: "KM By Vehicle",
+                rows: vehicleKmRows,
+                reportFilters,
+                filenameBase: "executive-vehicle-km",
+                fallbackMonth: selectedMonth,
+                valueKey: "value",
+                valueLabel: "KM",
+              })}
+            </div>
+            <div className="panel">
+              {renderExportableBars({
+                title: "Patrol Count By Vehicle",
+                rows: vehiclePatrolCountRows,
+                reportFilters,
+                filenameBase: "executive-vehicle-patrol-count",
+                fallbackMonth: selectedMonth,
+                valueKey: "value",
+              })}
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Vehicle</th>
+                <th>Patrols</th>
+                <th>KM</th>
+                <th>Sectors</th>
+                <th>Drivers</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vehicleUsageRows.slice(0, 8).map((row) => (
+                <tr key={row.id}>
+                  <td>{row.registration}</td>
+                  <td>{row.patrolCount}</td>
+                  <td>{row.totalKm}</td>
+                  <td>{row.sectorsText}</td>
+                  <td>{row.driversText}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="executive-section">
+          <h3>Intelligence / Observation Highlights</h3>
+          <p className="card-detail">
+            Operational observation summary only. POI/VOI labels, confidential notes, and analyst-only information are excluded.
+          </p>
+          <div className="cards">
+            <div className="card">
+              <div className="card-title">Suspicious Person</div>
+              <div className="card-value">
+                {observationRows.filter((event) => event.observationType === "Suspicious Person").length}
+              </div>
+              <div className="card-detail">Observation review records</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Suspicious Vehicle</div>
+              <div className="card-value">
+                {observationRows.filter((event) => event.observationType === "Suspicious Vehicle").length}
+              </div>
+              <div className="card-detail">Observation review records</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Observation Review</div>
+              <div className="card-value">{observationRows.length}</div>
+              <div className="card-detail">Non-sensitive patrol observations</div>
+            </div>
+            <div className="card">
+              <div className="card-title">Repeat Locations</div>
+              <div className="card-value">{observationsByLocationRows.length}</div>
+              <div className="card-detail">Grouped observation locations</div>
+            </div>
+          </div>
+          <div className="grid">
+            <div className="panel">
+              {renderExportableBars({
+                title: "Observations By Type",
+                rows: observationsByTypeRows,
+                reportFilters,
+                filenameBase: "executive-observations-by-type",
+                fallbackMonth: selectedMonth,
+              })}
+            </div>
+            <div className="panel">
+              <h3>Repeat Observation Locations</h3>
+              {observationsByLocationRows.length === 0 ? (
+                <p>No observation locations for this filter.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Location</th>
+                      <th>Observations</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {observationsByLocationRows.slice(0, 8).map((row) => (
+                      <tr key={row.label}>
+                        <td>{row.label}</td>
+                        <td>{row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="executive-section executive-notes">
+          <h3>Recommendations / Notes</h3>
+          <p className="card-detail">Local/export-only notes. They are not persisted to the database.</p>
+          <div className="executive-notes-grid">
+            {[
+              ["keyConcerns", "Key concerns"],
+              ["patrolFocus", "Suggested patrol focus"],
+              ["leFollowUp", "LE follow-up"],
+              ["infrastructureEscalation", "Infrastructure escalation"],
+              ["communityAwareness", "Community awareness points"],
+            ].map(([key, label]) => (
+              <label key={key}>
+                {label}
+                <textarea
+                  value={executiveNotes[key]}
+                  onChange={(event) =>
+                    setExecutiveNotes((current) => ({ ...current, [key]: event.target.value }))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+        </section>
       </div>
     );
   }

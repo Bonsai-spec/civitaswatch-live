@@ -372,6 +372,50 @@ textarea {
   font-size: 13px;
 }
 
+.executive-report {
+  display: grid;
+  gap: 22px;
+}
+
+.executive-section {
+  display: grid;
+  gap: 14px;
+  break-inside: avoid;
+}
+
+.executive-section h3 {
+  margin: 0;
+}
+
+.executive-summary-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.compact-value {
+  font-size: 18px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.executive-notes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.executive-notes-grid label {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.executive-notes-grid textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
 .report-bar-row {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) minmax(120px, 2fr) auto;
@@ -982,12 +1026,46 @@ th {
   .cards,
   .control-room-layout,
   .control-room-overview-grid,
-  .register-filter-bar {
+  .register-filter-bar,
+  .executive-summary-cards,
+  .executive-notes-grid {
     grid-template-columns: 1fr;
   }
 
   .assistance-queue-panel .item {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: white;
+  }
+
+  .sidebar,
+  .header-row,
+  .action-row,
+  .details-header button,
+  .report-chart-header button {
+    display: none !important;
+  }
+
+  .admin-shell {
+    display: block;
+  }
+
+  .content {
+    padding: 0;
+  }
+
+  .card,
+  .panel {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .executive-report {
+    gap: 14px;
   }
 }
 
