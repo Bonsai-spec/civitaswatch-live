@@ -87,6 +87,55 @@ function getRecordDate(record) {
   return record?.reportedAt || record?.occurredAt || record?.createdAt || record?.startTime || record?.requestedAt || record?.updatedAt || null;
 }
 
+function isStandaloneClassifiedPatrolIncidentEvent(event) {
+  return Boolean(
+    event &&
+    !event.incidentId &&
+    (event.incidentCodeId || event.incidentCodeRef?.code || event.incidentCode)
+  );
+}
+
+function buildPatrolEventIncidentReport(event, patrol) {
+  const classification = resolveIncidentClassification(event);
+  const location = formatEventLocation(event);
+
+  return {
+    id: `patrol-event-${event.id}`,
+    sourceRecordType: "PATROL_EVENT_INCIDENT_RESPONSE",
+    patrolEvent: event,
+    patrolEvents: [event],
+    linkedPatrol: patrol,
+    incidentCodeRef: event.incidentCodeRef || null,
+    incidentSubcodeRef: event.incidentSubcodeRef || null,
+    incidentCode: event.incidentCode || classification.code,
+    incidentCodeId: event.incidentCodeId || null,
+    incidentSubcodeId: event.incidentSubcodeId || null,
+    title: classification.isClassified ? classification.codeLabel : "Patrol Incident Response",
+    description: event.description,
+    incidentType: "Patrol Incident Response",
+    sector: patrol?.sector || "-",
+    status: "RECORDED",
+    severity: "-",
+    reportedAt: event.createdAt,
+    occurredAt: event.createdAt,
+    createdAt: event.createdAt,
+    referenceNumber: event.referenceNumber,
+    streetNumber: event.streetNumber,
+    streetName: event.streetName,
+    street: [event.streetNumber, event.streetName].filter(Boolean).join(" "),
+    suburb: event.suburb,
+    locationNotes: event.locationNotes || location,
+  };
+}
+
+function getPatrolEventIncidentReports(patrolReports) {
+  return patrolReports.flatMap((patrol) =>
+    (patrol.patrolEvents || [])
+      .filter(isStandaloneClassifiedPatrolIncidentEvent)
+      .map((event) => buildPatrolEventIncidentReport(event, patrol))
+  );
+}
+
 function inDateRange(record, reportFilters) {
   const value = getRecordDate(record);
   const date = value ? new Date(value) : null;
@@ -133,7 +182,8 @@ function getIncidentStreetLocation(record) {
     [event.streetNumber, event.streetName, event.suburb, event.locationNotes].some(Boolean)
   );
   const eventStreet = [eventWithLocation?.streetNumber, eventWithLocation?.streetName].filter(Boolean).join(" ");
-  const incidentLocation = [record?.street, record?.suburb].filter(Boolean).join(", ");
+  const incidentStreet = record?.street || [record?.streetNumber, record?.streetName].filter(Boolean).join(" ");
+  const incidentLocation = [incidentStreet, record?.suburb, record?.locationNotes].filter(Boolean).join(", ");
   const eventLocation = [eventStreet, eventWithLocation?.suburb, eventWithLocation?.locationNotes]
     .filter(Boolean)
     .join(", ");
@@ -386,8 +436,15 @@ export default function ReportsSection({
   const [selectedReportDetail, setSelectedReportDetail] = useState(null);
   const refreshHandler =
     reportCategory === "Patrol Reports" ? onRefreshReports : onRefreshOperationalData || onRefreshReports;
+  const incidentReportSourceRows = useMemo(
+    () => [
+      ...filteredIncidentReports,
+      ...getPatrolEventIncidentReports(filteredPatrolReports || []),
+    ],
+    [filteredIncidentReports, filteredPatrolReports]
+  );
   const incidentRows = useMemo(() => {
-    return filteredIncidentReports.filter((incident) => {
+    return incidentReportSourceRows.filter((incident) => {
       const search = [
         incidentCodeLabel(incident),
         incidentSubcodeLabel(incident),
@@ -411,7 +468,7 @@ export default function ReportsSection({
       if (reportFilters.suburb && !includesText(getIncidentSuburb(incident), reportFilters.suburb)) return false;
       return true;
     });
-  }, [filteredIncidentReports, reportFilters]);
+  }, [incidentReportSourceRows, reportFilters]);
   const unclassifiedIncidentRows = useMemo(
     () => incidentRows.filter((incident) => !getIncidentCodeParts(incident).isClassified),
     [incidentRows]
@@ -472,15 +529,15 @@ export default function ReportsSection({
     });
   }, [filteredPatrolReports, reportFilters]);
 
-  const incidentCodeOptions = Array.from(new Set(filteredIncidentReports.map(incidentCodeLabel).filter((value) => value && value !== "-")));
-  const incidentSubcodeOptions = Array.from(new Set(filteredIncidentReports.map(incidentSubcodeLabel).filter((value) => value && value !== "-")));
+  const incidentCodeOptions = Array.from(new Set(incidentReportSourceRows.map(incidentCodeLabel).filter((value) => value && value !== "-")));
+  const incidentSubcodeOptions = Array.from(new Set(incidentReportSourceRows.map(incidentSubcodeLabel).filter((value) => value && value !== "-")));
   const serviceTypeOptions = Array.from(new Set(assistanceRequests.map((request) => formatEventService(request) || request.assistance).filter(Boolean)));
   const infrastructureTypeOptions = Array.from(new Set(getInfrastructureRows(filteredPatrolReports).map((event) => event.infrastructureTypeRef?.type).filter(Boolean)));
   const riskLevelOptions = Array.from(new Set(getInfrastructureRows(filteredPatrolReports).map((event) => event.infrastructureTypeRef?.riskLevel).filter(Boolean)));
   const selectedMonth = reportFilters.month || getDefaultMonth();
   const previousMonth = getPreviousMonthKey(selectedMonth);
   const monthlyTrendData = useMemo(() => {
-    const rows = filteredIncidentReports.filter((incident) => {
+    const rows = incidentReportSourceRows.filter((incident) => {
       if (reportFilters.sector !== "ALL" && incident.sector !== reportFilters.sector) return false;
       if (reportFilters.status !== "ALL" && incident.status !== reportFilters.status) return false;
       if (reportFilters.severity !== "ALL" && incident.severity !== reportFilters.severity) return false;
@@ -629,7 +686,7 @@ export default function ReportsSection({
         getIncidentStreetLocation(incident)
       ),
     };
-  }, [filteredIncidentReports, reportFilters, selectedMonth, previousMonth]);
+  }, [incidentReportSourceRows, reportFilters, selectedMonth, previousMonth]);
   const patrollerActivityRows = useMemo(() => {
     const byPatroller = new Map();
 
@@ -1572,6 +1629,7 @@ export default function ReportsSection({
             <tbody>
               {incidentRows.map((incident) => {
                 const classification = getIncidentCodeParts(incident);
+                const isPatrolEventIncident = incident.sourceRecordType === "PATROL_EVENT_INCIDENT_RESPONSE";
 
                 return (
                 <tr key={incident.id}>
@@ -1587,10 +1645,11 @@ export default function ReportsSection({
                   <td>{incident.severity || "-"}</td>
                   <td>{getIncidentStreetLocation(incident)}</td>
                   <td>
-                    <button onClick={() => onViewIncidentReport ? onViewIncidentReport(incident) : setSelectedReportDetail({
+                    <button onClick={() => !isPatrolEventIncident && onViewIncidentReport ? onViewIncidentReport(incident) : setSelectedReportDetail({
                       title: "Incident Report",
                       rows: [
                         ["ID", incident.id],
+                        ["Source", isPatrolEventIncident ? "Patrol Event" : "Incident Report"],
                         ["Incident Code", classification.code],
                         ["Incident Name", classification.codeName || (classification.isClassified ? "-" : "Unclassified")],
                         ["Incident Subcode", classification.subcode || "-"],
@@ -1600,10 +1659,21 @@ export default function ReportsSection({
                         ["Sector", incident.sector],
                         ["Status", incident.status],
                         ["Severity", incident.severity],
+                        ["Reference Number", incident.referenceNumber],
+                        ["Call Sign", incident.linkedPatrol?.callSign],
+                        ["Driver", getPatrolDriverLabel(incident.linkedPatrol)],
                         ["Address", getIncidentStreetLocation(incident)],
                       ],
                     })}>View</button>
-                    {canPromoteToIntelligence && onPromoteIncidentToIntelligence && (
+                    {canPromoteToIntelligence && isPatrolEventIncident && onPromotePatrolEventToIntelligence && (
+                      <button
+                        type="button"
+                        onClick={() => onPromotePatrolEventToIntelligence(incident.patrolEvent)}
+                      >
+                        Promote to Intelligence
+                      </button>
+                    )}
+                    {canPromoteToIntelligence && !isPatrolEventIncident && onPromoteIncidentToIntelligence && (
                       <button
                         type="button"
                         onClick={() => onPromoteIncidentToIntelligence(incident)}
