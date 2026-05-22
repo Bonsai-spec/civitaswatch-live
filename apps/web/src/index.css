@@ -377,6 +377,10 @@ textarea {
   gap: 22px;
 }
 
+.executive-print-cover {
+  display: none;
+}
+
 .executive-section {
   display: grid;
   gap: 14px;
@@ -1038,13 +1042,24 @@ th {
 }
 
 @media print {
+  @page {
+    margin: 12mm;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
   body {
     background: white;
+    color: #0f172a;
   }
 
   .sidebar,
   .header-row,
   .action-row,
+  .no-print,
   .details-header button,
   .report-chart-header button {
     display: none !important;
@@ -1058,14 +1073,101 @@ th {
     padding: 0;
   }
 
+  .content:has(> .executive-report-print-area) > *:not(.executive-report-print-area) {
+    display: none !important;
+  }
+
   .card,
   .panel {
     box-shadow: none;
     break-inside: avoid;
+    border-color: #cbd5e1;
   }
 
   .executive-report {
     gap: 14px;
+    border: 0;
+    padding: 0;
+  }
+
+  .executive-print-cover {
+    display: block;
+    border-bottom: 2px solid #0f172a;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .executive-print-cover .logo {
+    color: #0f172a;
+  }
+
+  .executive-print-cover h1 {
+    margin: 8px 0;
+    font-size: 26px;
+  }
+
+  .executive-print-cover p {
+    margin: 4px 0;
+    color: #334155;
+    font-size: 12px;
+  }
+
+  .executive-section {
+    break-inside: avoid;
+    margin-bottom: 14px;
+  }
+
+  .executive-section:nth-of-type(n + 5) {
+    break-before: page;
+  }
+
+  .executive-summary-cards,
+  .cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .card,
+  .panel {
+    padding: 10px;
+  }
+
+  .card-value {
+    font-size: 22px;
+    margin: 6px 0;
+  }
+
+  .compact-value {
+    font-size: 12px;
+  }
+
+  .report-bar-track {
+    background: #e2e8f0 !important;
+  }
+
+  .report-bar-fill {
+    background: #0369a1 !important;
+  }
+
+  .report-chart,
+  table {
+    break-inside: avoid;
+  }
+
+  th,
+  td {
+    padding: 7px;
+    font-size: 11px;
+  }
+
+  .executive-notes-grid textarea {
+    border: 1px solid #94a3b8;
+    min-height: 64px;
   }
 }
 

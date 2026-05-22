@@ -532,7 +532,7 @@ function renderExportableBars({
         <h3>{title}</h3>
         <button
           type="button"
-          className="secondary-btn"
+          className="secondary-btn no-print"
           disabled={!chartRows.length}
           onClick={() =>
             exportBarChartPng({
@@ -1186,24 +1186,96 @@ export default function ReportsSection({
   }
 
   if (reportCategory === "Executive Monthly Report") {
+    const reportPeriodLabel = reportFilters.month
+      ? reportFilters.month
+      : [reportFilters.from, reportFilters.to].filter(Boolean).join(" to ") || selectedMonth;
+    const appliedFilterLabels = [
+      ["Period", reportPeriodLabel],
+      ["Sector", reportFilters.sector !== "ALL" ? reportFilters.sector : "All sectors"],
+      ["Suburb", reportFilters.suburb || "All suburbs"],
+      ["Search", reportFilters.search || ""],
+    ].filter(([, value]) => value);
     const executiveCsvRows = [
-      { metric: "Total classified incidents", value: executiveSummary.classifiedIncidents },
-      { metric: "Top incident code", value: executiveSummary.topIncidentCode },
-      { metric: "Top suburb", value: executiveSummary.topSuburb },
-      { metric: "Top sector", value: executiveSummary.topSector },
-      { metric: "Night-time percentage", value: executiveSummary.nightPercentage },
-      { metric: "Total patrol sessions", value: executiveSummary.patrolSessions },
-      { metric: "Total patrol hours", value: executiveSummary.patrolHours.toFixed(1) },
-      { metric: "Total KM patrolled", value: executiveSummary.totalKm },
-      { metric: "Assistance requests", value: executiveSummary.assistanceRequests },
-      { metric: "Infrastructure reports", value: executiveSummary.infrastructureReports },
-      { metric: "Active patrollers", value: executiveSummary.activePatrollers },
-      { metric: "Vehicles used", value: executiveSummary.vehiclesUsed },
+      { section: "Executive Summary", metric: "Total classified incidents", value: executiveSummary.classifiedIncidents },
+      { section: "Executive Summary", metric: "Top incident code", value: executiveSummary.topIncidentCode },
+      { section: "Executive Summary", metric: "Top suburb", value: executiveSummary.topSuburb },
+      { section: "Executive Summary", metric: "Top sector", value: executiveSummary.topSector },
+      { section: "Executive Summary", metric: "Night-time percentage", value: executiveSummary.nightPercentage },
+      { section: "Executive Summary", metric: "Total patrol sessions", value: executiveSummary.patrolSessions },
+      { section: "Executive Summary", metric: "Total patrol hours", value: executiveSummary.patrolHours.toFixed(1) },
+      { section: "Executive Summary", metric: "Total KM patrolled", value: executiveSummary.totalKm },
+      { section: "Executive Summary", metric: "Assistance requests", value: executiveSummary.assistanceRequests },
+      { section: "Executive Summary", metric: "Infrastructure reports", value: executiveSummary.infrastructureReports },
+      { section: "Executive Summary", metric: "Active patrollers", value: executiveSummary.activePatrollers },
+      { section: "Executive Summary", metric: "Vehicles used", value: executiveSummary.vehiclesUsed },
+      ...monthlyTrendData.incidentsByCode.map((row) => ({
+        section: "Incident Codes",
+        metric: row.codeLabel,
+        value: row.count,
+      })),
+      ...monthlyTrendData.incidentsBySuburb.map((row) => ({
+        section: "Incident Suburbs",
+        metric: row.label,
+        value: row.count,
+      })),
+      ...monthlyTrendData.incidentsBySector.map((row) => ({
+        section: "Incident Sectors",
+        metric: row.label,
+        value: row.count,
+      })),
+      ...monthlyTrendData.dayNightSplit.map((row) => ({
+        section: "Day/Night",
+        metric: row.label,
+        value: row.count,
+      })),
+      ...patrollerActivityRows.map((row) => ({
+        section: "Patroller Activity",
+        metric: row.name,
+        value: `hours=${row.totalHours.toFixed(1)}; km=${row.totalKm}; patrols=${row.patrolCount}`,
+      })),
+      ...assistanceByServiceRows.map((row) => ({
+        section: "Assistance Service Types",
+        metric: row.label,
+        value: row.count,
+      })),
+      ...infrastructureByTypeRows.map((row) => ({
+        section: "Infrastructure Types",
+        metric: row.label,
+        value: row.count,
+      })),
+      ...vehicleUsageRows.map((row) => ({
+        section: "Vehicle Usage",
+        metric: row.registration,
+        value: `km=${row.totalKm}; patrols=${row.patrolCount}`,
+      })),
     ];
+    const executiveGraphExports = [
+      ["Top 5 Incident Codes", monthlyTrendData.incidentsByCode.slice(0, 5), "executive-incident-codes", "Count"],
+      ["Day vs Night Split", monthlyTrendData.dayNightSplit, "executive-day-night", "Count"],
+      ["Incidents By Suburb", monthlyTrendData.incidentsBySuburb, "executive-incidents-by-suburb", "Count"],
+      ["Top Patrollers By Hours", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })), "executive-patroller-hours", "Hours"],
+      ["Top Patrollers By KM", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })), "executive-patroller-km", "KM"],
+      ["Requests By Service Type", assistanceByServiceRows, "executive-assistance-service-type", "Count"],
+      ["Infrastructure Issues By Type", infrastructureByTypeRows, "executive-infrastructure-type", "Count"],
+      ["KM By Vehicle", vehicleKmRows, "executive-vehicle-km", "KM"],
+      ["Observations By Type", observationsByTypeRows, "executive-observations-by-type", "Count"],
+    ];
+    function exportExecutiveGraphs() {
+      executiveGraphExports.forEach(([title, rows, filenameBase, valueLabel], index) => {
+        window.setTimeout(() => {
+          exportBarChartPng({
+            title,
+            rows: normalizeChartRows(rows, rows?.[0]?.value !== undefined ? "value" : "count"),
+            filename: buildGraphFilename(filenameBase, reportFilters, selectedMonth),
+            valueLabel,
+          });
+        }, index * 250);
+      });
+    }
 
     return (
-      <div className="panel executive-report">
-        <div className="details-header">
+      <div className="panel executive-report executive-report-print-area">
+        <div className="details-header no-print">
           <h2>Executive Monthly Report</h2>
           {refreshHandler && (
             <button className="secondary-btn" onClick={refreshHandler}>
@@ -1217,6 +1289,13 @@ export default function ReportsSection({
         <p className="report-export-note">
           Graphs export current filtered data and are intended for internal/monthly feedback presentations.
         </p>
+        <div className="executive-print-cover">
+          <div className="logo">CivitasWatch</div>
+          <h1>Executive Monthly Report</h1>
+          <p>Operational monthly feedback pack</p>
+          <p>{appliedFilterLabels.map(([label, value]) => `${label}: ${value}`).join(" | ")}</p>
+          <p>Internal test/demo data and operational feedback only. Intelligence-sensitive details are excluded.</p>
+        </div>
 
         {showFilters &&
           renderCommonFilters(
@@ -1235,15 +1314,19 @@ export default function ReportsSection({
                 type="button"
                 onClick={() =>
                   exportCsv(buildCsvFilename("executive-monthly-report-summary", reportFilters, selectedMonth), [
+                    { label: "Section", value: (row) => row.section },
                     { label: "Metric", value: (row) => row.metric },
                     { label: "Value", value: (row) => row.value },
                   ], executiveCsvRows)
                 }
               >
-                Export Executive Summary CSV
+                Export Report Data CSV
+              </button>
+              <button type="button" onClick={exportExecutiveGraphs}>
+                Export Graphs
               </button>
               <button type="button" onClick={() => window.print()}>
-                Print Report
+                Print / Save as PDF
               </button>
             </>
           )}
