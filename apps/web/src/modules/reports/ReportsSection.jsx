@@ -246,6 +246,11 @@ function buildGraphFilename(graphName, reportFilters, fallbackMonth = "") {
   return `${graphName}-${period}.png`;
 }
 
+function buildPdfFilename(reportName, reportFilters, fallbackMonth = "") {
+  const period = reportFilters.month || fallbackMonth || new Date().toISOString().slice(0, 10);
+  return `${reportName}-${period}.pdf`;
+}
+
 function escapeXml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -328,6 +333,221 @@ function exportBarChartPng({ title, rows, filename, valueLabel = "Count" }) {
   };
 
   image.src = url;
+}
+
+function pdfText(value) {
+  return String(value ?? "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, "-")
+    .replace(/[^\x20-\x7E\n]/g, "?")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)");
+}
+
+function wrapPdfText(value, maxChars) {
+  const words = String(value ?? "").split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = "";
+
+  words.forEach((word) => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+  });
+
+  if (current) lines.push(current);
+  return lines.length ? lines : [""];
+}
+
+function createPdfDocument() {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const margin = 40;
+  const pages = [];
+  let commands = [];
+  let y = pageHeight - margin;
+
+  function addPage() {
+    if (commands.length) pages.push(commands.join("\n"));
+    commands = [];
+    y = pageHeight - margin;
+  }
+
+  function ensureSpace(height) {
+    if (y - height < margin) addPage();
+  }
+
+  function command(value) {
+    commands.push(value);
+  }
+
+  function color(rgb) {
+    command(`${rgb.join(" ")} rg`);
+  }
+
+  function rect(x, bottom, width, height, rgb = [1, 1, 1]) {
+    color(rgb);
+    command(`${x} ${bottom} ${width} ${height} re f`);
+  }
+
+  function text(value, x, textY, size = 10, rgb = [0.06, 0.09, 0.16]) {
+    color(rgb);
+    command(`BT /F1 ${size} Tf ${x} ${textY} Td (${pdfText(value)}) Tj ET`);
+  }
+
+  function line(value, size = 10, options = {}) {
+    const x = options.x || margin;
+    const width = options.width || pageWidth - margin * 2;
+    const lines = wrapPdfText(value, Math.max(20, Math.floor(width / (size * 0.52))));
+    ensureSpace(lines.length * (size + 5));
+    lines.forEach((item) => {
+      y -= size + 5;
+      text(item, x, y, size, options.color || [0.06, 0.09, 0.16]);
+    });
+  }
+
+  function heading(value, size = 18) {
+    ensureSpace(size + 16);
+    y -= size + 8;
+    text(value, margin, y, size, [0.01, 0.02, 0.09]);
+  }
+
+  function section(value) {
+    ensureSpace(42);
+    y -= 24;
+    text(value, margin, y, 15, [0.01, 0.02, 0.09]);
+  }
+
+  function cards(items) {
+    const columns = 3;
+    const gap = 10;
+    const cardWidth = (pageWidth - margin * 2 - gap * (columns - 1)) / columns;
+    const cardHeight = 58;
+    ensureSpace(Math.ceil(items.length / columns) * (cardHeight + gap) + 8);
+
+    items.forEach((item, index) => {
+      const col = index % columns;
+      if (col === 0) y -= cardHeight + gap;
+      const x = margin + col * (cardWidth + gap);
+      rect(x, y, cardWidth, cardHeight, [0.96, 0.98, 1]);
+      text(item.label, x + 8, y + cardHeight - 18, 8, [0.39, 0.45, 0.55]);
+      text(String(item.value ?? "-").slice(0, 28), x + 8, y + 18, 14, [0.01, 0.02, 0.09]);
+    });
+  }
+
+  function barChart(title, rows, valueLabel = "Count") {
+    const chartRows = normalizeChartRows(rows, rows?.[0]?.value !== undefined ? "value" : "count", 8);
+    const rowHeight = 18;
+    const height = 36 + Math.max(chartRows.length, 1) * rowHeight;
+    ensureSpace(height + 12);
+    y -= 20;
+    text(title, margin, y, 12, [0.01, 0.02, 0.09]);
+    text(valueLabel, pageWidth - margin - 70, y, 8, [0.39, 0.45, 0.55]);
+    y -= 12;
+
+    if (!chartRows.length) {
+      y -= 14;
+      text("No data available.", margin, y, 9, [0.39, 0.45, 0.55]);
+      return;
+    }
+
+    const max = Math.max(...chartRows.map((row) => row.value), 1);
+    const labelWidth = 150;
+    const barWidth = pageWidth - margin * 2 - labelWidth - 48;
+
+    chartRows.forEach((row) => {
+      y -= rowHeight;
+      text(row.label.slice(0, 28), margin, y + 4, 8);
+      rect(margin + labelWidth, y, barWidth, 8, [0.89, 0.93, 0.97]);
+      rect(margin + labelWidth, y, Math.max(2, (row.value / max) * barWidth), 8, [0.01, 0.41, 0.63]);
+      text(Number(row.value).toFixed(Number.isInteger(row.value) ? 0 : 1), margin + labelWidth + barWidth + 8, y + 1, 8);
+    });
+  }
+
+  function table(title, columns, rows, limit = 10) {
+    section(title);
+    if (!rows.length) {
+      line("No data available.", 9, { color: [0.39, 0.45, 0.55] });
+      return;
+    }
+
+    const widths = columns.map((column) => column.width);
+    const rowHeight = 18;
+    ensureSpace((Math.min(rows.length, limit) + 2) * rowHeight);
+    let x = margin;
+    y -= rowHeight;
+    rect(margin, y - 2, pageWidth - margin * 2, rowHeight, [0.95, 0.96, 0.98]);
+    columns.forEach((column, index) => {
+      text(column.label, x + 3, y + 4, 8, [0.28, 0.33, 0.41]);
+      x += widths[index];
+    });
+
+    rows.slice(0, limit).forEach((row) => {
+      y -= rowHeight;
+      x = margin;
+      columns.forEach((column, index) => {
+        text(String(column.value(row) ?? "-").slice(0, 36), x + 3, y + 4, 8);
+        x += widths[index];
+      });
+    });
+  }
+
+  function finish() {
+    if (commands.length) pages.push(commands.join("\n"));
+    return buildPdfBlob(pages, pageWidth, pageHeight);
+  }
+
+  return { addPage, barChart, cards, finish, heading, line, section, table };
+}
+
+function buildPdfBlob(pageContents, pageWidth, pageHeight) {
+  const encoder = new TextEncoder();
+  const objects = [];
+  const pageRefs = [];
+  objects[1] = "<< /Type /Catalog /Pages 2 0 R >>";
+  objects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+  pageContents.forEach((content, index) => {
+    const pageObjectNumber = 4 + index * 2;
+    const contentObjectNumber = pageObjectNumber + 1;
+    pageRefs.push(`${pageObjectNumber} 0 R`);
+    objects[pageObjectNumber] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObjectNumber} 0 R >>`;
+    objects[contentObjectNumber] = `<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream`;
+  });
+
+  objects[2] = `<< /Type /Pages /Kids [${pageRefs.join(" ")}] /Count ${pageRefs.length} >>`;
+
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+
+  for (let index = 1; index < objects.length; index += 1) {
+    offsets[index] = encoder.encode(pdf).length;
+    pdf += `${index} 0 obj\n${objects[index]}\nendobj\n`;
+  }
+
+  const xrefOffset = encoder.encode(pdf).length;
+  pdf += `xref\n0 ${objects.length}\n0000000000 65535 f \n`;
+  for (let index = 1; index < objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: "application/pdf" });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function formatDateTime(value) {
@@ -1272,6 +1492,141 @@ export default function ReportsSection({
         }, index * 250);
       });
     }
+    function exportExecutivePdf() {
+      const pdf = createPdfDocument();
+      pdf.heading("CivitasWatch", 22);
+      pdf.heading("Executive Monthly Report", 18);
+      pdf.line("Operational monthly feedback pack", 10, { color: [0.28, 0.33, 0.41] });
+      pdf.line(appliedFilterLabels.map(([label, value]) => `${label}: ${value}`).join(" | "), 9, {
+        color: [0.28, 0.33, 0.41],
+      });
+      pdf.line("Internal test/demo data and operational feedback only. Intelligence-sensitive details are excluded.", 9, {
+        color: [0.28, 0.33, 0.41],
+      });
+
+      pdf.section("Executive Summary");
+      pdf.cards([
+        { label: "Classified Incidents", value: executiveSummary.classifiedIncidents },
+        { label: "Top Incident Code", value: executiveSummary.topIncidentCode },
+        { label: "Top Suburb", value: executiveSummary.topSuburb },
+        { label: "Top Sector", value: executiveSummary.topSector },
+        { label: "Night-time", value: executiveSummary.nightPercentage },
+        { label: "Patrol Sessions", value: executiveSummary.patrolSessions },
+        { label: "Patrol Hours", value: executiveSummary.patrolHours.toFixed(1) },
+        { label: "KM Patrolled", value: executiveSummary.totalKm },
+        { label: "Assistance", value: executiveSummary.assistanceRequests },
+        { label: "Infrastructure", value: executiveSummary.infrastructureReports },
+        { label: "Patrollers", value: executiveSummary.activePatrollers },
+        { label: "Vehicles Used", value: executiveSummary.vehiclesUsed },
+      ]);
+
+      pdf.section("Key Safety Trends");
+      pdf.barChart("Top 5 Incident Codes", monthlyTrendData.incidentsByCode.slice(0, 5));
+      pdf.barChart("Incidents By Suburb", monthlyTrendData.incidentsBySuburb);
+      pdf.barChart("Day vs Night Split", monthlyTrendData.dayNightSplit);
+      pdf.table(
+        "Incident Code By Suburb Summary",
+        [
+          { label: "Incident Code", width: 210, value: (row) => row.codeLabel },
+          { label: "Total", width: 60, value: (row) => row.total },
+          { label: "Top Suburbs", width: 245, value: (row) => monthlyTrendData.topSuburbs.map((suburb) => `${suburb}: ${row.suburbCounts.get(suburb) || 0}`).join("; ") },
+        ],
+        monthlyTrendData.codeSuburbMatrix,
+        8
+      );
+
+      pdf.table(
+        "Incident Classification Summary",
+        [
+          { label: "Code", width: 60, value: (row) => row.code },
+          { label: "Incident Name", width: 180, value: (row) => row.codeName || "-" },
+          { label: "Count", width: 50, value: (row) => row.count },
+          { label: "Top Suburb", width: 140, value: (row) => row.topSuburb },
+          { label: "Day/Night", width: 85, value: (row) => `${row.dayCount}/${row.nightCount}` },
+        ],
+        executiveIncidentRows,
+        10
+      );
+
+      pdf.addPage();
+      pdf.section("Patrol Contribution Summary");
+      pdf.barChart("Top Patrollers By Hours", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })), "Hours");
+      pdf.barChart("Top Patrollers By KM", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })), "KM");
+      pdf.table(
+        "Top Patrollers",
+        [
+          { label: "Patroller", width: 170, value: (row) => row.name },
+          { label: "Hours", width: 70, value: (row) => row.totalHours.toFixed(1) },
+          { label: "KM", width: 60, value: (row) => row.totalKm },
+          { label: "Patrols", width: 70, value: (row) => row.patrolCount },
+          { label: "Driver/Crew", width: 145, value: (row) => `${row.driverCount}/${row.crewCount}` },
+        ],
+        patrollerActivityRows,
+        10
+      );
+
+      pdf.section("Assistance Request Summary");
+      pdf.barChart("Requests By Service Type", assistanceByServiceRows);
+      pdf.barChart("Requests By Sector", assistanceBySectorRows);
+
+      pdf.section("Infrastructure Summary");
+      pdf.barChart("Infrastructure Issues By Type", infrastructureByTypeRows);
+      pdf.barChart("Infrastructure Issues By Suburb", infrastructureBySuburbRows);
+
+      pdf.addPage();
+      pdf.section("Vehicle Usage Summary");
+      pdf.barChart("KM By Vehicle", vehicleKmRows, "KM");
+      pdf.barChart("Patrol Count By Vehicle", vehiclePatrolCountRows);
+      pdf.table(
+        "Vehicle Usage",
+        [
+          { label: "Vehicle", width: 120, value: (row) => row.registration },
+          { label: "Patrols", width: 55, value: (row) => row.patrolCount },
+          { label: "KM", width: 55, value: (row) => row.totalKm },
+          { label: "Sectors", width: 130, value: (row) => row.sectorsText },
+          { label: "Drivers", width: 155, value: (row) => row.driversText },
+        ],
+        vehicleUsageRows,
+        10
+      );
+
+      pdf.section("Intelligence / Observation Highlights");
+      pdf.line("Operational observation summary only. POI/VOI labels, confidential notes, and analyst-only information are excluded.", 9, {
+        color: [0.28, 0.33, 0.41],
+      });
+      pdf.cards([
+        { label: "Suspicious Person", value: observationRows.filter((event) => event.observationType === "Suspicious Person").length },
+        { label: "Suspicious Vehicle", value: observationRows.filter((event) => event.observationType === "Suspicious Vehicle").length },
+        { label: "Observation Review", value: observationRows.length },
+        { label: "Repeat Locations", value: observationsByLocationRows.length },
+      ]);
+      pdf.barChart("Observations By Type", observationsByTypeRows);
+      pdf.table(
+        "Repeat Observation Locations",
+        [
+          { label: "Location", width: 430, value: (row) => row.label },
+          { label: "Observations", width: 85, value: (row) => row.count },
+        ],
+        observationsByLocationRows,
+        8
+      );
+
+      pdf.section("Recommendations / Notes");
+      [
+        ["Key concerns", executiveNotes.keyConcerns],
+        ["Suggested patrol focus", executiveNotes.patrolFocus],
+        ["LE follow-up", executiveNotes.leFollowUp],
+        ["Infrastructure escalation", executiveNotes.infrastructureEscalation],
+        ["Community awareness points", executiveNotes.communityAwareness],
+      ].forEach(([label, value]) => {
+        pdf.line(`${label}: ${value || "-"}`, 9);
+      });
+
+      downloadBlob(
+        pdf.finish(),
+        buildPdfFilename("civitaswatch-executive-monthly-report", reportFilters, selectedMonth)
+      );
+    }
 
     return (
       <div className="panel executive-report executive-report-print-area">
@@ -1332,10 +1687,10 @@ export default function ReportsSection({
                 <span>Print a paper copy of this report.</span>
               </div>
               <div className="executive-report-action">
-                <button type="button" onClick={() => window.print()}>
-                  Save as PDF
+                <button type="button" onClick={exportExecutivePdf}>
+                  Export PDF Report
                 </button>
-                <span>Save this report as a PDF file for email or WhatsApp sharing. Choose "Save as PDF" in the print dialog.</span>
+                <span>Download a PDF file for email, WhatsApp sharing, or archiving.</span>
               </div>
             </>
           )}
