@@ -32,6 +32,7 @@ export const ADMIN_NAV_SECTIONS = [
   {
     label: "Reports",
     items: [
+      { label: "Executive Monthly Report", permission: "VIEW_REPORTS" },
       { label: "Monthly Safety Trends", permission: "VIEW_REPORTS" },
       { label: "Patroller Activity", permission: "VIEW_REPORTS" },
       { label: "Incident Reports", permission: "VIEW_REPORTS" },
