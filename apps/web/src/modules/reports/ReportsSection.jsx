@@ -241,6 +241,95 @@ function buildCsvFilename(reportName, reportFilters, fallbackMonth = "") {
   return `${reportName}-${period}.csv`;
 }
 
+function buildGraphFilename(graphName, reportFilters, fallbackMonth = "") {
+  const period = reportFilters.month || fallbackMonth || reportFilters.from || new Date().toISOString().slice(0, 10);
+  return `${graphName}-${period}.png`;
+}
+
+function escapeXml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function normalizeChartRows(rows, valueKey = "count", limit = 10) {
+  return (rows || [])
+    .map((row) => ({
+      label: String(row.label || row.name || row.registration || "Unknown"),
+      value: Number(row[valueKey] ?? row.count ?? row.value ?? 0),
+    }))
+    .filter((row) => Number.isFinite(row.value))
+    .sort((a, b) => b.value - a.value || a.label.localeCompare(b.label))
+    .slice(0, limit);
+}
+
+function exportBarChartPng({ title, rows, filename, valueLabel = "Count" }) {
+  if (typeof document === "undefined") return;
+
+  const chartRows = normalizeChartRows(rows, "value", 12);
+  if (!chartRows.length) return;
+
+  const width = 1200;
+  const rowHeight = 54;
+  const top = 118;
+  const left = 330;
+  const right = 120;
+  const height = top + chartRows.length * rowHeight + 70;
+  const max = Math.max(...chartRows.map((row) => row.value), 1);
+  const plotWidth = width - left - right;
+
+  const rowMarkup = chartRows.map((row, index) => {
+    const y = top + index * rowHeight;
+    const barWidth = Math.max(4, (row.value / max) * plotWidth);
+    const label = row.label.length > 42 ? `${row.label.slice(0, 39)}...` : row.label;
+
+    return `
+      <text x="40" y="${y + 24}" font-family="Inter, Arial, sans-serif" font-size="24" fill="#0f172a">${escapeXml(label)}</text>
+      <rect x="${left}" y="${y}" width="${plotWidth}" height="26" rx="13" fill="#e2e8f0" />
+      <rect x="${left}" y="${y}" width="${barWidth}" height="26" rx="13" fill="#0369a1" />
+      <text x="${left + barWidth + 16}" y="${y + 22}" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a">${Number(row.value).toFixed(Number.isInteger(row.value) ? 0 : 1)}</text>
+    `;
+  }).join("");
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect width="100%" height="100%" fill="#ffffff" />
+      <text x="40" y="52" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" fill="#0f172a">${escapeXml(title)}</text>
+      <text x="40" y="88" font-family="Inter, Arial, sans-serif" font-size="20" fill="#64748b">Internal monthly feedback presentation export - ${escapeXml(valueLabel)}</text>
+      ${rowMarkup}
+    </svg>
+  `;
+
+  const image = new Image();
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  image.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0);
+    URL.revokeObjectURL(url);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const pngUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = pngUrl;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(pngUrl);
+    }, "image/png");
+  };
+
+  image.src = url;
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -375,22 +464,60 @@ function getCrewKey(crew) {
 }
 
 function renderMiniBars(rows, valueKey = "count") {
-  const max = Math.max(1, ...rows.map((row) => Number(row[valueKey] || 0)));
+  const chartRows = normalizeChartRows(rows, valueKey);
+  if (!chartRows.length) return <p>No data available.</p>;
+  const max = Math.max(1, ...chartRows.map((row) => Number(row.value || 0)));
 
   return (
     <div className="report-bars">
-      {rows.slice(0, 8).map((row) => (
+      {chartRows.slice(0, 8).map((row) => (
         <div className="report-bar-row" key={row.label}>
           <span>{row.label}</span>
           <div className="report-bar-track">
             <div
               className="report-bar-fill"
-              style={{ width: `${(Number(row[valueKey] || 0) / max) * 100}%` }}
+              style={{ width: `${(Number(row.value || 0) / max) * 100}%` }}
             />
           </div>
-          <strong>{Number(row[valueKey] || 0).toFixed(valueKey === "count" ? 0 : 1)}</strong>
+          <strong>{Number(row.value || 0).toFixed(Number.isInteger(row.value) ? 0 : 1)}</strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+function renderExportableBars({
+  title,
+  rows,
+  reportFilters,
+  filenameBase,
+  fallbackMonth = "",
+  valueKey = "count",
+  valueLabel = "Count",
+}) {
+  const chartRows = normalizeChartRows(rows, valueKey);
+
+  return (
+    <div className="report-chart">
+      <div className="report-chart-header">
+        <h3>{title}</h3>
+        <button
+          type="button"
+          className="secondary-btn"
+          disabled={!chartRows.length}
+          onClick={() =>
+            exportBarChartPng({
+              title,
+              rows: chartRows,
+              filename: buildGraphFilename(filenameBase, reportFilters, fallbackMonth),
+              valueLabel,
+            })
+          }
+        >
+          Export Graph
+        </button>
+      </div>
+      {renderMiniBars(chartRows, "value")}
     </div>
   );
 }
@@ -866,6 +993,38 @@ export default function ReportsSection({
       endKmRange: row.endKmValues.length ? `${Math.min(...row.endKmValues)} - ${Math.max(...row.endKmValues)}` : "-",
     }));
   }, [vehicleRows]);
+  const patrollerSectorRows = useMemo(
+    () => countBy(filteredPatrolReports, (patrol) => patrol.sector),
+    [filteredPatrolReports]
+  );
+  const assistanceByServiceRows = useMemo(
+    () => countBy(assistanceRows, (request) => formatEventService(request) || request.assistance),
+    [assistanceRows]
+  );
+  const assistanceBySectorRows = useMemo(
+    () => countBy(assistanceRows, (request) => request?.patrol?.sector || request?.sector),
+    [assistanceRows]
+  );
+  const infrastructureByTypeRows = useMemo(
+    () => countBy(infrastructureRows, (event) => event.infrastructureTypeRef?.type || event.infrastructureType),
+    [infrastructureRows]
+  );
+  const infrastructureBySectorRows = useMemo(
+    () => countBy(infrastructureRows, (event) => event.patrol?.sector),
+    [infrastructureRows]
+  );
+  const infrastructureBySuburbRows = useMemo(
+    () => countBy(infrastructureRows, (event) => event.suburb),
+    [infrastructureRows]
+  );
+  const vehicleKmRows = useMemo(
+    () => vehicleUsageRows.map((row) => ({ label: row.registration, value: row.totalKm })),
+    [vehicleUsageRows]
+  );
+  const vehiclePatrolCountRows = useMemo(
+    () => vehicleUsageRows.map((row) => ({ label: row.registration, value: row.patrolCount })),
+    [vehicleUsageRows]
+  );
 
   function renderReportDetail() {
     if (!selectedReportDetail) return null;
@@ -934,6 +1093,9 @@ export default function ReportsSection({
         </div>
         <p className="card-detail">
           Month-to-month incident trends by Incident Code, Incident Subcode, suburb, sector, and repeat locations.
+        </p>
+        <p className="report-export-note">
+          Graphs export current filtered data and are intended for internal/monthly feedback presentations.
         </p>
 
         {monthlyTrendData.currentRows.some((incident) => !getIncidentCodeParts(incident).isClassified) && (
@@ -1049,32 +1211,67 @@ export default function ReportsSection({
 
         <div className="grid">
           <div className="panel">
-            <h3>Incidents Per Month</h3>
-            {renderMiniBars(monthlyTrendData.incidentsPerMonth)}
+            {renderExportableBars({
+              title: "Incidents Per Month",
+              rows: monthlyTrendData.incidentsPerMonth,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-incidents-per-month",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
           <div className="panel">
-            <h3>Incidents By Incident Code</h3>
-            {renderMiniBars(monthlyTrendData.incidentsByCode)}
+            {renderExportableBars({
+              title: "Incidents By SAPS Incident Code",
+              rows: monthlyTrendData.incidentsByCode,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-incident-codes",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
           <div className="panel">
-            <h3>Incidents By Code + Subcode</h3>
-            {renderMiniBars(monthlyTrendData.incidentsByCodeAndSubcode)}
+            {renderExportableBars({
+              title: "Incidents By Code + Subcode",
+              rows: monthlyTrendData.incidentsByCodeAndSubcode,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-code-subcode",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
           <div className="panel">
-            <h3>Incidents By Suburb</h3>
-            {renderMiniBars(monthlyTrendData.incidentsBySuburb)}
+            {renderExportableBars({
+              title: "Incidents By Suburb",
+              rows: monthlyTrendData.incidentsBySuburb,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-suburbs",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
           <div className="panel">
-            <h3>Incidents By Sector</h3>
-            {renderMiniBars(monthlyTrendData.incidentsBySector)}
+            {renderExportableBars({
+              title: "Incidents By Sector",
+              rows: monthlyTrendData.incidentsBySector,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-sectors",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
           <div className="panel">
-            <h3>Day vs Night Split</h3>
-            {renderMiniBars(monthlyTrendData.dayNightSplit)}
+            {renderExportableBars({
+              title: "Day vs Night Split",
+              rows: monthlyTrendData.dayNightSplit,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-day-night",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
           <div className="panel">
-            <h3>Time-of-Day Bands</h3>
-            {renderMiniBars(monthlyTrendData.timeBands)}
+            {renderExportableBars({
+              title: "Time-of-Day Bands",
+              rows: monthlyTrendData.timeBands,
+              reportFilters,
+              filenameBase: "monthly-safety-trends-time-bands",
+              fallbackMonth: selectedMonth,
+            })}
           </div>
         </div>
 
@@ -1264,6 +1461,9 @@ export default function ReportsSection({
         <p className="card-detail">
           Patroller contribution summary across driver sessions, crew participation, distance, and patrol events.
         </p>
+        <p className="report-export-note">
+          Graphs export current filtered data and are intended for internal/monthly feedback presentations.
+        </p>
 
         {showFilters &&
           renderCommonFilters(
@@ -1397,12 +1597,32 @@ export default function ReportsSection({
 
         <div className="grid">
           <div className="panel">
-            <h3>Hours By Patroller</h3>
-            {renderMiniBars(patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })), "value")}
+            {renderExportableBars({
+              title: "Hours By Patroller",
+              rows: patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })),
+              reportFilters,
+              filenameBase: "patroller-hours",
+              valueKey: "value",
+              valueLabel: "Hours",
+            })}
           </div>
           <div className="panel">
-            <h3>KM By Patroller</h3>
-            {renderMiniBars(patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })), "value")}
+            {renderExportableBars({
+              title: "KM By Patroller",
+              rows: patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })),
+              reportFilters,
+              filenameBase: "patroller-km",
+              valueKey: "value",
+              valueLabel: "KM",
+            })}
+          </div>
+          <div className="panel">
+            {renderExportableBars({
+              title: "Patrol Sessions By Sector",
+              rows: patrollerSectorRows,
+              reportFilters,
+              filenameBase: "patroller-sessions-by-sector",
+            })}
           </div>
         </div>
 
@@ -1707,6 +1927,9 @@ export default function ReportsSection({
           Historical assistance requests submitted by patrol teams. Live coordination remains
           in Control Room.
         </p>
+        <p className="report-export-note">
+          Graphs export current filtered data and are intended for internal/monthly feedback presentations.
+        </p>
 
         {showFilters &&
           renderCommonFilters(
@@ -1775,6 +1998,25 @@ export default function ReportsSection({
             <div className="card-title">Assistance Requests</div>
             <div className="card-value">{assistanceRows.length}</div>
             <div className="card-detail">History sourced from Patrol assistance events</div>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div className="panel">
+            {renderExportableBars({
+              title: "Requests By Service Type",
+              rows: assistanceByServiceRows,
+              reportFilters,
+              filenameBase: "assistance-requests-by-service-type",
+            })}
+          </div>
+          <div className="panel">
+            {renderExportableBars({
+              title: "Requests By Sector",
+              rows: assistanceBySectorRows,
+              reportFilters,
+              filenameBase: "assistance-requests-by-sector",
+            })}
           </div>
         </div>
 
@@ -1864,6 +2106,9 @@ export default function ReportsSection({
         <p className="card-detail">
           Vehicle accountability view built from patrol session history.
         </p>
+        <p className="report-export-note">
+          Graphs export current filtered data and are intended for internal/monthly feedback presentations.
+        </p>
 
         {showFilters &&
           renderCommonFilters(
@@ -1933,6 +2178,28 @@ export default function ReportsSection({
             <div className="card-title">Vehicle Usage</div>
             <div className="card-value">{vehicleUsageRows.length}</div>
             <div className="card-detail">Vehicles with matching patrol activity</div>
+          </div>
+        </div>
+
+        <div className="grid">
+          <div className="panel">
+            {renderExportableBars({
+              title: "KM By Vehicle",
+              rows: vehicleKmRows,
+              reportFilters,
+              filenameBase: "vehicle-km",
+              valueKey: "value",
+              valueLabel: "KM",
+            })}
+          </div>
+          <div className="panel">
+            {renderExportableBars({
+              title: "Patrol Count By Vehicle",
+              rows: vehiclePatrolCountRows,
+              reportFilters,
+              filenameBase: "vehicle-patrol-count",
+              valueKey: "value",
+            })}
           </div>
         </div>
 
@@ -2007,6 +2274,9 @@ export default function ReportsSection({
         <p className="card-detail">
           Infrastructure event summary and detail history captured from patrol activity.
         </p>
+        <p className="report-export-note">
+          Graphs export current filtered data and are intended for internal/monthly feedback presentations.
+        </p>
 
         {showFilters &&
           renderCommonFilters(
@@ -2073,20 +2343,36 @@ export default function ReportsSection({
 
         <div className="grid">
           <div className="panel">
-            <h3>By Type</h3>
-            {renderMiniBars(countBy(infrastructureRows, (event) => event.infrastructureTypeRef?.type || event.infrastructureType))}
+            {renderExportableBars({
+              title: "Reports By Infrastructure Type",
+              rows: infrastructureByTypeRows,
+              reportFilters,
+              filenameBase: "infrastructure-by-type",
+            })}
           </div>
           <div className="panel">
-            <h3>By Sector</h3>
-            {renderMiniBars(countBy(infrastructureRows, (event) => event.patrol?.sector))}
+            {renderExportableBars({
+              title: "Reports By Sector",
+              rows: infrastructureBySectorRows,
+              reportFilters,
+              filenameBase: "infrastructure-by-sector",
+            })}
           </div>
           <div className="panel">
-            <h3>By Suburb</h3>
-            {renderMiniBars(countBy(infrastructureRows, (event) => event.suburb))}
+            {renderExportableBars({
+              title: "Reports By Suburb",
+              rows: infrastructureBySuburbRows,
+              reportFilters,
+              filenameBase: "infrastructure-by-suburb",
+            })}
           </div>
           <div className="panel">
-            <h3>By Month</h3>
-            {renderMiniBars(countBy(infrastructureRows, (event) => getMonthKey(event.createdAt)).sort((a, b) => a.label.localeCompare(b.label)))}
+            {renderExportableBars({
+              title: "Reports By Month",
+              rows: countBy(infrastructureRows, (event) => getMonthKey(event.createdAt)).sort((a, b) => a.label.localeCompare(b.label)),
+              reportFilters,
+              filenameBase: "infrastructure-by-month",
+            })}
           </div>
         </div>
 

@@ -350,6 +350,28 @@ textarea {
   gap: 10px;
 }
 
+.report-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.report-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.report-chart-header h3 {
+  margin: 0;
+}
+
+.report-export-note {
+  margin: 8px 0 18px;
+  color: #475569;
+  font-size: 13px;
+}
+
 .report-bar-row {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) minmax(120px, 2fr) auto;
@@ -456,6 +478,13 @@ textarea {
 
 .primary-btn:disabled {
   opacity: 0.6;
+}
+
+.secondary-btn:disabled,
+.action-row button:disabled,
+.incident-details button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .patrol-action-grid {
