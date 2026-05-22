@@ -1325,9 +1325,18 @@ export default function ReportsSection({
               <button type="button" onClick={exportExecutiveGraphs}>
                 Export Graphs
               </button>
-              <button type="button" onClick={() => window.print()}>
-                Print / Save as PDF
-              </button>
+              <div className="executive-report-action">
+                <button type="button" onClick={() => window.print()}>
+                  Print Report
+                </button>
+                <span>Print a paper copy of this report.</span>
+              </div>
+              <div className="executive-report-action">
+                <button type="button" onClick={() => window.print()}>
+                  Save as PDF
+                </button>
+                <span>Save this report as a PDF file for email or WhatsApp sharing. Choose "Save as PDF" in the print dialog.</span>
+              </div>
             </>
           )}
 

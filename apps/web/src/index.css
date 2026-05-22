@@ -420,6 +420,18 @@ textarea {
   resize: vertical;
 }
 
+.executive-report-action {
+  display: grid;
+  gap: 4px;
+  max-width: 280px;
+}
+
+.executive-report-action span {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
 .report-bar-row {
   display: grid;
   grid-template-columns: minmax(120px, 1fr) minmax(120px, 2fr) auto;
