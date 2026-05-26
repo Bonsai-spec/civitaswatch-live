@@ -271,6 +271,17 @@ function buildPdfFilename(reportName, reportFilters, fallbackMonth = "") {
   return `${reportName}-${period}.pdf`;
 }
 
+const REPORT_PDF_FILENAMES = {
+  "Executive Monthly Report": "civitaswatch-executive-monthly-report",
+  "Monthly Safety Trends": "civitaswatch-monthly-safety-trends",
+  "Patroller Activity": "civitaswatch-patroller-activity",
+  "Incident Reports": "civitaswatch-incident-reports",
+  "Patrol Reports": "civitaswatch-patrol-reports",
+  "Assistance Requests": "civitaswatch-assistance-requests",
+  Infrastructure: "civitaswatch-infrastructure-report",
+  "Vehicle Usage": "civitaswatch-vehicle-usage",
+};
+
 function escapeXml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1397,7 +1408,326 @@ export default function ReportsSection({
     );
   }
 
-  function renderCommonFilters(extraFilters = null) {
+  function getFilterSummaryRows() {
+    const vehicle = vehicles.find((item) => item.id === reportFilters.vehicleId);
+    const patroller = patrollerFilterOptions.find((item) => item.id === reportFilters.patrollerId);
+    const rows = [
+      ["Month", reportFilters.month],
+      ["From", reportFilters.from],
+      ["To", reportFilters.to],
+      ["Sector", reportFilters.sector !== "ALL" ? reportFilters.sector : "All sectors"],
+      ["Suburb / Area", reportFilters.suburb],
+      ["Search", reportFilters.search],
+      ["Incident Code", reportFilters.incidentCode !== "ALL" ? reportFilters.incidentCode : ""],
+      ["Incident Subcode", reportFilters.incidentSubcode !== "ALL" ? reportFilters.incidentSubcode : ""],
+      ["Patroller", reportFilters.patrollerId && reportFilters.patrollerId !== "ALL" ? patroller?.fullName || patroller?.email || reportFilters.patrollerId : ""],
+      ["Vehicle", reportFilters.vehicleId && reportFilters.vehicleId !== "ALL" ? vehicle?.registration || (vehicle ? getVehicleLabel(vehicle) : "") || reportFilters.vehicleId : ""],
+      ["Service Type", reportFilters.serviceType !== "ALL" ? reportFilters.serviceType : ""],
+      ["Infrastructure Type", reportFilters.infrastructureType !== "ALL" ? reportFilters.infrastructureType : ""],
+      ["Status", reportFilters.status !== "ALL" ? reportFilters.status : ""],
+      ["Severity", reportFilters.severity !== "ALL" ? reportFilters.severity : ""],
+      ["Risk Level", reportFilters.riskLevel !== "ALL" ? reportFilters.riskLevel : ""],
+      ["Patrol Call Sign", reportFilters.callSign],
+      ["Reference Number", reportFilters.referenceNumber],
+    ];
+
+    return rows.filter(([, value]) => value);
+  }
+
+  function addReportHeader(pdf, title) {
+    pdf.heading("CivitasWatch", 16);
+    pdf.heading(title, 18);
+    pdf.line("Operational report export for email, WhatsApp sharing, archiving, or management feedback.", 9, {
+      color: [0.28, 0.33, 0.41],
+    });
+    pdf.line(
+      `Selected filters: ${getFilterSummaryRows().map(([label, value]) => `${label}: ${value}`).join(" | ") || "Default report filters"}`,
+      9,
+      { color: [0.28, 0.33, 0.41] }
+    );
+    pdf.line("Internal test/demo data and operational feedback only. Intelligence-sensitive details are excluded.", 9, {
+      color: [0.28, 0.33, 0.41],
+    });
+  }
+
+  function downloadReportPdf(title, buildContent) {
+    const pdf = createPdfDocument();
+    addReportHeader(pdf, title);
+    buildContent(pdf);
+    downloadBlob(
+      pdf.finish(),
+      buildPdfFilename(REPORT_PDF_FILENAMES[title] || `civitaswatch-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`, reportFilters, selectedMonth)
+    );
+  }
+
+  function exportCurrentReportPdf() {
+    if (reportCategory === "Monthly Safety Trends") {
+      downloadReportPdf("Monthly Safety Trends", (pdf) => {
+        pdf.section("Safety Trend Summary");
+        pdf.cards([
+          { label: "Selected Month", value: monthlyTrendData.currentRows.length },
+          { label: "Previous Month", value: monthlyTrendData.previousRows.length },
+          { label: "Change", value: percentChange(monthlyTrendData.currentRows.length, monthlyTrendData.previousRows.length) },
+          { label: "Hotspots", value: monthlyTrendData.topLocations.length },
+          { label: "Daytime", value: monthlyTrendData.dayNightSplit.find((row) => row.label === "Daytime")?.count || 0 },
+          { label: "Night-time", value: monthlyTrendData.dayNightSplit.find((row) => row.label === "Night-time")?.count || 0 },
+        ]);
+        if (monthlyTrendData.currentRows.some((incident) => !getIncidentCodeParts(incident).isClassified)) {
+          pdf.line(`${monthlyTrendData.currentRows.filter((incident) => !getIncidentCodeParts(incident).isClassified).length} incident records are unclassified and may need manual backfill/reclassification.`, 9);
+        }
+        pdf.barChart("Incidents Per Month", monthlyTrendData.incidentsPerMonth);
+        pdf.barChart("Incidents By SAPS Incident Code", monthlyTrendData.incidentsByCode);
+        pdf.barChart("Incidents By Code + Subcode", monthlyTrendData.incidentsByCodeAndSubcode);
+        pdf.barChart("Incidents By Suburb", monthlyTrendData.incidentsBySuburb);
+        pdf.barChart("Day vs Night Split", monthlyTrendData.dayNightSplit);
+        pdf.table(
+          "Incident Code Month Comparison",
+          [
+            { label: "Code", width: 65, value: (row) => row.code },
+            { label: "Name", width: 140, value: (row) => row.codeName || "-" },
+            { label: "Subcode", width: 70, value: (row) => row.subcode || "-" },
+            { label: "This", width: 45, value: (row) => row.thisMonth },
+            { label: "Prev", width: 45, value: (row) => row.previousMonth },
+            { label: "Change", width: 55, value: (row) => row.change },
+            { label: "Top Suburb", width: 95, value: (row) => row.topSuburb },
+          ],
+          monthlyTrendData.trendRows,
+          16
+        );
+        pdf.table("Top Repeat Locations", [
+          { label: "Location", width: 430, value: (row) => row.label },
+          { label: "Incidents", width: 85, value: (row) => row.count },
+        ], monthlyTrendData.topLocations, 12);
+      });
+      return;
+    }
+
+    if (reportCategory === "Patroller Activity") {
+      downloadReportPdf("Patroller Activity", (pdf) => {
+        pdf.section("Patroller Activity Summary");
+        pdf.cards([
+          { label: "Patrol Sessions", value: filteredPatrolReports.length },
+          { label: "Total Hours", value: sumBy(patrollerActivityRows, (row) => row.totalHours).toFixed(1) },
+          { label: "Total KM", value: sumBy(patrollerActivityRows, (row) => row.totalKm) },
+          { label: "Active Patrollers", value: patrollerActivityRows.length },
+          { label: "Avg Duration", value: filteredPatrolReports.length ? (sumBy(filteredPatrolReports, getPatrolHours) / filteredPatrolReports.length).toFixed(1) : "0.0" },
+          { label: "Events", value: sumBy(patrollerActivityRows, (row) => row.events) },
+        ]);
+        pdf.barChart("Hours By Patroller", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })), "Hours");
+        pdf.barChart("KM By Patroller", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })), "KM");
+        pdf.barChart("Patrol Sessions By Sector", patrollerSectorRows);
+        pdf.table(
+          "Patroller Contribution Summary",
+          [
+            { label: "Patroller", width: 115, value: (row) => row.name },
+            { label: "Call Sign", width: 65, value: (row) => row.callSign },
+            { label: "Patrols", width: 45, value: (row) => row.patrolCount },
+            { label: "Hours", width: 45, value: (row) => row.totalHours.toFixed(1) },
+            { label: "KM", width: 45, value: (row) => row.totalKm },
+            { label: "Driver", width: 45, value: (row) => row.driverCount },
+            { label: "Crew", width: 45, value: (row) => row.crewCount },
+            { label: "Events", width: 45, value: (row) => row.events },
+          ],
+          patrollerActivityRows,
+          16
+        );
+        pdf.table(
+          "Patrol Session Detail",
+          [
+            { label: "Patroller", width: 105, value: (row) => row.patroller },
+            { label: "Role", width: 45, value: (row) => row.role },
+            { label: "Patrol", width: 80, value: (row) => row.patrolCallSign },
+            { label: "Vehicle", width: 75, value: (row) => row.vehicle },
+            { label: "Sector", width: 55, value: (row) => row.sector },
+            { label: "Hours", width: 45, value: (row) => row.hours.toFixed(1) },
+            { label: "KM", width: 45, value: (row) => row.role === "Driver" ? row.totalKm ?? "-" : "-" },
+            { label: "Events", width: 65, value: (row) => row.incidentsAttended + row.assistanceRequests + row.infrastructureReports + row.observations },
+          ],
+          patrollerSessionRows,
+          18
+        );
+      });
+      return;
+    }
+
+    if (reportCategory === "Incident Reports") {
+      downloadReportPdf("Incident Reports", (pdf) => {
+        pdf.section("Incident Report Summary");
+        pdf.cards([
+          { label: "Incident Reports", value: incidentRows.length },
+          { label: "Unclassified", value: unclassifiedIncidentRows.length },
+          { label: "Codes", value: countByWithParts(incidentRows, getIncidentCodeParts, (parts) => parts.codeLabel).length },
+          { label: "Suburbs", value: countBy(incidentRows, getIncidentSuburb).length },
+          { label: "Sectors", value: countBy(incidentRows, (row) => row.sector).length },
+          { label: "Statuses", value: countBy(incidentRows, (row) => row.status).length },
+        ]);
+        if (unclassifiedIncidentRows.length) {
+          pdf.line(`${unclassifiedIncidentRows.length} incident records are unclassified because they do not have a linked SAPS Incident Code.`, 9);
+        }
+        pdf.barChart("Incidents By Code", countByWithParts(incidentRows, getIncidentCodeParts, (parts) => parts.codeLabel));
+        pdf.barChart("Incidents By Suburb", countBy(incidentRows, getIncidentSuburb));
+        pdf.table(
+          "Incident Activity",
+          [
+            { label: "Code", width: 60, value: (row) => getIncidentCodeParts(row).code },
+            { label: "Name", width: 120, value: (row) => getIncidentCodeParts(row).codeName || "-" },
+            { label: "Subcode", width: 60, value: (row) => getIncidentCodeParts(row).subcode || "-" },
+            { label: "Title", width: 110, value: (row) => row.title || "-" },
+            { label: "Sector", width: 55, value: (row) => row.sector || "-" },
+            { label: "Status", width: 55, value: (row) => row.status || "-" },
+            { label: "Area", width: 55, value: getIncidentSuburb },
+          ],
+          incidentRows,
+          22
+        );
+      });
+      return;
+    }
+
+    if (reportCategory === "Assistance Requests") {
+      downloadReportPdf("Assistance Requests", (pdf) => {
+        pdf.section("Assistance Request Summary");
+        pdf.cards([
+          { label: "Assistance Requests", value: assistanceRows.length },
+          { label: "Active", value: assistanceRows.filter((row) => getAssistanceStatus(row) === "ACTIVE").length },
+          { label: "Resolved", value: assistanceRows.filter((row) => getAssistanceStatus(row) === "RESOLVED").length },
+          { label: "Service Types", value: assistanceByServiceRows.length },
+          { label: "Sectors", value: assistanceBySectorRows.length },
+          { label: "References", value: assistanceRows.filter((row) => row.referenceNumber).length },
+        ]);
+        pdf.barChart("Requests By Service Type", assistanceByServiceRows);
+        pdf.barChart("Requests By Sector", assistanceBySectorRows);
+        pdf.table(
+          "Assistance Requests",
+          [
+            { label: "Service", width: 115, value: (row) => formatEventService(row) || row.assistance || "-" },
+            { label: "Patrol", width: 70, value: getAssistancePatrolLabel },
+            { label: "Driver", width: 80, value: getAssistanceDriverLabel },
+            { label: "Vehicle", width: 65, value: getAssistanceVehicleLabel },
+            { label: "Sector", width: 50, value: (row) => row?.patrol?.sector || row?.sector || "-" },
+            { label: "Status", width: 55, value: getAssistanceStatus },
+            { label: "Reference", width: 80, value: (row) => row.referenceNumber || "-" },
+          ],
+          assistanceRows,
+          22
+        );
+      });
+      return;
+    }
+
+    if (reportCategory === "Infrastructure") {
+      downloadReportPdf("Infrastructure", (pdf) => {
+        pdf.section("Infrastructure Summary");
+        pdf.cards([
+          { label: "Infrastructure Reports", value: infrastructureRows.length },
+          { label: "Types", value: infrastructureByTypeRows.length },
+          { label: "Sectors", value: infrastructureBySectorRows.length },
+          { label: "Suburbs", value: infrastructureBySuburbRows.length },
+          { label: "References", value: infrastructureRows.filter((row) => row.referenceNumber).length },
+          { label: "Risk Levels", value: countBy(infrastructureRows, (row) => row.infrastructureTypeRef?.riskLevel).length },
+        ]);
+        pdf.barChart("Reports By Infrastructure Type", infrastructureByTypeRows);
+        pdf.barChart("Reports By Sector", infrastructureBySectorRows);
+        pdf.barChart("Reports By Suburb", infrastructureBySuburbRows);
+        pdf.table(
+          "Infrastructure Detail",
+          [
+            { label: "Type", width: 100, value: (row) => row.infrastructureTypeRef?.type || row.infrastructureType || "-" },
+            { label: "Risk", width: 65, value: (row) => row.infrastructureTypeRef?.riskLevel || "-" },
+            { label: "Patrol", width: 75, value: (row) => getPatrolCallSign(row.patrol) },
+            { label: "Driver", width: 85, value: (row) => getPatrolDriverLabel(row.patrol) },
+            { label: "Sector", width: 55, value: (row) => row.patrol?.sector || "-" },
+            { label: "Reference", width: 75, value: (row) => row.referenceNumber || "-" },
+            { label: "Location", width: 60, value: (row) => formatEventLocation(row) || "-" },
+          ],
+          infrastructureRows,
+          22
+        );
+      });
+      return;
+    }
+
+    if (reportCategory === "Vehicle Usage") {
+      downloadReportPdf("Vehicle Usage", (pdf) => {
+        pdf.section("Vehicle Usage Summary");
+        pdf.cards([
+          { label: "Vehicles Used", value: vehicleUsageRows.length },
+          { label: "Patrols", value: sumBy(vehicleUsageRows, (row) => row.patrolCount) },
+          { label: "Total KM", value: sumBy(vehicleUsageRows, (row) => row.totalKm) },
+          { label: "Drivers", value: new Set(vehicleUsageRows.flatMap((row) => Array.from(row.drivers || []))).size },
+          { label: "Incidents", value: sumBy(vehicleUsageRows, (row) => row.incidentsAttended) },
+          { label: "Assistance", value: sumBy(vehicleUsageRows, (row) => row.assistanceRequests) },
+        ]);
+        pdf.barChart("KM By Vehicle", vehicleKmRows, "KM");
+        pdf.barChart("Patrol Count By Vehicle", vehiclePatrolCountRows);
+        pdf.table(
+          "Vehicle Usage",
+          [
+            { label: "Registration", width: 85, value: (row) => row.registration },
+            { label: "Patrols", width: 55, value: (row) => row.patrolCount },
+            { label: "Total KM", width: 60, value: (row) => row.totalKm },
+            { label: "Start/End KM", width: 95, value: (row) => `${row.startKmRange} / ${row.endKmRange}` },
+            { label: "Drivers", width: 115, value: (row) => row.driversText },
+            { label: "Sectors", width: 105, value: (row) => row.sectorsText },
+          ],
+          vehicleUsageRows,
+          18
+        );
+      });
+      return;
+    }
+
+    downloadReportPdf("Patrol Reports", (pdf) => {
+      pdf.section("Patrol Report Summary");
+      pdf.cards([
+        { label: "Reports", value: filteredPatrolReports.length },
+        { label: "Total KM", value: reportTotalKm },
+        { label: "Completed", value: completedReportCount },
+        { label: "Active", value: activeReportCount },
+        { label: "Sectors", value: countBy(filteredPatrolReports, (row) => row.sector).length },
+        { label: "Vehicles", value: countBy(filteredPatrolReports, (row) => row.vehicle?.registration || getVehicleLabel(row.vehicle)).length },
+      ]);
+      pdf.barChart("Patrols By Sector", countBy(filteredPatrolReports, (row) => row.sector));
+      pdf.barChart("Patrols By Status", countBy(filteredPatrolReports, (row) => row.status));
+      pdf.table(
+        "Patrol History",
+        [
+          { label: "Call Sign", width: 80, value: getPatrolCallSign },
+          { label: "Driver", width: 100, value: getPatrolDriverLabel },
+          { label: "Vehicle", width: 75, value: (row) => row.vehicle?.registration || getVehicleLabel(row.vehicle) },
+          { label: "Sector", width: 55, value: (row) => row.sector || "-" },
+          { label: "KM", width: 50, value: (row) => row.totalKm ?? "-" },
+          { label: "Status", width: 65, value: (row) => row.status || "-" },
+          { label: "Start", width: 90, value: (row) => formatDateTime(row.startTime) },
+        ],
+        filteredPatrolReports,
+        24
+      );
+    });
+  }
+
+  function renderReportActions() {
+    return (
+      <>
+        <div className="executive-report-action">
+          <button type="button" onClick={() => window.print()}>
+            Print Report
+          </button>
+          <span>Print a paper copy of this report.</span>
+        </div>
+        <div className="executive-report-action">
+          <button type="button" onClick={exportCurrentReportPdf}>
+            Export PDF Report
+          </button>
+          <span>Download a PDF file for email, WhatsApp sharing, or archiving.</span>
+        </div>
+      </>
+    );
+  }
+
+  function renderCommonFilters(extraFilters = null, options = {}) {
+    const { includeReportActions = true } = options;
+
     return (
       <div className="action-row">
         <input
@@ -1426,6 +1756,7 @@ export default function ReportsSection({
           ))}
         </select>
         {extraFilters}
+        {includeReportActions && renderReportActions()}
         <button onClick={onClearReportFilters}>Clear</button>
       </div>
     );
@@ -1718,7 +2049,8 @@ export default function ReportsSection({
                 </button>
                 <span>Download a PDF file for email, WhatsApp sharing, or archiving.</span>
               </div>
-            </>
+            </>,
+            { includeReportActions: false }
           )}
 
         <section className="executive-section">
@@ -3670,7 +4002,6 @@ export default function ReportsSection({
           ))}
         </select>
 
-        <button onClick={onClearReportFilters}>Clear</button>
         <button
           type="button"
           onClick={() =>
@@ -3691,6 +4022,8 @@ export default function ReportsSection({
         >
           Export CSV
         </button>
+        {renderReportActions()}
+        <button onClick={onClearReportFilters}>Clear</button>
       </div>
       )}
 
