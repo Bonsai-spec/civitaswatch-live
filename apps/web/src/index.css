@@ -426,6 +426,21 @@ textarea {
   max-width: 280px;
 }
 
+.report-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 10px;
+  margin-top: 12px;
+  margin-bottom: 14px;
+  width: 100%;
+}
+
+.report-action-bar .executive-report-action {
+  flex: 1 1 220px;
+  min-width: min(220px, 100%);
+}
+
 .executive-report-action span {
   color: #64748b;
   font-size: 12px;
@@ -515,6 +530,7 @@ textarea {
 .primary-btn,
 .secondary-btn,
 .action-row button,
+.report-action-bar button,
 .incident-details button {
   border-radius: 10px;
   padding: 9px 12px;
@@ -530,6 +546,7 @@ textarea {
 
 .secondary-btn,
 .action-row button,
+.report-action-bar button,
 .incident-details button {
   background: white;
   border: 1px solid #cbd5e1;
@@ -542,6 +559,7 @@ textarea {
 
 .secondary-btn:disabled,
 .action-row button:disabled,
+.report-action-bar button:disabled,
 .incident-details button:disabled {
   cursor: not-allowed;
   opacity: 0.55;

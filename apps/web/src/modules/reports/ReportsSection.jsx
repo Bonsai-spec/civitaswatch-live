@@ -1461,6 +1461,89 @@ export default function ReportsSection({
   }
 
   function exportCurrentReportPdf() {
+    if (reportCategory === "Executive Monthly Report") {
+      downloadReportPdf("Executive Monthly Report", (pdf) => {
+        pdf.section("Executive Summary");
+        pdf.cards([
+          { label: "Classified Incidents", value: executiveSummary.classifiedIncidents },
+          { label: "Top Incident Code", value: executiveSummary.topIncidentCode },
+          { label: "Top Suburb", value: executiveSummary.topSuburb },
+          { label: "Top Sector", value: executiveSummary.topSector },
+          { label: "Night-time", value: executiveSummary.nightPercentage },
+          { label: "Patrol Sessions", value: executiveSummary.patrolSessions },
+          { label: "Patrol Hours", value: executiveSummary.patrolHours.toFixed(1) },
+          { label: "KM Patrolled", value: executiveSummary.totalKm },
+          { label: "Assistance", value: executiveSummary.assistanceRequests },
+          { label: "Infrastructure", value: executiveSummary.infrastructureReports },
+          { label: "Patrollers", value: executiveSummary.activePatrollers },
+          { label: "Vehicles Used", value: executiveSummary.vehiclesUsed },
+        ]);
+        pdf.section("Key Safety Trends");
+        pdf.barChart("Top 5 Incident Codes", monthlyTrendData.incidentsByCode.slice(0, 5));
+        pdf.barChart("Incidents By Suburb", monthlyTrendData.incidentsBySuburb);
+        pdf.barChart("Day vs Night Split", monthlyTrendData.dayNightSplit);
+        pdf.table(
+          "Incident Classification Summary",
+          [
+            { label: "Code", width: 60, value: (row) => row.code },
+            { label: "Incident Name", width: 180, value: (row) => row.codeName || "-" },
+            { label: "Count", width: 50, value: (row) => row.count },
+            { label: "Top Suburb", width: 140, value: (row) => row.topSuburb },
+            { label: "Day/Night", width: 85, value: (row) => `${row.dayCount}/${row.nightCount}` },
+          ],
+          executiveIncidentRows,
+          10
+        );
+        pdf.addPage();
+        pdf.section("Patrol Contribution Summary");
+        pdf.barChart("Top Patrollers By Hours", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalHours })), "Hours");
+        pdf.barChart("Top Patrollers By KM", patrollerActivityRows.map((row) => ({ label: row.name, value: row.totalKm })), "KM");
+        pdf.table(
+          "Top Patrollers",
+          [
+            { label: "Patroller", width: 170, value: (row) => row.name },
+            { label: "Hours", width: 70, value: (row) => row.totalHours.toFixed(1) },
+            { label: "KM", width: 60, value: (row) => row.totalKm },
+            { label: "Patrols", width: 70, value: (row) => row.patrolCount },
+            { label: "Driver/Crew", width: 145, value: (row) => `${row.driverCount}/${row.crewCount}` },
+          ],
+          patrollerActivityRows,
+          10
+        );
+        pdf.section("Assistance Request Summary");
+        pdf.barChart("Requests By Service Type", assistanceByServiceRows);
+        pdf.barChart("Requests By Sector", assistanceBySectorRows);
+        pdf.section("Infrastructure Summary");
+        pdf.barChart("Infrastructure Issues By Type", infrastructureByTypeRows);
+        pdf.barChart("Infrastructure Issues By Suburb", infrastructureBySuburbRows);
+        pdf.addPage();
+        pdf.section("Vehicle Usage Summary");
+        pdf.barChart("KM By Vehicle", vehicleKmRows, "KM");
+        pdf.barChart("Patrol Count By Vehicle", vehiclePatrolCountRows);
+        pdf.section("Intelligence / Observation Highlights");
+        pdf.line("Operational observation summary only. POI/VOI labels, confidential notes, and analyst-only information are excluded.", 9, {
+          color: [0.28, 0.33, 0.41],
+        });
+        pdf.cards([
+          { label: "Suspicious Person", value: observationRows.filter((event) => event.observationType === "Suspicious Person").length },
+          { label: "Suspicious Vehicle", value: observationRows.filter((event) => event.observationType === "Suspicious Vehicle").length },
+          { label: "Observation Review", value: observationRows.length },
+          { label: "Repeat Locations", value: observationsByLocationRows.length },
+        ]);
+        pdf.section("Recommendations / Notes");
+        [
+          ["Key concerns", executiveNotes.keyConcerns],
+          ["Suggested patrol focus", executiveNotes.patrolFocus],
+          ["LE follow-up", executiveNotes.leFollowUp],
+          ["Infrastructure escalation", executiveNotes.infrastructureEscalation],
+          ["Community awareness points", executiveNotes.communityAwareness],
+        ].forEach(([label, value]) => {
+          pdf.line(`${label}: ${value || "-"}`, 9);
+        });
+      });
+      return;
+    }
+
     if (reportCategory === "Monthly Safety Trends") {
       downloadReportPdf("Monthly Safety Trends", (pdf) => {
         pdf.section("Safety Trend Summary");
@@ -1706,9 +1789,10 @@ export default function ReportsSection({
     });
   }
 
-  function renderReportActions() {
+  function renderReportActionBar(extraActions = null) {
     return (
-      <>
+      <div className="report-action-bar no-print">
+        {extraActions}
         <div className="executive-report-action">
           <button type="button" onClick={() => window.print()}>
             Print Report
@@ -1721,44 +1805,46 @@ export default function ReportsSection({
           </button>
           <span>Download a PDF file for email, WhatsApp sharing, or archiving.</span>
         </div>
-      </>
+      </div>
     );
   }
 
   function renderCommonFilters(extraFilters = null, options = {}) {
-    const { includeReportActions = true } = options;
+    const { actionButtons = null, includeReportActions = true } = options;
 
     return (
-      <div className="action-row">
-        <input
-          placeholder="Search"
-          value={reportFilters.search || ""}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, search: e.target.value })}
-        />
-        <input
-          type="date"
-          value={reportFilters.from}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, from: e.target.value })}
-        />
-        <input
-          type="date"
-          value={reportFilters.to}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, to: e.target.value })}
-        />
-        <select
-          value={reportFilters.sector}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, sector: e.target.value })}
-        >
-          {sectorFilterOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-        {extraFilters}
-        {includeReportActions && renderReportActions()}
-        <button onClick={onClearReportFilters}>Clear</button>
-      </div>
+      <>
+        <div className="action-row">
+          <input
+            placeholder="Search"
+            value={reportFilters.search || ""}
+            onChange={(e) => onReportFiltersChange({ ...reportFilters, search: e.target.value })}
+          />
+          <input
+            type="date"
+            value={reportFilters.from}
+            onChange={(e) => onReportFiltersChange({ ...reportFilters, from: e.target.value })}
+          />
+          <input
+            type="date"
+            value={reportFilters.to}
+            onChange={(e) => onReportFiltersChange({ ...reportFilters, to: e.target.value })}
+          />
+          <select
+            value={reportFilters.sector}
+            onChange={(e) => onReportFiltersChange({ ...reportFilters, sector: e.target.value })}
+          >
+            {sectorFilterOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {extraFilters}
+          <button onClick={onClearReportFilters}>Clear</button>
+        </div>
+        {includeReportActions && renderReportActionBar(actionButtons)}
+      </>
     );
   }
 
@@ -2022,35 +2108,32 @@ export default function ReportsSection({
                 value={reportFilters.suburb || ""}
                 onChange={(e) => onReportFiltersChange({ ...reportFilters, suburb: e.target.value })}
               />
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("executive-monthly-report-summary", reportFilters, selectedMonth), [
-                    { label: "Section", value: (row) => row.section },
-                    { label: "Metric", value: (row) => row.metric },
-                    { label: "Value", value: (row) => row.value },
-                  ], executiveCsvRows)
-                }
-              >
-                Export Report Data CSV
-              </button>
-              <button type="button" onClick={exportExecutiveGraphs}>
-                Export Graphs
-              </button>
-              <div className="executive-report-action">
-                <button type="button" onClick={() => window.print()}>
-                  Print Report
-                </button>
-                <span>Print a paper copy of this report.</span>
-              </div>
-              <div className="executive-report-action">
-                <button type="button" onClick={exportExecutivePdf}>
-                  Export PDF Report
-                </button>
-                <span>Download a PDF file for email, WhatsApp sharing, or archiving.</span>
-              </div>
             </>,
-            { includeReportActions: false }
+            {
+              actionButtons: (
+                <>
+                  <div className="executive-report-action">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        exportCsv(buildCsvFilename("executive-monthly-report-summary", reportFilters, selectedMonth), [
+                          { label: "Section", value: (row) => row.section },
+                          { label: "Metric", value: (row) => row.metric },
+                          { label: "Value", value: (row) => row.value },
+                        ], executiveCsvRows)
+                      }
+                    >
+                      Export Report Data CSV
+                    </button>
+                  </div>
+                  <div className="executive-report-action">
+                    <button type="button" onClick={exportExecutiveGraphs}>
+                      Export Graphs
+                    </button>
+                  </div>
+                </>
+              ),
+            }
           )}
 
         <section className="executive-section">
@@ -2615,24 +2698,30 @@ export default function ReportsSection({
                 value={reportFilters.suburb || ""}
                 onChange={(e) => onReportFiltersChange({ ...reportFilters, suburb: e.target.value })}
               />
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("monthly-safety-trends", reportFilters, selectedMonth), [
-                    { label: "Month", value: (row) => row.month },
-                    { label: "Incident Code", value: (row) => row.code },
-                    { label: "Incident Name", value: (row) => row.codeName },
-                    { label: "Incident Subcode", value: (row) => row.subcode },
-                    { label: "Incident Subcode Name", value: (row) => row.subcodeName },
-                    { label: "Count", value: (row) => row.count },
-                    { label: "Sector", value: (row) => row.sector },
-                    { label: "Report Area", value: (row) => row.suburb },
-                  ], monthlyTrendData.csvRows)
-                }
-              >
-                Export CSV
-              </button>
-            </>
+            </>,
+            {
+              actionButtons: (
+                <div className="executive-report-action">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportCsv(buildCsvFilename("monthly-safety-trends", reportFilters, selectedMonth), [
+                        { label: "Month", value: (row) => row.month },
+                        { label: "Incident Code", value: (row) => row.code },
+                        { label: "Incident Name", value: (row) => row.codeName },
+                        { label: "Incident Subcode", value: (row) => row.subcode },
+                        { label: "Incident Subcode Name", value: (row) => row.subcodeName },
+                        { label: "Count", value: (row) => row.count },
+                        { label: "Sector", value: (row) => row.sector },
+                        { label: "Report Area", value: (row) => row.suburb },
+                      ], monthlyTrendData.csvRows)
+                    }
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              ),
+            }
           )}
 
         <div className="cards">
@@ -2965,53 +3054,63 @@ export default function ReportsSection({
                 value={reportFilters.callSign || ""}
                 onChange={(e) => onReportFiltersChange({ ...reportFilters, callSign: e.target.value })}
               />
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("patroller-activity", reportFilters), [
-                    { label: "Patroller", value: (row) => row.name },
-                    { label: "Call Sign", value: (row) => row.callSign },
-                    { label: "Patrol Count", value: (row) => row.patrolCount },
-                    { label: "Total Hours", value: (row) => row.totalHours.toFixed(2) },
-                    { label: "Total KM", value: (row) => row.totalKm },
-                    { label: "Driver Count", value: (row) => row.driverCount },
-                    { label: "Crew Count", value: (row) => row.crewCount },
-                    { label: "Incident Responses", value: (row) => row.incidentResponses },
-                    { label: "Assistance Requests", value: (row) => row.assistanceRequests },
-                    { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
-                    { label: "Observations", value: (row) => row.observations },
-                  ], patrollerActivityRows)
-                }
-              >
-                Export Summary CSV
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("patroller-activity-detail", reportFilters), [
-                    { label: "Patroller", value: (row) => row.patroller },
-                    { label: "Member Call Sign", value: (row) => row.memberCallSign },
-                    { label: "Role", value: (row) => row.role },
-                    { label: "Patrol Session Call Sign", value: (row) => row.patrolCallSign },
-                    { label: "Vehicle", value: (row) => row.vehicle },
-                    { label: "Sector", value: (row) => row.sector },
-                    { label: "Clock On", value: (row) => formatDateTime(row.startTime) },
-                    { label: "Clock Off", value: (row) => formatDateTime(row.endTime) },
-                    { label: "Hours Worked", value: (row) => row.hours.toFixed(2) },
-                    { label: "Day/Night", value: (row) => row.dayNight },
-                    { label: "Start KM", value: (row) => row.startKm },
-                    { label: "End KM", value: (row) => row.endKm },
-                    { label: "Total KM", value: (row) => row.totalKm },
-                    { label: "Incidents Attended", value: (row) => row.incidentsAttended },
-                    { label: "Assistance Requests", value: (row) => row.assistanceRequests },
-                    { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
-                    { label: "Observations", value: (row) => row.observations },
-                  ], patrollerSessionRows)
-                }
-              >
-                Export Detail CSV
-              </button>
-            </>
+            </>,
+            {
+              actionButtons: (
+                <>
+                  <div className="executive-report-action">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        exportCsv(buildCsvFilename("patroller-activity", reportFilters), [
+                          { label: "Patroller", value: (row) => row.name },
+                          { label: "Call Sign", value: (row) => row.callSign },
+                          { label: "Patrol Count", value: (row) => row.patrolCount },
+                          { label: "Total Hours", value: (row) => row.totalHours.toFixed(2) },
+                          { label: "Total KM", value: (row) => row.totalKm },
+                          { label: "Driver Count", value: (row) => row.driverCount },
+                          { label: "Crew Count", value: (row) => row.crewCount },
+                          { label: "Incident Responses", value: (row) => row.incidentResponses },
+                          { label: "Assistance Requests", value: (row) => row.assistanceRequests },
+                          { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
+                          { label: "Observations", value: (row) => row.observations },
+                        ], patrollerActivityRows)
+                      }
+                    >
+                      Export Summary CSV
+                    </button>
+                  </div>
+                  <div className="executive-report-action">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        exportCsv(buildCsvFilename("patroller-activity-detail", reportFilters), [
+                          { label: "Patroller", value: (row) => row.patroller },
+                          { label: "Member Call Sign", value: (row) => row.memberCallSign },
+                          { label: "Role", value: (row) => row.role },
+                          { label: "Patrol Session Call Sign", value: (row) => row.patrolCallSign },
+                          { label: "Vehicle", value: (row) => row.vehicle },
+                          { label: "Sector", value: (row) => row.sector },
+                          { label: "Clock On", value: (row) => formatDateTime(row.startTime) },
+                          { label: "Clock Off", value: (row) => formatDateTime(row.endTime) },
+                          { label: "Hours Worked", value: (row) => row.hours.toFixed(2) },
+                          { label: "Day/Night", value: (row) => row.dayNight },
+                          { label: "Start KM", value: (row) => row.startKm },
+                          { label: "End KM", value: (row) => row.endKm },
+                          { label: "Total KM", value: (row) => row.totalKm },
+                          { label: "Incidents Attended", value: (row) => row.incidentsAttended },
+                          { label: "Assistance Requests", value: (row) => row.assistanceRequests },
+                          { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
+                          { label: "Observations", value: (row) => row.observations },
+                        ], patrollerSessionRows)
+                      }
+                    >
+                      Export Detail CSV
+                    </button>
+                  </div>
+                </>
+              ),
+            }
           )}
 
         <div className="cards">
@@ -3246,29 +3345,35 @@ export default function ReportsSection({
                 value={reportFilters.suburb || ""}
                 onChange={(e) => onReportFiltersChange({ ...reportFilters, suburb: e.target.value })}
               />
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("incident-reports", reportFilters), [
-                    { label: "ID", value: (row) => row.id },
-                    ...getIncidentClassificationCsvColumns(),
-                    { label: "Title", value: (row) => row.title },
-                    { label: "Description", value: (row) => row.description },
-                    { label: "Sector", value: (row) => row.sector },
-                    { label: "Status", value: (row) => row.status },
-                    { label: "Severity", value: (row) => row.severity },
-                    { label: "Report Area", value: getIncidentSuburb },
-                    { label: "Raw Suburb", value: getRawIncidentSuburb },
-                    { label: "Address", value: getIncidentStreetLocation },
-                    { label: "Reported", value: (row) => formatDateTime(row.reportedAt) },
-                    { label: "Occurred", value: (row) => formatDateTime(row.occurredAt) },
-                    { label: "Created", value: (row) => formatDateTime(row.createdAt) },
-                  ], incidentRows)
-                }
-              >
-                Export CSV
-              </button>
-            </>
+            </>,
+            {
+              actionButtons: (
+                <div className="executive-report-action">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportCsv(buildCsvFilename("incident-reports", reportFilters), [
+                        { label: "ID", value: (row) => row.id },
+                        ...getIncidentClassificationCsvColumns(),
+                        { label: "Title", value: (row) => row.title },
+                        { label: "Description", value: (row) => row.description },
+                        { label: "Sector", value: (row) => row.sector },
+                        { label: "Status", value: (row) => row.status },
+                        { label: "Severity", value: (row) => row.severity },
+                        { label: "Report Area", value: getIncidentSuburb },
+                        { label: "Raw Suburb", value: getRawIncidentSuburb },
+                        { label: "Address", value: getIncidentStreetLocation },
+                        { label: "Reported", value: (row) => formatDateTime(row.reportedAt) },
+                        { label: "Occurred", value: (row) => formatDateTime(row.occurredAt) },
+                        { label: "Created", value: (row) => formatDateTime(row.createdAt) },
+                      ], incidentRows)
+                    }
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              ),
+            }
           )}
 
         {renderReportDetail()}
@@ -3432,31 +3537,37 @@ export default function ReportsSection({
                 <option value="ACTIVE">Active</option>
                 <option value="RESOLVED">Resolved</option>
               </select>
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("assistance-requests", reportFilters), [
-                    { label: "ID", value: (row) => row.id },
-                    { label: "Service", value: (row) => formatEventService(row) || row.assistance },
-                    { label: "Patrol", value: getAssistancePatrolLabel },
-                    { label: "Driver", value: getAssistanceDriverLabel },
-                    { label: "Crew", value: getAssistanceCrewLabel },
-                    { label: "Vehicle", value: getAssistanceVehicleLabel },
-                    { label: "Sector", value: (row) => row?.patrol?.sector || row?.sector },
-                    { label: "Report Area", value: getIncidentSuburb },
-                    { label: "Raw Suburb", value: getRawIncidentSuburb },
-                    { label: "Status", value: getAssistanceStatus },
-                    { label: "Reference Number", value: (row) => row.referenceNumber },
-                    { label: "Location", value: getAssistanceLocationLabel },
-                    { label: "Description", value: (row) => row.description },
-                    { label: "Requested", value: (row) => formatDateTime(row.createdAt) },
-                    { label: "Resolved", value: (row) => row.resolvedAt ? formatDateTime(row.resolvedAt) : "" },
-                  ], assistanceRows)
-                }
-              >
-                Export CSV
-              </button>
-            </>
+            </>,
+            {
+              actionButtons: (
+                <div className="executive-report-action">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportCsv(buildCsvFilename("assistance-requests", reportFilters), [
+                        { label: "ID", value: (row) => row.id },
+                        { label: "Service", value: (row) => formatEventService(row) || row.assistance },
+                        { label: "Patrol", value: getAssistancePatrolLabel },
+                        { label: "Driver", value: getAssistanceDriverLabel },
+                        { label: "Crew", value: getAssistanceCrewLabel },
+                        { label: "Vehicle", value: getAssistanceVehicleLabel },
+                        { label: "Sector", value: (row) => row?.patrol?.sector || row?.sector },
+                        { label: "Report Area", value: getIncidentSuburb },
+                        { label: "Raw Suburb", value: getRawIncidentSuburb },
+                        { label: "Status", value: getAssistanceStatus },
+                        { label: "Reference Number", value: (row) => row.referenceNumber },
+                        { label: "Location", value: getAssistanceLocationLabel },
+                        { label: "Description", value: (row) => row.description },
+                        { label: "Requested", value: (row) => formatDateTime(row.createdAt) },
+                        { label: "Resolved", value: (row) => row.resolvedAt ? formatDateTime(row.resolvedAt) : "" },
+                      ], assistanceRows)
+                    }
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              ),
+            }
           )}
 
         {renderReportDetail()}
@@ -3616,27 +3727,33 @@ export default function ReportsSection({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("vehicle-usage", reportFilters), [
-                    { label: "Registration", value: (row) => row.registration },
-                    { label: "Patrol Count", value: (row) => row.patrolCount },
-                    { label: "Total KM", value: (row) => row.totalKm },
-                    { label: "Start KM Range", value: (row) => row.startKmRange },
-                    { label: "End KM Range", value: (row) => row.endKmRange },
-                    { label: "Drivers", value: (row) => row.driversText },
-                    { label: "Sectors", value: (row) => row.sectorsText },
-                    { label: "Incidents Attended", value: (row) => row.incidentsAttended },
-                    { label: "Assistance Requests", value: (row) => row.assistanceRequests },
-                    { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
-                    { label: "Patrol Sessions", value: (row) => row.sessions.map((session) => session.id).join("; ") },
-                  ], vehicleUsageRows)
-                }
-              >
-                Export CSV
-              </button>
-            </>
+            </>,
+            {
+              actionButtons: (
+                <div className="executive-report-action">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportCsv(buildCsvFilename("vehicle-usage", reportFilters), [
+                        { label: "Registration", value: (row) => row.registration },
+                        { label: "Patrol Count", value: (row) => row.patrolCount },
+                        { label: "Total KM", value: (row) => row.totalKm },
+                        { label: "Start KM Range", value: (row) => row.startKmRange },
+                        { label: "End KM Range", value: (row) => row.endKmRange },
+                        { label: "Drivers", value: (row) => row.driversText },
+                        { label: "Sectors", value: (row) => row.sectorsText },
+                        { label: "Incidents Attended", value: (row) => row.incidentsAttended },
+                        { label: "Assistance Requests", value: (row) => row.assistanceRequests },
+                        { label: "Infrastructure Reports", value: (row) => row.infrastructureReports },
+                        { label: "Patrol Sessions", value: (row) => row.sessions.map((session) => session.id).join("; ") },
+                      ], vehicleUsageRows)
+                    }
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              ),
+            }
           )}
 
         {renderReportDetail()}
@@ -3772,32 +3889,38 @@ export default function ReportsSection({
                   <option key={risk} value={risk}>{risk}</option>
                 ))}
               </select>
-              <button
-                type="button"
-                onClick={() =>
-                  exportCsv(buildCsvFilename("infrastructure-reports", reportFilters), [
-                    { label: "ID", value: (row) => row.id },
-                    { label: "Date/Time", value: (row) => formatDateTime(row.createdAt) },
-                    { label: "Patrol Call Sign", value: (row) => getPatrolCallSign(row.patrol) },
-                    { label: "Driver", value: (row) => getPatrolDriverLabel(row.patrol) },
-                    { label: "Type", value: (row) => row.infrastructureTypeRef?.type },
-                    { label: "Risk Level", value: (row) => row.infrastructureTypeRef?.riskLevel },
-                    { label: "Sector", value: (row) => row.patrol?.sector },
-                    { label: "Reference Number", value: (row) => row.referenceNumber },
-                    { label: "Street Number", value: (row) => row.streetNumber },
-                    { label: "Street Name", value: (row) => row.streetName },
-                    { label: "Report Area", value: getIncidentSuburb },
-                    { label: "Raw Suburb", value: getRawIncidentSuburb },
-                    { label: "Landmark / Location Notes", value: (row) => row.locationNotes },
-                    { label: "Latitude", value: (row) => row.latitude },
-                    { label: "Longitude", value: (row) => row.longitude },
-                    { label: "Description", value: (row) => row.description },
-                  ], infrastructureRows)
-                }
-              >
-                Export CSV
-              </button>
-            </>
+            </>,
+            {
+              actionButtons: (
+                <div className="executive-report-action">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportCsv(buildCsvFilename("infrastructure-reports", reportFilters), [
+                        { label: "ID", value: (row) => row.id },
+                        { label: "Date/Time", value: (row) => formatDateTime(row.createdAt) },
+                        { label: "Patrol Call Sign", value: (row) => getPatrolCallSign(row.patrol) },
+                        { label: "Driver", value: (row) => getPatrolDriverLabel(row.patrol) },
+                        { label: "Type", value: (row) => row.infrastructureTypeRef?.type },
+                        { label: "Risk Level", value: (row) => row.infrastructureTypeRef?.riskLevel },
+                        { label: "Sector", value: (row) => row.patrol?.sector },
+                        { label: "Reference Number", value: (row) => row.referenceNumber },
+                        { label: "Street Number", value: (row) => row.streetNumber },
+                        { label: "Street Name", value: (row) => row.streetName },
+                        { label: "Report Area", value: getIncidentSuburb },
+                        { label: "Raw Suburb", value: getRawIncidentSuburb },
+                        { label: "Landmark / Location Notes", value: (row) => row.locationNotes },
+                        { label: "Latitude", value: (row) => row.latitude },
+                        { label: "Longitude", value: (row) => row.longitude },
+                        { label: "Description", value: (row) => row.description },
+                      ], infrastructureRows)
+                    }
+                  >
+                    Export CSV
+                  </button>
+                </div>
+              ),
+            }
           )}
 
         {renderReportDetail()}
@@ -3930,101 +4053,105 @@ export default function ReportsSection({
       </p>
 
       {showFilters && (
-      <div className="action-row">
-        <input
-          placeholder="Patrol call sign"
-          value={reportFilters.callSign || ""}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, callSign: e.target.value })}
-        />
+        <>
+          <div className="action-row">
+            <input
+              placeholder="Patrol call sign"
+              value={reportFilters.callSign || ""}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, callSign: e.target.value })}
+            />
 
-        <input
-          type="date"
-          value={reportFilters.from}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, from: e.target.value })}
-        />
+            <input
+              type="date"
+              value={reportFilters.from}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, from: e.target.value })}
+            />
 
-        <input
-          type="date"
-          value={reportFilters.to}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, to: e.target.value })}
-        />
-        <input
-          type="month"
-          value={reportFilters.month || ""}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, month: e.target.value })}
-        />
+            <input
+              type="date"
+              value={reportFilters.to}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, to: e.target.value })}
+            />
+            <input
+              type="month"
+              value={reportFilters.month || ""}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, month: e.target.value })}
+            />
 
-        <select
-          value={reportFilters.sector}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, sector: e.target.value })}
-        >
-          {sectorFilterOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+            <select
+              value={reportFilters.sector}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, sector: e.target.value })}
+            >
+              {sectorFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-        <select
-          value={reportFilters.vehicleId}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, vehicleId: e.target.value })}
-        >
-          <option value="ALL">All Vehicles</option>
-          {data.vehicles.map((vehicle) => (
-            <option key={vehicle.id} value={vehicle.id}>
-              {vehicle.registration || getVehicleLabel(vehicle)}
-            </option>
-          ))}
-        </select>
+            <select
+              value={reportFilters.vehicleId}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, vehicleId: e.target.value })}
+            >
+              <option value="ALL">All Vehicles</option>
+              {data.vehicles.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.id}>
+                  {vehicle.registration || getVehicleLabel(vehicle)}
+                </option>
+              ))}
+            </select>
 
-        <select
-          value={reportFilters.patrollerId}
-          onChange={(e) =>
-            onReportFiltersChange({ ...reportFilters, patrollerId: e.target.value })
-          }
-        >
-          <option value="ALL">All Patrollers</option>
-          {patrollerFilterOptions.map((patroller) => (
-            <option key={patroller.id} value={patroller.id}>
-              {patroller.fullName || patroller.email || "Unnamed"}
-            </option>
-          ))}
-        </select>
+            <select
+              value={reportFilters.patrollerId}
+              onChange={(e) =>
+                onReportFiltersChange({ ...reportFilters, patrollerId: e.target.value })
+              }
+            >
+              <option value="ALL">All Patrollers</option>
+              {patrollerFilterOptions.map((patroller) => (
+                <option key={patroller.id} value={patroller.id}>
+                  {patroller.fullName || patroller.email || "Unnamed"}
+                </option>
+              ))}
+            </select>
 
-        <select
-          value={reportFilters.status}
-          onChange={(e) => onReportFiltersChange({ ...reportFilters, status: e.target.value })}
-        >
-          {statusFilterOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          onClick={() =>
-            exportCsv(buildCsvFilename("patrol-reports", reportFilters), [
-              { label: "ID", value: (row) => row.id },
-              { label: "Patrol Call Sign", value: getPatrolCallSign },
-              { label: "Driver", value: getPatrolDriverLabel },
-              { label: "Vehicle", value: (row) => row.vehicle?.registration || getVehicleLabel(row.vehicle) },
-              { label: "Sector", value: (row) => row.sector },
-              { label: "Start KM", value: (row) => row.startKm },
-              { label: "End KM", value: (row) => row.endKm },
-              { label: "Total KM", value: (row) => row.totalKm },
-              { label: "Status", value: (row) => row.status },
-              { label: "Start Time", value: (row) => formatDateTime(row.startTime) },
-              { label: "End Time", value: (row) => formatDateTime(row.endTime) },
-            ], filteredPatrolReports)
-          }
-        >
-          Export CSV
-        </button>
-        {renderReportActions()}
-        <button onClick={onClearReportFilters}>Clear</button>
-      </div>
+            <select
+              value={reportFilters.status}
+              onChange={(e) => onReportFiltersChange({ ...reportFilters, status: e.target.value })}
+            >
+              {statusFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button onClick={onClearReportFilters}>Clear</button>
+          </div>
+          {renderReportActionBar(
+            <div className="executive-report-action">
+              <button
+                type="button"
+                onClick={() =>
+                  exportCsv(buildCsvFilename("patrol-reports", reportFilters), [
+                    { label: "ID", value: (row) => row.id },
+                    { label: "Patrol Call Sign", value: getPatrolCallSign },
+                    { label: "Driver", value: getPatrolDriverLabel },
+                    { label: "Vehicle", value: (row) => row.vehicle?.registration || getVehicleLabel(row.vehicle) },
+                    { label: "Sector", value: (row) => row.sector },
+                    { label: "Start KM", value: (row) => row.startKm },
+                    { label: "End KM", value: (row) => row.endKm },
+                    { label: "Total KM", value: (row) => row.totalKm },
+                    { label: "Status", value: (row) => row.status },
+                    { label: "Start Time", value: (row) => formatDateTime(row.startTime) },
+                    { label: "End Time", value: (row) => formatDateTime(row.endTime) },
+                  ], filteredPatrolReports)
+                }
+              >
+                Export CSV
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {showSummaryCards && (
