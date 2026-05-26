@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { API } from "../../core/api";
 import {
   MEMBER_ENDPOINTS,
@@ -366,7 +366,9 @@ export default function PatrolOperationsSection({
   const [areaError, setAreaError] = useState("");
   const [selectedPatrolAction, setSelectedPatrolAction] = useState("");
   const [loading, setLoading] = useState(false);
+  const [operationLabel, setOperationLabel] = useState("");
   const [message, setMessage] = useState("");
+  const requestInFlightRef = useRef(false);
 
   // The patrol session is the active operational context. Driver, vehicle/call
   // sign, and selected crew travel under this same session.
@@ -381,7 +383,27 @@ export default function PatrolOperationsSection({
   const showEndForm = selectedPatrolAction === "end";
   const assignedIncident = (activePatrol?.incidents || []).find((incident) => incident?.id) || null;
   const showIncidentStatusPanel = showIncidentResponseForm && Boolean(assignedIncident?.id);
-  const displayMessage = /incident not found/i.test(message) ? "" : message;
+  const displayMessage = operationLabel || (/incident not found/i.test(message) ? "" : message);
+
+  function beginOperation(label) {
+    if (requestInFlightRef.current) return false;
+
+    requestInFlightRef.current = true;
+    setLoading(true);
+    setOperationLabel(label);
+    setMessage("");
+    return true;
+  }
+
+  function finishOperation() {
+    requestInFlightRef.current = false;
+    setLoading(false);
+    setOperationLabel("");
+  }
+
+  function getSubmitLabel(defaultLabel) {
+    return loading ? operationLabel || "Submitting..." : defaultLabel;
+  }
 
   const availableCrewMembers = useMemo(() => {
     const driverMemberId = (activePatrol?.crew || []).find((item) => item.role === "DRIVER")?.memberId;
@@ -434,12 +456,14 @@ export default function PatrolOperationsSection({
     return json;
   }
 
-  async function loadPatrolOperations() {
+  async function loadPatrolOperations(options = {}) {
     if (!token) return;
+    const { preserveMessage = false } = options;
 
     try {
       setLoading(true);
-      setMessage("");
+      setOperationLabel("Refreshing patrol...");
+      if (!preserveMessage) setMessage("");
       setCrewLoadError("");
 
       const [activeJson, vehicleJson] = await Promise.all([
@@ -492,6 +516,7 @@ export default function PatrolOperationsSection({
       setMessage(error.message || "Failed to load patrol operations");
     } finally {
       setLoading(false);
+      setOperationLabel("");
     }
   }
 
@@ -760,17 +785,16 @@ export default function PatrolOperationsSection({
   async function startPatrol(event) {
     event.preventDefault();
 
+    const callSign = startForm.callSign.trim();
+
+    if (!callSign) {
+      setMessage("Call Sign is required.");
+      return;
+    }
+
+    if (!beginOperation("Starting patrol...")) return;
+
     try {
-      setLoading(true);
-      setMessage("");
-
-      const callSign = startForm.callSign.trim();
-
-      if (!callSign) {
-        setMessage("Call Sign is required.");
-        return;
-      }
-
       const payload = {
         vehicleId: startForm.vehicleId,
         callSign,
@@ -791,11 +815,11 @@ export default function PatrolOperationsSection({
       setCrewPickerOpen(false);
       setCrewSearch("");
       setMessage("Patrol started.");
-      await loadPatrolOperations();
+      await loadPatrolOperations({ preserveMessage: true });
     } catch (error) {
       setMessage(error.message || "Failed to start patrol");
     } finally {
-      setLoading(false);
+      finishOperation();
     }
   }
 
@@ -804,23 +828,33 @@ export default function PatrolOperationsSection({
 
     if (!activePatrol?.id) return;
 
+    const needsLocation = ["emergency", "incidentResponse", "observation", "infrastructure"].includes(selectedPatrolAction);
+    const hasLocationAnchor = Boolean(eventForm.streetName.trim() || eventForm.locationNotes.trim());
+
+    if (needsLocation && !hasLocationAnchor) {
+      setMessage("Street Name or Landmark / Location Notes is required.");
+      return;
+    }
+
+    if (selectedPatrolAction === "observation" && !hasStructuredObservationDetails(eventForm)) {
+      setMessage("Add a description, tag, reference, or at least one observation detail.");
+      return;
+    }
+
+    const submittingLabel =
+      selectedPatrolAction === "emergency"
+        ? "Requesting assistance..."
+        : selectedPatrolAction === "incidentResponse"
+          ? "Submitting incident response..."
+          : selectedPatrolAction === "observation"
+            ? "Submitting observation..."
+            : selectedPatrolAction === "infrastructure"
+              ? "Submitting infrastructure report..."
+              : "Submitting patrol event...";
+
+    if (!beginOperation(submittingLabel)) return;
+
     try {
-      setLoading(true);
-      setMessage("");
-
-      const needsLocation = ["emergency", "incidentResponse", "observation", "infrastructure"].includes(selectedPatrolAction);
-      const hasLocationAnchor = Boolean(eventForm.streetName.trim() || eventForm.locationNotes.trim());
-
-      if (needsLocation && !hasLocationAnchor) {
-        setMessage("Street Name or Landmark / Location Notes is required.");
-        return;
-      }
-
-      if (selectedPatrolAction === "observation" && !hasStructuredObservationDetails(eventForm)) {
-        setMessage("Add a description, tag, reference, or at least one observation detail.");
-        return;
-      }
-
       const eventType = selectedPatrolAction === "incidentResponse"
         ? "MOBILE"
         : PATROL_ACTIONS[selectedPatrolAction]?.type || eventForm.type;
@@ -864,12 +898,12 @@ export default function PatrolOperationsSection({
       setEventForm(INITIAL_EVENT_FORM);
       setSelectedPatrolAction("");
       setMessage("Patrol event submitted.");
-      await loadPatrolOperations();
+      await loadPatrolOperations({ preserveMessage: true });
     } catch (error) {
       const nextMessage = error.message || "Failed to submit patrol event";
       setMessage(/incident not found/i.test(nextMessage) ? "" : nextMessage);
     } finally {
-      setLoading(false);
+      finishOperation();
     }
   }
 
@@ -877,11 +911,9 @@ export default function PatrolOperationsSection({
     if (!activePatrol?.id) return;
 
     const selectedStatus = PATROL_STATUS_ACTIONS.find((action) => action.type === type);
+    if (!beginOperation(`Updating status to ${selectedStatus?.label || type}...`)) return;
 
     try {
-      setLoading(true);
-      setMessage("");
-
       await loadJson(PATROL_ENDPOINTS.events, {
         method: "POST",
         headers: getJsonAuthHeaders(),
@@ -895,11 +927,11 @@ export default function PatrolOperationsSection({
       });
 
       setMessage("Patrol status updated.");
-      await loadPatrolOperations();
+      await loadPatrolOperations({ preserveMessage: true });
     } catch (error) {
       setMessage(error.message || "Failed to update patrol status");
     } finally {
-      setLoading(false);
+      finishOperation();
     }
   }
 
@@ -907,11 +939,9 @@ export default function PatrolOperationsSection({
     event.preventDefault();
 
     if (!activePatrol?.id) return;
+    if (!beginOperation("Ending patrol...")) return;
 
     try {
-      setLoading(true);
-      setMessage("");
-
       await loadJson(PATROL_ENDPOINTS.end(activePatrol.id), {
         method: "POST",
         headers: getJsonAuthHeaders(),
@@ -923,21 +953,20 @@ export default function PatrolOperationsSection({
 
       setEndForm({ endKm: "", summary: "" });
       setMessage("Patrol completed.");
-      await loadPatrolOperations();
+      await loadPatrolOperations({ preserveMessage: true });
     } catch (error) {
       setMessage(error.message || "Failed to end patrol");
     } finally {
-      setLoading(false);
+      finishOperation();
     }
   }
 
   async function submitIncidentStatus(type) {
     if (!activePatrol?.id || !assignedIncident?.id) return;
+    const selectedStatus = INCIDENT_STATUS_ACTIONS.find((action) => action.type === type);
+    if (!beginOperation(`Updating incident to ${selectedStatus?.label || type}...`)) return;
 
     try {
-      setLoading(true);
-      setMessage("");
-
       await loadJson(PATROL_ENDPOINTS.events, {
         method: "POST",
         headers: getJsonAuthHeaders(),
@@ -951,11 +980,11 @@ export default function PatrolOperationsSection({
       });
 
       setMessage("Incident status updated.");
-      await loadPatrolOperations();
+      await loadPatrolOperations({ preserveMessage: true });
     } catch (error) {
       setMessage(error.message || "Failed to update incident status");
     } finally {
-      setLoading(false);
+      finishOperation();
     }
   }
 
@@ -1227,11 +1256,15 @@ export default function PatrolOperationsSection({
             <h2>Patrol Operations</h2>
           </div>
           <button className="patrol-refresh-btn" type="button" onClick={loadPatrolOperations} disabled={loading}>
-            Refresh
+            {loading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
 
-        {displayMessage && <div className="patrol-message">{displayMessage}</div>}
+        {displayMessage && (
+          <div className="patrol-message" role="status" aria-live="polite">
+            {displayMessage}
+          </div>
+        )}
 
         {!isActivePatrol && (
           <form className="patrol-mobile-form" onSubmit={startPatrol}>
@@ -1368,7 +1401,7 @@ export default function PatrolOperationsSection({
             </div>
 
             <button className="patrol-primary-action" type="submit" disabled={loading}>
-              Start Patrol
+              {getSubmitLabel("Start Patrol")}
             </button>
           </form>
         )}
@@ -1456,7 +1489,7 @@ export default function PatrolOperationsSection({
                 </button>
                 <label className="patrol-action-btn patrol-action-status">
                   <span className="patrol-action-icon">▾</span>
-                  <span>Status</span>
+                  <span>{loading ? "Updating..." : "Status"}</span>
                   <select
                     value=""
                     onChange={(event) => {
@@ -1541,7 +1574,7 @@ export default function PatrolOperationsSection({
               </label>
               {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
-                {currentPatrolAction.submitLabel}
+                {getSubmitLabel(currentPatrolAction.submitLabel)}
               </button>
             </form>
             )}
@@ -1607,7 +1640,7 @@ export default function PatrolOperationsSection({
               </label>
               {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
-                {currentPatrolAction.submitLabel}
+                {getSubmitLabel(currentPatrolAction.submitLabel)}
               </button>
             </form>
             )}
@@ -1638,13 +1671,13 @@ export default function PatrolOperationsSection({
 
               <div>
                 <div className="patrol-step-label">Optional Tags</div>
-                <p className="patrol-muted">Operational source tags only. No Intelligence labels are shown to Patrol.</p>
+                <p className="patrol-muted">Operational source tags only for patrol review.</p>
                 {renderObservationTags()}
               </div>
 
               {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
-                {currentPatrolAction.submitLabel}
+                {getSubmitLabel(currentPatrolAction.submitLabel)}
               </button>
             </form>
             )}
@@ -1668,7 +1701,7 @@ export default function PatrolOperationsSection({
                   <option value="">Select infrastructure type</option>
                   {infrastructureTypes.map((infrastructureType) => (
                     <option key={infrastructureType.id} value={infrastructureType.id}>
-                      {infrastructureType.type} {infrastructureType.riskLevel ? `- ${infrastructureType.riskLevel}` : ""}
+                      {infrastructureType.type}
                     </option>
                   ))}
                 </select>
@@ -1679,7 +1712,7 @@ export default function PatrolOperationsSection({
               </label>
               {renderLocationFields()}
               <button className="patrol-primary-action" type="submit" disabled={loading}>
-                {currentPatrolAction.submitLabel}
+                {getSubmitLabel(currentPatrolAction.submitLabel)}
               </button>
             </form>
             )}
@@ -1702,7 +1735,7 @@ export default function PatrolOperationsSection({
                   <textarea value={endForm.summary} onChange={(event) => setEndForm({ ...endForm, summary: event.target.value })} />
                 </label>
                 <button className="patrol-primary-action patrol-end-submit" type="submit" disabled={loading}>
-                  End Patrol
+                  {getSubmitLabel("End Patrol")}
                 </button>
               </form>
             )}

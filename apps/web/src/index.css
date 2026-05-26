@@ -584,9 +584,27 @@ textarea {
   font-size: 14px;
   font-weight: 800;
   line-height: 1.2;
+  overflow-wrap: anywhere;
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.patrol-action-status {
+  flex-wrap: wrap;
+  align-content: center;
+}
+
+.patrol-action-status select {
+  width: 100%;
+  min-height: 36px;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .patrol-action-btn:hover:not(:disabled),
@@ -667,6 +685,10 @@ textarea {
   box-shadow: 0 20px 48px rgba(15, 23, 42, 0.14);
 }
 
+.patrol-phone * {
+  min-width: 0;
+}
+
 .patrol-phone-header {
   min-height: 104px;
   padding: 22px 20px 18px;
@@ -713,12 +735,14 @@ textarea {
   display: grid;
   gap: 14px;
   padding: 14px;
+  align-items: start;
 }
 
 .patrol-step-card,
 .patrol-status-card {
   display: grid;
   gap: 12px;
+  scroll-margin-top: 12px;
   border: 1px solid #d8e4f0;
   border-radius: 18px;
   background: white;
@@ -778,6 +802,8 @@ textarea {
   color: #334155;
   font-size: 13px;
   font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .patrol-step-card input,
@@ -794,14 +820,20 @@ textarea {
   background: #f8fafc;
   color: #0f172a;
   font: inherit;
+  line-height: 1.25;
 }
 
 .patrol-step-card textarea,
 .patrol-mobile-form textarea {
   min-height: 86px;
+  resize: vertical;
 }
 
 .patrol-primary-action {
+  position: sticky;
+  bottom: 10px;
+  z-index: 2;
+  width: 100%;
   min-height: 48px;
   border: 0;
   border-radius: 14px;
@@ -834,6 +866,7 @@ textarea {
   color: #1e3a8a;
   font-size: 13px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .patrol-muted {
@@ -849,6 +882,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
@@ -923,6 +957,7 @@ textarea {
 .patrol-facts strong {
   color: white;
   font-size: 15px;
+  overflow-wrap: anywhere;
 }
 
 /* Filters */
@@ -1221,6 +1256,33 @@ th {
 }
 
 @media (max-width: 420px) {
+  .content {
+    padding: 14px;
+  }
+
+  .patrol-phone {
+    border-radius: 20px;
+  }
+
+  .patrol-phone-header {
+    padding: 18px 16px 16px;
+  }
+
+  .patrol-phone-header h2 {
+    font-size: 21px;
+  }
+
+  .patrol-mobile-form {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .patrol-step-card,
+  .patrol-status-card {
+    border-radius: 16px;
+    padding: 14px;
+  }
+
   .patrol-action-grid {
     gap: 10px;
   }
@@ -1235,5 +1297,17 @@ th {
     width: 30px;
     height: 30px;
     border-radius: 9px;
+  }
+
+  .patrol-primary-action {
+    bottom: 8px;
+    min-height: 52px;
+  }
+}
+
+@media (max-width: 360px) {
+  .patrol-action-grid,
+  .patrol-facts {
+    grid-template-columns: 1fr;
   }
 }
