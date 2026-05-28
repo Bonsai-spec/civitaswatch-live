@@ -1,0 +1,99 @@
+{
+  "seedType": "PILOT_OPERATIONAL_SUBCODES",
+  "description": "Reviewed pilot operational subcodes for Patrol Incident Response. These are not official SAPS subcodes unless an official SAPS subcode source is provided.",
+  "version": 1,
+  "subcodes": [
+    {
+      "parentIncidentCode": "037",
+      "parentIncidentName": "Burglar Alarm",
+      "subcode": "ALARM_ACTIVATION",
+      "name": "Alarm activation",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "037",
+      "parentIncidentName": "Burglar Alarm",
+      "subcode": "FALSE_ALARM",
+      "name": "False alarm / no visible forced entry",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "037",
+      "parentIncidentName": "Burglar Alarm",
+      "subcode": "CONFIRMED_BREAK_IN",
+      "name": "Confirmed break-in",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "037",
+      "parentIncidentName": "Burglar Alarm",
+      "subcode": "BUSINESS_PREMISES",
+      "name": "Business premises",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "037",
+      "parentIncidentName": "Burglar Alarm",
+      "subcode": "RESIDENTIAL_PREMISES",
+      "name": "Residential premises",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "038",
+      "parentIncidentName": "Suspicious Person",
+      "subcode": "CHECKING_GATES",
+      "name": "Checking gates / properties",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "038",
+      "parentIncidentName": "Suspicious Person",
+      "subcode": "LOOKING_INTO_YARDS",
+      "name": "Looking into yards",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "038",
+      "parentIncidentName": "Suspicious Person",
+      "subcode": "MOVING_BETWEEN_VEHICLES",
+      "name": "Moving between parked vehicles",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "038",
+      "parentIncidentName": "Suspicious Person",
+      "subcode": "LOITERING",
+      "name": "Loitering / suspicious presence",
+      "active": true
+    },
+    {
+      "parentIncidentCode": "038",
+      "parentIncidentName": "Suspicious Person",
+      "subcode": "LEFT_AREA",
+      "name": "Left area before patrol arrival",
+      "active": true
+    }
+  ],
+  "unresolvedParentCodeDecisions": [
+    {
+      "category": "theft / vehicle-related",
+      "status": "needs manual SAPS parent code selection",
+      "candidateActiveNumericParents": [
+        "013 - Theft",
+        "015 - Theft of Vehicle",
+        "016 - Theft out of Vehicle",
+        "018 - Use Vehicle No Consent",
+        "039 - Suspicious Vehicle",
+        "053 - Stock Theft"
+      ]
+    },
+    {
+      "category": "property crime / break-in",
+      "status": "needs manual SAPS parent code selection",
+      "candidateActiveNumericParents": [
+        "014 - House Breaking",
+        "037 - Burglar Alarm"
+      ]
+    }
+  ]
+}
