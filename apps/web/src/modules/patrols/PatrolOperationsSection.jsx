@@ -1634,6 +1634,9 @@ export default function PatrolOperationsSection({
               {incidentSubcodesLoading && (
                 <p className="patrol-muted">Loading incident subcodes...</p>
               )}
+              {eventForm.incidentCodeId && !incidentSubcodesLoading && incidentSubcodes.length === 0 && (
+                <p className="patrol-muted">No subcodes available for this incident code.</p>
+              )}
               <label>
                 Description
                 <textarea value={eventForm.description} onChange={(event) => updateEventForm("description", event.target.value)} />

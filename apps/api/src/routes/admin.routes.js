@@ -227,6 +227,15 @@ function resolveSectorId(req, providedSectorId) {
   );
 }
 
+function applySharedOrSectorFilter(where, sectorId) {
+  if (!sectorId) return;
+
+  where.OR = [
+    { sectorId: null },
+    { sectorId },
+  ];
+}
+
 function parseOptionalBoolean(value) {
   if (value === undefined) return undefined;
   if (typeof value === "boolean") return value;
@@ -283,7 +292,7 @@ router.get("/incident-codes", async (req, res) => {
     const where = {};
     const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (resolvedSectorId) where.sectorId = resolvedSectorId;
+    applySharedOrSectorFilter(where, resolvedSectorId);
 
     if (active !== undefined) {
       const parsedActive = parseOptionalBoolean(active);
@@ -427,7 +436,7 @@ router.get("/incident-subcodes", async (req, res) => {
     const where = {};
     const resolvedSectorId = cleanText(resolveSectorId(req, sectorId));
 
-    if (resolvedSectorId) where.sectorId = resolvedSectorId;
+    applySharedOrSectorFilter(where, resolvedSectorId);
     if (incidentCodeId !== undefined) where.incidentCodeId = cleanText(incidentCodeId);
 
     if (active !== undefined) {
