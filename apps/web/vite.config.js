@@ -1,33 +1,21 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 
-const API_PROXY_ROUTES = [
-  "/admin",
-  "/auth",
-  "/checklists",
-  "/health",
-  "/incidents",
-  "/intelligence",
-  "/members",
-  "/organisations",
-  "/patrol-events",
-  "/patrols",
-  "/services",
-  "/users",
-  "/vehicles",
-];
-
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
-  const apiTarget = env.VITE_API_PROXY_TARGET || "http://localhost:4000";
-  const proxyRoute = {
-    target: apiTarget,
-    changeOrigin: true,
-    secure: false,
-  };
-
-  return {
-    server: {
-      proxy: Object.fromEntries(API_PROXY_ROUTES.map((route) => [route, proxyRoute])),
-    },
-  };
+export default defineConfig({
+  preview: {
+    host: "0.0.0.0",
+    port: 3000,
+    allowedHosts: [
+      "vso5wfuc2zj7n2hqlhdu8qoh.154.66.199.118.sslip.io",
+      "civitaswatch.com",
+      "www.civitaswatch.com"
+    ]
+  },
+  server: {
+    host: "0.0.0.0",
+    allowedHosts: [
+      "vso5wfuc2zj7n2hqlhdu8qoh.154.66.199.118.sslip.io",
+      "civitaswatch.com",
+      "www.civitaswatch.com"
+    ]
+  }
 });
