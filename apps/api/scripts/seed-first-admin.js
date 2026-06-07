@@ -34,12 +34,13 @@ async function main() {
       email: true,
       fullName: true,
       role: true,
-      isActive: true,
-    },
-  });
-
-  console.log("First MA  console.log("First MA  consol  console.log("First MA  conso;
-  cons  cons  cons  cons  cons  cons  cons  cons :");  cons  cons  cons  cod);
+      is      is      is      is      is      is    irst MA      is      is      is consol      is      is      is      i
+  console.log("TEMPORARY PASSWORD - SAVE THIS NOW:");
+  console.log(password);
   console.log("");
-  console.log("This script will refuse to run a  console.log("This script will refuse to run a  console.log("This scrirror(  consoleo seed   console.log("This script will refuse to run a  console.log("This script will re  await prisma.$disconnect();
+  console.log("This script will refuse to run a  console.log("This script will refuse to run a  console.log("This scriptor(  coned to seed first admin user:", error);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });
