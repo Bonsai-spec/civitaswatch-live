@@ -22,6 +22,7 @@ import { requestLogger } from "./middleware/requestLogger.js";
 const app = express();
 
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 app.use(requestLogger);
