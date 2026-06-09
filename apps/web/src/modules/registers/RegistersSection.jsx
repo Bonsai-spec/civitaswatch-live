@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { API } from "../../core/api";
+import { VEHICLE_ENDPOINTS } from "../../core/endpoints";
 import { getAuthHeaders, getJsonAuthHeaders } from "../../core/http.utils";
 import { REGISTER_METADATA } from "./register.constants";
 import { getResidentImportMetadata } from "./register.utils";
@@ -94,6 +95,7 @@ export default function RegistersSection({
   filteredRegisterOrganisations,
   onViewVehicle,
   onEditVehicle,
+  refreshAdminData,
   canManageMembers,
   startAddMember,
   memberForm,
@@ -201,6 +203,9 @@ export default function RegistersSection({
   const [emergencyContactTypesLoaded, setEmergencyContactTypesLoaded] = useState(false);
   const [emergencyContactTypesError, setEmergencyContactTypesError] = useState("");
   const [emergencyContactTypeSavingIds, setEmergencyContactTypeSavingIds] = useState([]);
+  const [vehicleForm, setVehicleForm] = useState(null);
+  const [vehicleSaving, setVehicleSaving] = useState(false);
+  const [vehicleError, setVehicleError] = useState("");
   const [masterRegisterValidationTab, setMasterRegisterValidationTab] = useState("");
   const [masterRegisterSuccessTab, setMasterRegisterSuccessTab] = useState("");
   const [registerActiveFilter, setRegisterActiveFilter] = useState(ALL_FILTER_VALUE);
@@ -230,6 +235,14 @@ export default function RegistersSection({
     setRegisterActiveFilter(ALL_FILTER_VALUE);
     setRegisterSectorFilter(ALL_FILTER_VALUE);
     setRegisterTypeFilter(ALL_FILTER_VALUE);
+  }, [registerTab]);
+
+  useEffect(() => {
+    if (registerTab !== "Vehicles") {
+      setVehicleForm(null);
+      setVehicleError("");
+      setVehicleSaving(false);
+    }
   }, [registerTab]);
 
   useEffect(() => {
@@ -392,6 +405,66 @@ export default function RegistersSection({
       if (isSaving) return current.includes(id) ? current : [...current, id];
       return current.filter((item) => item !== id);
     });
+  }
+
+  function startAddVehicle() {
+    setVehicleError("");
+    setVehicleForm({
+      registration: "",
+      make: "",
+      type: "",
+      colour: "",
+    });
+  }
+
+  function cancelVehicleForm() {
+    setVehicleForm(null);
+    setVehicleError("");
+  }
+
+  async function saveVehicle(event) {
+    event.preventDefault();
+
+    if (!vehicleForm || vehicleSaving) return;
+
+    const registration = String(vehicleForm.registration || "").trim().toUpperCase();
+
+    if (!registration) {
+      setVehicleError("Registration is required.");
+      return;
+    }
+
+    setVehicleSaving(true);
+    setVehicleError("");
+
+    try {
+      const res = await fetch(VEHICLE_ENDPOINTS.create, {
+        method: "POST",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({
+          registration,
+          make: String(vehicleForm.make || "").trim() || null,
+          type: String(vehicleForm.type || "").trim() || null,
+          colour: String(vehicleForm.colour || "").trim() || null,
+        }),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save vehicle.");
+      }
+
+      setVehicleForm(null);
+
+      if (typeof refreshAdminData === "function") {
+        await refreshAdminData();
+      }
+    } catch (err) {
+      console.error("Failed to save vehicle", err);
+      setVehicleError(err.message || "Failed to save vehicle.");
+    } finally {
+      setVehicleSaving(false);
+    }
   }
 
   function incidentCodePayload(row) {
@@ -1966,7 +2039,86 @@ export default function RegistersSection({
 
       {registerTab === "Vehicles" && (
         <>
-          <h3>Vehicle Register</h3>
+          <div className="details-header">
+            <div>
+              <h3>Vehicle Register</h3>
+              <p className="card-detail">Registered patrol vehicles available for admin use.</p>
+            </div>
+            <button className="primary-btn" type="button" onClick={startAddVehicle}>
+              Add Vehicle
+            </button>
+          </div>
+
+          {vehicleForm && (
+            <div className="incident-details">
+              <div className="details-header">
+                <h3>Add Vehicle</h3>
+                <button className="secondary-btn" type="button" onClick={cancelVehicleForm}>
+                  Close
+                </button>
+              </div>
+
+              <form className="form" onSubmit={saveVehicle}>
+                <label>
+                  Registration
+                  <input
+                    value={vehicleForm.registration}
+                    onChange={(event) =>
+                      setVehicleForm({
+                        ...vehicleForm,
+                        registration: event.target.value.toUpperCase(),
+                      })
+                    }
+                    required
+                    autoCapitalize="characters"
+                    spellCheck="false"
+                  />
+                </label>
+
+                <label>
+                  Make
+                  <input
+                    value={vehicleForm.make}
+                    onChange={(event) =>
+                      setVehicleForm({ ...vehicleForm, make: event.target.value })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Type
+                  <input
+                    value={vehicleForm.type}
+                    onChange={(event) =>
+                      setVehicleForm({ ...vehicleForm, type: event.target.value })
+                    }
+                  />
+                </label>
+
+                <label>
+                  Colour
+                  <input
+                    value={vehicleForm.colour}
+                    onChange={(event) =>
+                      setVehicleForm({ ...vehicleForm, colour: event.target.value })
+                    }
+                  />
+                </label>
+
+                {vehicleError && <p className="card-detail">{vehicleError}</p>}
+
+                <div className="action-row">
+                  <button className="primary-btn" type="submit" disabled={vehicleSaving}>
+                    {vehicleSaving ? "Saving..." : "Save Vehicle"}
+                  </button>
+                  <button className="secondary-btn" type="button" onClick={cancelVehicleForm}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           <table>
             <thead>
               <tr>

@@ -1968,6 +1968,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             filteredRegisterOrganisations={filteredRegisterOrganisations}
             onViewVehicle={(vehicle) => alert(vehicle.registration)}
             onEditVehicle={() => alert("Edit vehicle")}
+            refreshAdminData={loadDashboard}
             canManageMembers={canManageMembers}
             startAddMember={startAddMember}
             memberForm={memberForm}
