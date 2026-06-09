@@ -27,22 +27,34 @@ router.post("/", requireAuth, requireRole(...VEHICLE_WRITE_ROLES), async (req, r
   try {
     const { make, type, registration, colour } = req.body;
 
-    if (!registration || !registration.trim()) {
+    const normalizedRegistration = String(registration || "").trim().toUpperCase();
+
+    if (!normalizedRegistration) {
       return res.status(400).json({ error: "Vehicle registration is required" });
     }
 
     const vehicle = await prisma.vehicle.create({
       data: {
-        make: make || null,
-        type: type || null,
-        registration: registration.trim().toUpperCase(),
-        colour: colour || null,
+        make: String(make || "").trim(),
+        type: String(type || "").trim(),
+        registration: normalizedRegistration,
+        colour: String(colour || "").trim(),
         isActive: true,
       },
     });
 
     res.status(201).json(vehicle);
   } catch (error) {
+    const duplicateRegistration =
+      error?.code === "P2002" &&
+      (Array.isArray(error?.meta?.target)
+        ? error.meta.target.includes("registration")
+        : error?.meta?.target === "registration");
+
+    if (duplicateRegistration) {
+      return res.status(409).json({ error: "Vehicle registration already exists" });
+    }
+
     console.error("POST /vehicles failed:", error);
     res.status(500).json({ error: "Failed to create vehicle" });
   }
