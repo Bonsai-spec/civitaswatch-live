@@ -4,6 +4,7 @@ import {
   DASHBOARD_ENDPOINTS,
   MEMBER_ENDPOINTS,
   PATROL_ENDPOINTS,
+  VEHICLE_ENDPOINTS,
 } from "../core/endpoints";
 import { getAuthHeaders as buildAuthHeaders } from "../core/http.utils";
 import { buildLocalWorkload } from "../modules/patrols/patrol.utils";
@@ -84,6 +85,7 @@ export function useAdminData({
       let members = [];
       let assistanceRequests = [];
       let areas = [];
+      let vehicles = [];
 
       try {
         const membersRes = await fetch(MEMBER_ENDPOINTS.list, {
@@ -126,10 +128,22 @@ export function useAdminData({
         console.warn("Failed to load areas", err);
       }
 
+      try {
+        const vehiclesRes = await fetch(VEHICLE_ENDPOINTS.list, {
+          headers: getAuthHeaders(),
+        });
+
+        if (vehiclesRes.ok) {
+          vehicles = await vehiclesRes.json();
+        }
+      } catch (err) {
+        console.warn("Failed to load vehicles", err);
+      }
+
       const nextData = {
         incidents,
         patrols: json.patrols || [],
-        vehicles: json.vehicles || [],
+        vehicles,
         organisations: json.organisations || [],
         members,
         assistanceRequests,
