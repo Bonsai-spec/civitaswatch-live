@@ -53,6 +53,7 @@ export const SERVICE_ENDPOINTS = {
 
 export const VEHICLE_ENDPOINTS = {
   list: `${API}/vehicles`,
+  create: `${API}/vehicles`,
 };
 
 export const INTELLIGENCE_ENDPOINTS = {
