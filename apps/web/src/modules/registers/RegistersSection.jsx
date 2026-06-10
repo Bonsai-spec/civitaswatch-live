@@ -95,7 +95,6 @@ export default function RegistersSection({
   filteredRegisterOrganisations,
   canManageVehicles,
   onViewVehicle,
-  onEditVehicle,
   refreshAdminData,
   canManageMembers,
   startAddMember,
@@ -205,6 +204,7 @@ export default function RegistersSection({
   const [emergencyContactTypesError, setEmergencyContactTypesError] = useState("");
   const [emergencyContactTypeSavingIds, setEmergencyContactTypeSavingIds] = useState([]);
   const [vehicleForm, setVehicleForm] = useState(null);
+  const [vehicleEditingId, setVehicleEditingId] = useState(null);
   const [vehicleSaving, setVehicleSaving] = useState(false);
   const [vehicleError, setVehicleError] = useState("");
   const [masterRegisterValidationTab, setMasterRegisterValidationTab] = useState("");
@@ -241,6 +241,7 @@ export default function RegistersSection({
   useEffect(() => {
     if (registerTab !== "Vehicles") {
       setVehicleForm(null);
+      setVehicleEditingId(null);
       setVehicleError("");
       setVehicleSaving(false);
     }
@@ -249,6 +250,7 @@ export default function RegistersSection({
   useEffect(() => {
     if (!canManageVehicles) {
       setVehicleForm(null);
+      setVehicleEditingId(null);
       setVehicleError("");
       setVehicleSaving(false);
     }
@@ -420,6 +422,7 @@ export default function RegistersSection({
     if (!canManageVehicles) return;
 
     setVehicleError("");
+    setVehicleEditingId(null);
     setVehicleForm({
       registration: "",
       make: "",
@@ -428,8 +431,22 @@ export default function RegistersSection({
     });
   }
 
+  function startEditVehicle(vehicle) {
+    if (!canManageVehicles || !vehicle || vehicleSaving) return;
+
+    setVehicleError("");
+    setVehicleEditingId(vehicle.id);
+    setVehicleForm({
+      registration: vehicle.registration || "",
+      make: vehicle.make || "",
+      type: vehicle.type || "",
+      colour: vehicle.colour || "",
+    });
+  }
+
   function cancelVehicleForm() {
     setVehicleForm(null);
+    setVehicleEditingId(null);
     setVehicleError("");
   }
 
@@ -449,23 +466,31 @@ export default function RegistersSection({
     setVehicleError("");
 
     try {
-      const res = await fetch(VEHICLE_ENDPOINTS.create, {
-        method: "POST",
-        headers: getJsonAuthHeaders(getToken()),
-        body: JSON.stringify({
-          registration,
-          make: String(vehicleForm.make || "").trim() || null,
-          type: String(vehicleForm.type || "").trim() || null,
-          colour: String(vehicleForm.colour || "").trim() || null,
-        }),
-      });
+      const isEditing = Boolean(vehicleEditingId);
+      const res = await fetch(
+        isEditing ? VEHICLE_ENDPOINTS.update(vehicleEditingId) : VEHICLE_ENDPOINTS.create,
+        {
+          method: isEditing ? "PATCH" : "POST",
+          headers: getJsonAuthHeaders(getToken()),
+          body: JSON.stringify({
+            registration,
+            make: String(vehicleForm.make || "").trim() || null,
+            type: String(vehicleForm.type || "").trim() || null,
+            colour: String(vehicleForm.colour || "").trim() || null,
+          }),
+        }
+      );
       const json = await parseApiResponse(res);
 
       if (!res.ok) {
-        throw new Error(json?.error || "Failed to save vehicle.");
+        throw new Error(
+          json?.error ||
+            (isEditing ? "Failed to update vehicle." : "Failed to save vehicle.")
+        );
       }
 
       setVehicleForm(null);
+      setVehicleEditingId(null);
 
       if (typeof refreshAdminData === "function") {
         await refreshAdminData();
@@ -473,6 +498,38 @@ export default function RegistersSection({
     } catch (err) {
       console.error("Failed to save vehicle", err);
       setVehicleError(err.message || "Failed to save vehicle.");
+    } finally {
+      setVehicleSaving(false);
+    }
+  }
+
+  async function updateVehicleStatus(vehicle, isActive) {
+    if (!canManageVehicles || !vehicle?.id || vehicleSaving) return;
+
+    setVehicleSaving(true);
+    setVehicleError("");
+
+    try {
+      const res = await fetch(VEHICLE_ENDPOINTS.status(vehicle.id), {
+        method: "PATCH",
+        headers: getJsonAuthHeaders(getToken()),
+        body: JSON.stringify({ isActive }),
+      });
+      const json = await parseApiResponse(res);
+
+      if (!res.ok) {
+        throw new Error(
+          json?.error ||
+            `Failed to ${isActive ? "reactivate" : "deactivate"} vehicle.`
+        );
+      }
+
+      if (typeof refreshAdminData === "function") {
+        await refreshAdminData();
+      }
+    } catch (err) {
+      console.error("Failed to update vehicle status", err);
+      setVehicleError(err.message || "Failed to update vehicle status.");
     } finally {
       setVehicleSaving(false);
     }
@@ -2062,10 +2119,12 @@ export default function RegistersSection({
             )}
           </div>
 
+          {vehicleError && <p className="card-detail">{vehicleError}</p>}
+
           {canManageVehicles && vehicleForm && (
             <div className="incident-details">
               <div className="details-header">
-                <h3>Add Vehicle</h3>
+                <h3>{vehicleEditingId ? "Edit Vehicle" : "Add Vehicle"}</h3>
                 <button className="secondary-btn" type="button" onClick={cancelVehicleForm}>
                   Close
                 </button>
@@ -2122,7 +2181,11 @@ export default function RegistersSection({
 
                 <div className="action-row">
                   <button className="primary-btn" type="submit" disabled={vehicleSaving}>
-                    {vehicleSaving ? "Saving..." : "Save Vehicle"}
+                    {vehicleSaving
+                      ? "Saving..."
+                      : vehicleEditingId
+                      ? "Save Changes"
+                      : "Save Vehicle"}
                   </button>
                   <button className="secondary-btn" type="button" onClick={cancelVehicleForm}>
                     Cancel
@@ -2158,8 +2221,27 @@ export default function RegistersSection({
                     </span>
                   </td>
                   <td>
-                    <button onClick={() => onViewVehicle(vehicle)}>View</button>
-                    {canManageVehicles && <button onClick={onEditVehicle}>Edit</button>}
+                    <button type="button" onClick={() => onViewVehicle(vehicle)}>
+                      View
+                    </button>
+                    {canManageVehicles && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEditVehicle(vehicle)}
+                          disabled={vehicleSaving}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateVehicleStatus(vehicle, !vehicle.isActive)}
+                          disabled={vehicleSaving}
+                        >
+                          {vehicle.isActive ? "Deactivate" : "Reactivate"}
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

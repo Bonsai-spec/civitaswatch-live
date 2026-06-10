@@ -110,7 +110,6 @@ const CONTROL_ROOM_TABS = [
   "Patroller Directory",
   "Emergency Services",
   "Selected Incident Services",
-  "Patrol Reports",
   "Selected Patrol Timeline",
   "Map",
 ];
@@ -733,7 +732,7 @@ function App() {
   // the active local tab instead of the global Reports route.
   const reportActiveRoute =
     isControlRoomUser &&
-    ["Live Overview", "Patrol Reports", "Selected Patrol Timeline"].includes(controlRoomTab)
+    ["Selected Patrol Timeline"].includes(controlRoomTab)
       ? "Reports"
       : isReportRoute
       ? "Reports"
@@ -1267,6 +1266,136 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
     );
   }
 
+  function renderControlRoomSelectedPatrolTimelinePanel() {
+    const patrol = controlRoomSelectedPatrolReport;
+    const events = getPatrolTimelineEvents(patrol)
+      .slice()
+      .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    const latestEvent = getLatestPatrolOperationalEvent(patrol);
+
+    if (!patrol) {
+      return (
+        <div className="panel">
+          <div className="details-header">
+            <h2>Selected Patrol Timeline</h2>
+            <button
+              className="secondary-btn"
+              type="button"
+              onClick={() => setControlRoomTab("Live Overview")}
+            >
+              Back to Live Overview
+            </button>
+          </div>
+          <p className="card-detail">
+            Select an active patrol from Live Overview to inspect its operational timeline.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <h2>Selected Patrol Timeline</h2>
+          <button
+            className="secondary-btn"
+            type="button"
+            onClick={() => {
+              closePatrolReport();
+              setControlRoomTab("Live Overview");
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <p className="card-detail">
+          Operational timeline only. Executive and monthly report controls are hidden in Control Room.
+        </p>
+
+        <div className="cards control-room-mini-cards">
+          <div className="card">
+            <div className="card-title">Call Sign</div>
+            <div className="card-value compact-value">{getPatrolCallSign(patrol)}</div>
+            <div className="card-detail">Selected patrol</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Driver</div>
+            <div className="card-value compact-value">{getPatrolDriverName(patrol)}</div>
+            <div className="card-detail">Driver / officer</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Vehicle</div>
+            <div className="card-value compact-value">{getOperationalVehicleLabel(patrol)}</div>
+            <div className="card-detail">Current vehicle</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Sector</div>
+            <div className="card-value compact-value">{patrol.sector || "-"}</div>
+            <div className="card-detail">Patrol sector</div>
+          </div>
+          <div className="card">
+            <div className="card-title">Status</div>
+            <div className="card-value compact-value">{getPatrolStatusLabel(patrol)}</div>
+            <div className="card-detail">Current patrol status</div>
+          </div>
+        </div>
+
+        {patrol.summary && <p className="card-detail">{patrol.summary}</p>}
+
+        {latestEvent && (
+          <div className="incident-details">
+            <div className="details-header">
+              <h3>Latest Event</h3>
+            </div>
+            <p>
+              <strong>Type:</strong> {getPatrolEventTitle(latestEvent)}
+            </p>
+            <p>
+              <strong>Classification:</strong> {getPatrolEventClassificationSummary(latestEvent) || "-"}
+            </p>
+            <p>
+              <strong>Description:</strong> {getPatrolEventDescriptionSummary(latestEvent) || "-"}
+            </p>
+            <p>
+              <strong>Location:</strong> {getPatrolEventLocationSummary(latestEvent) || "-"}
+            </p>
+            <p>
+              <strong>Time:</strong> {formatOperationalTime(latestEvent.createdAt)}
+            </p>
+          </div>
+        )}
+
+        {events.length === 0 ? (
+          <p>No patrol events recorded yet.</p>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Event</th>
+                <th>Classification</th>
+                <th>Description</th>
+                <th>Location</th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => (
+                <tr key={event.id}>
+                  <td>{formatOperationalTime(event.createdAt)}</td>
+                  <td>{getPatrolEventTitle(event)}</td>
+                  <td>{getPatrolEventClassificationSummary(event) || "-"}</td>
+                  <td>{getPatrolEventDescriptionSummary(event) || "-"}</td>
+                  <td>{getPatrolEventLocationSummary(event) || "-"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
   function renderPatrolWorkloadPanel() {
     return (
       <div className="panel active-patrols-panel">
@@ -1292,6 +1421,18 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
                 <div>Sector: {patrol.sector || "-"}</div>
                 <div>Patrol Status: {getPatrolStatusLabel(patrol)}</div>
                 <div>Last update: {formatOperationalTime(patrol.updatedAt || patrol.startTime || patrol.createdAt)}</div>
+                {isControlRoomUser && (
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={() => {
+                      viewPatrolReport(patrol);
+                      setControlRoomTab("Selected Patrol Timeline");
+                    }}
+                  >
+                    View Timeline
+                  </button>
+                )}
                 {latestEvent && (
                   <div className="patrol-latest-event">
                     <div><strong>Latest Event:</strong> {getPatrolEventTitle(latestEvent)}</div>
@@ -1778,53 +1919,8 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       );
     }
 
-    if (controlRoomTab === "Patrol Reports") {
-      if (!canUseControlRoomReports) {
-        return (
-          <div className="panel">
-            <h2>Patrol Reports</h2>
-            <p>Report access is not enabled for this role.</p>
-          </div>
-        );
-      }
-
-      return (
-        <>
-          {renderPatrolReportClassificationsPanel(controlRoomPatrolReports)}
-          {renderReportsSection({
-            showSelectedPatrolReport: false,
-          })}
-        </>
-      );
-    }
-
     if (controlRoomTab === "Selected Patrol Timeline") {
-      if (!canUseControlRoomReports) {
-        return (
-          <div className="panel">
-            <h2>Selected Patrol Timeline</h2>
-            <p>Report access is not enabled for this role.</p>
-          </div>
-        );
-      }
-
-      return (
-        <>
-          {!selectedPatrolReport && (
-            <div className="panel">
-              <h2>Selected Patrol Timeline</h2>
-              <p>Select a patrol report from the Patrol Reports tab to view the timeline.</p>
-            </div>
-          )}
-          {renderReportsSection({
-            showFilters: false,
-            showSummaryCards: false,
-            showReportTable: false,
-            showSelectedPatrolReport: true,
-          })}
-          {renderSelectedPatrolTimelineClassifications()}
-        </>
-      );
+      return renderControlRoomSelectedPatrolTimelinePanel();
     }
 
     return (
@@ -1970,7 +2066,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             filteredRegisterOrganisations={filteredRegisterOrganisations}
             canManageVehicles={canManageVehicles}
             onViewVehicle={(vehicle) => alert(vehicle.registration)}
-            onEditVehicle={() => alert("Edit vehicle")}
             refreshAdminData={loadDashboard}
             canManageMembers={canManageMembers}
             startAddMember={startAddMember}
