@@ -1884,7 +1884,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
           Control Room dashboard data.
         </p>
 
-        <div className="filter-bar register-filter-bar">
+        <div className="filter-bar register-filter-bar control-room-vehicle-filter-bar">
           <label>
             Search vehicles
             <input
@@ -1893,6 +1893,24 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
               placeholder="Search registration, patrol, driver, sector..."
             />
           </label>
+          <div className="register-filter-actions control-room-vehicle-filter-actions">
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => setControlRoomVehicleSearch("")}
+              disabled={!controlRoomVehicleSearch}
+            >
+              Clear Search
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={refreshControlRoom}
+              disabled={controlRoomRefreshing}
+            >
+              {controlRoomRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
         </div>
 
         <table>
