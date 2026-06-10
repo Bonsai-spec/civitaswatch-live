@@ -93,6 +93,7 @@ export default function RegistersSection({
   filteredRegisterMembers,
   filteredRegisterPatrollers,
   filteredRegisterOrganisations,
+  canManageVehicles,
   onViewVehicle,
   onEditVehicle,
   refreshAdminData,
@@ -244,6 +245,14 @@ export default function RegistersSection({
       setVehicleSaving(false);
     }
   }, [registerTab]);
+
+  useEffect(() => {
+    if (!canManageVehicles) {
+      setVehicleForm(null);
+      setVehicleError("");
+      setVehicleSaving(false);
+    }
+  }, [canManageVehicles]);
 
   useEffect(() => {
     if (isIncidentCodesRegister && !incidentCodesLoaded && !incidentCodesLoading) {
@@ -408,6 +417,8 @@ export default function RegistersSection({
   }
 
   function startAddVehicle() {
+    if (!canManageVehicles) return;
+
     setVehicleError("");
     setVehicleForm({
       registration: "",
@@ -425,7 +436,7 @@ export default function RegistersSection({
   async function saveVehicle(event) {
     event.preventDefault();
 
-    if (!vehicleForm || vehicleSaving) return;
+    if (!canManageVehicles || !vehicleForm || vehicleSaving) return;
 
     const registration = String(vehicleForm.registration || "").trim().toUpperCase();
 
@@ -2044,12 +2055,14 @@ export default function RegistersSection({
               <h3>Vehicle Register</h3>
               <p className="card-detail">Registered patrol vehicles available for admin use.</p>
             </div>
-            <button className="primary-btn" type="button" onClick={startAddVehicle}>
-              Add Vehicle
-            </button>
+            {canManageVehicles && (
+              <button className="primary-btn" type="button" onClick={startAddVehicle}>
+                Add Vehicle
+              </button>
+            )}
           </div>
 
-          {vehicleForm && (
+          {canManageVehicles && vehicleForm && (
             <div className="incident-details">
               <div className="details-header">
                 <h3>Add Vehicle</h3>
@@ -2146,7 +2159,7 @@ export default function RegistersSection({
                   </td>
                   <td>
                     <button onClick={() => onViewVehicle(vehicle)}>View</button>
-                    <button onClick={onEditVehicle}>Edit</button>
+                    {canManageVehicles && <button onClick={onEditVehicle}>Edit</button>}
                   </td>
                 </tr>
               ))}

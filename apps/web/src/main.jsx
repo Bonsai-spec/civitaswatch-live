@@ -722,6 +722,8 @@ function App() {
   }
 
   const isControlRoomUser = userRole === SYSTEM_ROLES.CONTROL_ROOM;
+  const canManageVehicles =
+    userRole === SYSTEM_ROLES.ADMIN || userRole === SYSTEM_ROLES.MASTER_ADMIN;
   const canUseControlRoomReports = canViewReports || isControlRoomUser;
   const isRegisterRoute = REGISTER_TABS.includes(active);
   const isReportRoute = REPORT_CATEGORIES.includes(active);
@@ -1966,6 +1968,7 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
             filteredRegisterMembers={filteredRegisterMembers}
             filteredRegisterPatrollers={filteredRegisterPatrollers}
             filteredRegisterOrganisations={filteredRegisterOrganisations}
+            canManageVehicles={canManageVehicles}
             onViewVehicle={(vehicle) => alert(vehicle.registration)}
             onEditVehicle={() => alert("Edit vehicle")}
             refreshAdminData={loadDashboard}

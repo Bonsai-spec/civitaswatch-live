@@ -17,12 +17,12 @@ const VEHICLE_READ_ROLES = [
 const VEHICLE_WRITE_ROLES = [
   "ADMIN",
   "MASTER_ADMIN",
-  "CONTROL_ROOM",
 ];
 
 // Create vehicle.
-// Admin / Control Room can add official register vehicles.
+// Vehicle register writes are limited to Admin and Master Admin only.
 // Patrollers should use the temporary vehicle flow from patroller.html, not this official route.
+// Use VEHICLE_WRITE_ROLES for any future vehicle mutation route as well.
 router.post("/", requireAuth, requireRole(...VEHICLE_WRITE_ROLES), async (req, res) => {
   try {
     const { make, type, registration, colour } = req.body;
