@@ -109,6 +109,7 @@ const CONTROL_ROOM_TABS = [
   "Active Patrols",
   "Patroller Directory",
   "Emergency Services",
+  "Vehicles",
   "Selected Incident Services",
   "Selected Patrol Timeline",
   "Map",
@@ -582,6 +583,7 @@ function App() {
   const [controlRoomTab, setControlRoomTab] = useState("Live Overview");
   const [registerTab, setRegisterTab] = useState("Members");
   const [registerSearch, setRegisterSearch] = useState("");
+  const [controlRoomVehicleSearch, setControlRoomVehicleSearch] = useState("");
   const [controlRoomRefreshing, setControlRoomRefreshing] = useState(false);
   const [controlRoomDirectory, setControlRoomDirectory] = useState({
     services: [],
@@ -1160,6 +1162,12 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
       loadControlRoomPatrollerDirectory();
     }
   }, [isControlRoomUser, controlRoomTab, token]);
+
+  useEffect(() => {
+    if (controlRoomTab !== "Vehicles" && controlRoomVehicleSearch) {
+      setControlRoomVehicleSearch("");
+    }
+  }, [controlRoomTab, controlRoomVehicleSearch]);
 
   function renderIncidentsSection(options = {}, sectionChildren = null) {
     const sectionData = isControlRoomUser ? controlRoomData : data;
@@ -1810,6 +1818,135 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
     );
   }
 
+  function getControlRoomVehicleActivePatrol(vehicle) {
+    if (!vehicle) return null;
+
+    const vehicleRegistration = String(vehicle.registration || "").trim().toUpperCase();
+
+    return activePatrols.find((patrol) => {
+      const patrolVehicle = patrol?.vehicle || null;
+      const patrolVehicleId = patrol?.vehicleId || patrolVehicle?.id || null;
+      if (patrolVehicleId && patrolVehicleId === vehicle.id) return true;
+
+      const patrolRegistration = String(
+        patrolVehicle?.registration || patrol?.vehicleLabel || patrol?.tempVehicleRegistration || ""
+      )
+        .trim()
+        .toUpperCase();
+
+      return Boolean(vehicleRegistration) && patrolRegistration === vehicleRegistration;
+    }) || null;
+  }
+
+  function matchesControlRoomVehicleSearch(vehicle, activePatrol) {
+    const search = String(controlRoomVehicleSearch || "").trim().toLowerCase();
+    if (!search) return true;
+
+    const values = [
+      vehicle?.registration,
+      vehicle?.make,
+      vehicle?.type,
+      vehicle?.colour,
+      activePatrol ? "in active patrol" : "available",
+      activePatrol ? getPatrolCallSign(activePatrol) : "",
+      activePatrol ? getPatrolDriverName(activePatrol) : "",
+      activePatrol?.sector,
+      activePatrol ? getPatrolStatusLabel(activePatrol) : "",
+    ];
+
+    return values
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
+  }
+
+  function renderControlRoomVehicleRegisterPanel() {
+    const vehicles = controlRoomData.vehicles || [];
+    const filteredVehicles = vehicles.filter((vehicle) => {
+      const activePatrol = getControlRoomVehicleActivePatrol(vehicle);
+      return matchesControlRoomVehicleSearch(vehicle, activePatrol);
+    });
+
+    return (
+      <div className="panel">
+        <div className="details-header">
+          <div>
+            <h2>Vehicle Register</h2>
+            <p className="card-detail">
+              Read-only operational view for Control Room. Admin manages vehicle records.
+            </p>
+          </div>
+        </div>
+
+        <p className="card-detail">
+          Current operational use is derived from active patrol sessions already loaded in the
+          Control Room dashboard data.
+        </p>
+
+        <div className="filter-bar register-filter-bar">
+          <label>
+            Search vehicles
+            <input
+              value={controlRoomVehicleSearch}
+              onChange={(event) => setControlRoomVehicleSearch(event.target.value)}
+              placeholder="Search registration, patrol, driver, sector..."
+            />
+          </label>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Registration</th>
+              <th>Make</th>
+              <th>Type</th>
+              <th>Colour</th>
+              <th>Active</th>
+              <th>Operational Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredVehicles.length === 0
+              ? (
+                <tr>
+                  <td colSpan={6} className="empty-table-cell">
+                    No vehicles match this search.
+                  </td>
+                </tr>
+              )
+              : filteredVehicles.map((vehicle) => {
+                  const activePatrol = getControlRoomVehicleActivePatrol(vehicle);
+
+                  return (
+                    <tr key={vehicle.id}>
+                      <td>{vehicle.registration || "-"}</td>
+                      <td>{vehicle.make || "-"}</td>
+                      <td>{vehicle.type || "-"}</td>
+                      <td>{vehicle.colour || "-"}</td>
+                      <td>{vehicle.isActive ? "Yes" : "No"}</td>
+                      <td>
+                        <span className={activePatrol ? "status-pill active" : "status-pill"}>
+                          {activePatrol ? "In active patrol" : "Available"}
+                        </span>
+                        {activePatrol && (
+                          <div className="card-detail" style={{ marginTop: 8 }}>
+                            <div>Patrol call sign: {getPatrolCallSign(activePatrol)}</div>
+                            <div>Driver: {getPatrolDriverName(activePatrol)}</div>
+                            <div>Sector: {activePatrol.sector || "-"}</div>
+                            <div>Patrol status: {getPatrolStatusLabel(activePatrol)}</div>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   function renderControlRoomTab() {
     if (controlRoomTab === "Live Overview") {
       return (
@@ -1897,6 +2034,10 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
 
     if (controlRoomTab === "Emergency Services") {
       return renderControlRoomDirectoryPanel();
+    }
+
+    if (controlRoomTab === "Vehicles") {
+      return renderControlRoomVehicleRegisterPanel();
     }
 
     if (controlRoomTab === "Selected Incident Services") {
