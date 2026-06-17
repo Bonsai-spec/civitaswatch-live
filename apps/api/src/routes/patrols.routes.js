@@ -224,6 +224,82 @@ function getTemporaryVehicleLabel(patrol) {
     .join(" ");
 }
 
+function normalizePrePatrolChecklist(value = {}) {
+  return {
+    vehicleInspected: Boolean(value.vehicleInspected),
+    lightsHazardsWorking: Boolean(value.lightsHazardsWorking),
+    fuelLevelAcceptable: Boolean(value.fuelLevelAcceptable),
+    phoneRadioCharged: Boolean(value.phoneRadioCharged),
+    reflectiveJacketAvailable: Boolean(value.reflectiveJacketAvailable),
+    torchAvailable: Boolean(value.torchAvailable),
+    emergencyNumbersAvailable: Boolean(value.emergencyNumbersAvailable),
+    firstAidKitAvailable: Boolean(value.firstAidKitAvailable),
+    damageNotes: cleanText(value.damageNotes),
+    safetyCheckCompleted: Boolean(value.safetyCheckCompleted),
+    callSignConfirmed: Boolean(value.callSignConfirmed),
+    vehicleFuelLevel: cleanText(value.vehicleFuelLevel),
+    notes: cleanText(value.notes),
+  };
+}
+
+function buildPrePatrolChecklistNotes({
+  callSign,
+  vehicleMode,
+  tempVehicleRegistration,
+  tempVehicleMake,
+  tempVehicleModel,
+  tempVehicleType,
+  tempVehicleColour,
+  tempVehicleNotes,
+  vehicleId,
+}, checklist) {
+  const isTemporaryVehicle = String(vehicleMode || "").trim().toUpperCase() === "TEMPORARY";
+  const vehiclePath = isTemporaryVehicle ? "Private / CPF vehicle" : "Registered / SC vehicle";
+  const vehicleDetails = isTemporaryVehicle
+    ? [
+        tempVehicleRegistration ? `Registration: ${tempVehicleRegistration}` : null,
+        tempVehicleMake ? `Make: ${tempVehicleMake}` : null,
+        tempVehicleModel ? `Model: ${tempVehicleModel}` : null,
+        tempVehicleType ? `Type: ${tempVehicleType}` : null,
+        tempVehicleColour ? `Colour: ${tempVehicleColour}` : null,
+        tempVehicleNotes ? `Vehicle note / reason: ${tempVehicleNotes}` : null,
+      ]
+        .filter(Boolean)
+        .join(" | ")
+    : `Vehicle register ID: ${vehicleId || "-"}`;
+
+  return [
+    "Pre-patrol checklist",
+    `Vehicle path: ${vehiclePath}`,
+    `Vehicle details: ${vehicleDetails}`,
+    `Call sign: ${cleanText(callSign) || "-"}`,
+    `Tyres visually checked: ${checklist.vehicleInspected ? "Yes" : "No"}`,
+    `Call sign confirmed: ${checklist.callSignConfirmed ? "Yes" : "No"}`,
+    `Lights / hazards working: ${checklist.lightsHazardsWorking ? "Yes" : "No"}`,
+    `Fuel level acceptable: ${checklist.fuelLevelAcceptable ? "Yes" : "No"}`,
+    `Phone / radio charged: ${checklist.phoneRadioCharged ? "Yes" : "No"}`,
+    `Reflective jacket / bib available: ${checklist.reflectiveJacketAvailable ? "Yes" : "No"}`,
+    `Torch available: ${checklist.torchAvailable ? "Yes" : "No"}`,
+    `Emergency numbers available: ${checklist.emergencyNumbersAvailable ? "Yes" : "No"}`,
+    `First aid kit available: ${checklist.firstAidKitAvailable ? "Yes" : "No / not carried"}`,
+    `Vehicle damage / defects notes: ${checklist.damageNotes || "None noted"}`,
+    `Final readiness confirmation: ${checklist.safetyCheckCompleted ? "Confirmed" : "Not confirmed"}`,
+  ].join("\n");
+}
+
+function isChecklistComplete(checklist) {
+  return Boolean(
+    checklist.vehicleInspected &&
+      checklist.lightsHazardsWorking &&
+      checklist.fuelLevelAcceptable &&
+      checklist.phoneRadioCharged &&
+      checklist.reflectiveJacketAvailable &&
+      checklist.torchAvailable &&
+      checklist.emergencyNumbersAvailable &&
+      checklist.safetyCheckCompleted
+  );
+}
+
 function addVehicleLabel(patrol) {
   if (!patrol) return patrol;
 
@@ -442,12 +518,14 @@ router.post("/start", requireAuth, async (req, res) => {
       tempVehicleOwnerName,
       tempVehicleOwnerPhone,
       tempVehicleNotes,
+      prePatrolChecklist,
     } = req.body;
 
     const mode = normalizeVehicleMode(vehicleMode);
     const cleanVehicleId = cleanText(vehicleId);
     const cleanCallSign = cleanText(callSign);
     const cleanTempVehicleRegistration = cleanText(tempVehicleRegistration);
+    const normalizedChecklist = normalizePrePatrolChecklist(prePatrolChecklist);
 
     if (!cleanCallSign) {
       return res.status(400).json({
@@ -477,6 +555,12 @@ router.post("/start", requireAuth, async (req, res) => {
 
     if (Number.isNaN(start)) {
       return res.status(400).json({ error: "Invalid start KM" });
+    }
+
+    if (!isChecklistComplete(normalizedChecklist)) {
+      return res.status(400).json({
+        error: "Pre-patrol checklist is incomplete",
+      });
     }
 
     const existing = await prisma.patrolSession.findFirst({
@@ -518,6 +602,34 @@ router.post("/start", requireAuth, async (req, res) => {
         throw error;
       }
 
+      const checklist = await tx.prePatrolChecklist.create({
+        data: {
+          userId: user.id,
+          patrolDate: new Date(),
+          vehicleInspected: normalizedChecklist.vehicleInspected,
+          safetyCheckCompleted: normalizedChecklist.safetyCheckCompleted,
+          radioChecked: normalizedChecklist.phoneRadioCharged,
+          vestChecked: normalizedChecklist.reflectiveJacketAvailable,
+          callSignConfirmed: true,
+          vehicleFuelLevel: normalizedChecklist.vehicleFuelLevel || (normalizedChecklist.fuelLevelAcceptable ? "Acceptable" : null),
+          notes: buildPrePatrolChecklistNotes(
+            {
+              callSign: cleanCallSign,
+              vehicleMode: mode,
+              tempVehicleRegistration: mode === "TEMPORARY" ? cleanTempVehicleRegistration : null,
+              tempVehicleMake: mode === "TEMPORARY" ? cleanText(tempVehicleMake) : null,
+              tempVehicleModel: mode === "TEMPORARY" ? cleanText(tempVehicleModel) : null,
+              tempVehicleType: mode === "TEMPORARY" ? cleanText(tempVehicleType) : null,
+              tempVehicleColour: mode === "TEMPORARY" ? cleanText(tempVehicleColour) : null,
+              tempVehicleNotes: mode === "TEMPORARY" ? cleanText(tempVehicleNotes) : null,
+              vehicleId: mode === "REGISTERED" ? cleanVehicleId : null,
+            },
+            normalizedChecklist
+          ),
+          completedAt: new Date(),
+        },
+      });
+
       const created = await tx.patrolSession.create({
         data: {
           userId: user.id,
@@ -543,6 +655,7 @@ router.post("/start", requireAuth, async (req, res) => {
             mode === "TEMPORARY" ? cleanText(tempVehicleOwnerPhone) : null,
           tempVehicleNotes:
             mode === "TEMPORARY" ? cleanText(tempVehicleNotes) : null,
+          checklistId: checklist.id,
         },
       });
 

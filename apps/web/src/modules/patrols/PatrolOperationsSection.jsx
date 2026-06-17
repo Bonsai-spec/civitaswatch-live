@@ -53,7 +53,6 @@ const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
 const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
-const PRE_PATROL_CHECKLIST_ENDPOINT = `${API}/checklists/pre-patrol`;
 
 const OBSERVATION_TYPES = [
   "General",
@@ -287,6 +286,24 @@ function buildPrePatrolChecklistNotes(startForm, checklist) {
     `Vehicle damage / defects notes: ${checklist.damageNotes?.trim() || "None noted"}`,
     `Final readiness confirmation: ${checklist.safetyCheckCompleted ? "Confirmed" : "Not confirmed"}`,
   ].join("\n");
+}
+
+function buildPrePatrolChecklistPayload(startForm, checklist) {
+  return {
+    vehicleInspected: Boolean(checklist.vehicleInspected),
+    lightsHazardsWorking: Boolean(checklist.lightsHazardsWorking),
+    fuelLevelAcceptable: Boolean(checklist.fuelLevelAcceptable),
+    phoneRadioCharged: Boolean(checklist.phoneRadioCharged),
+    reflectiveJacketAvailable: Boolean(checklist.reflectiveJacketAvailable),
+    torchAvailable: Boolean(checklist.torchAvailable),
+    emergencyNumbersAvailable: Boolean(checklist.emergencyNumbersAvailable),
+    firstAidKitAvailable: Boolean(checklist.firstAidKitAvailable),
+    damageNotes: String(checklist.damageNotes || "").trim(),
+    callSignConfirmed: Boolean(startForm.callSign?.trim()),
+    safetyCheckCompleted: Boolean(checklist.safetyCheckCompleted),
+    vehicleFuelLevel: checklist.fuelLevelAcceptable ? "Acceptable" : null,
+    notes: buildPrePatrolChecklistNotes(startForm, checklist),
+  };
 }
 
 function hasValue(value) {
@@ -925,22 +942,6 @@ export default function PatrolOperationsSection({
       }
 
       const isTemporaryVehicle = String(startForm.vehicleMode || "").trim().toUpperCase() === "TEMPORARY";
-      const checklistPayload = {
-        vehicleInspected: prePatrolChecklist.vehicleInspected,
-        safetyCheckCompleted: prePatrolChecklist.safetyCheckCompleted,
-        radioChecked: prePatrolChecklist.phoneRadioCharged,
-        vestChecked: prePatrolChecklist.reflectiveJacketAvailable,
-        callSignConfirmed: true,
-        vehicleFuelLevel: prePatrolChecklist.fuelLevelAcceptable ? "Acceptable" : null,
-        notes: buildPrePatrolChecklistNotes(startForm, prePatrolChecklist),
-      };
-
-      await loadJson(PRE_PATROL_CHECKLIST_ENDPOINT, {
-        method: "POST",
-        headers: getJsonAuthHeaders(),
-        body: JSON.stringify(checklistPayload),
-      });
-
       const payload = {
         vehicleMode: isTemporaryVehicle ? "TEMPORARY" : "REGISTERED",
         vehicleId: isTemporaryVehicle ? null : startForm.vehicleId,
@@ -954,6 +955,7 @@ export default function PatrolOperationsSection({
         tempVehicleType: isTemporaryVehicle ? startForm.tempVehicleType : null,
         tempVehicleColour: isTemporaryVehicle ? startForm.tempVehicleColour : null,
         tempVehicleNotes: isTemporaryVehicle ? startForm.tempVehicleNotes : null,
+        prePatrolChecklist: buildPrePatrolChecklistPayload(startForm, prePatrolChecklist),
       };
 
       await loadJson(PATROL_ENDPOINTS.start, {

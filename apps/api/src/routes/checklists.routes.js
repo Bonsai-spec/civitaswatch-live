@@ -8,7 +8,7 @@ const router = express.Router();
 router.post(
   "/pre-patrol",
   requireAuth,
-  requireRole("PATROLLER"),
+  requireRole("PATROL", "PATROLLER"),
   async (req, res) => {
     try {
       const {
@@ -47,7 +47,7 @@ router.post(
 router.get(
   "/pre-patrol/latest",
   requireAuth,
-  requireRole("PATROLLER"),
+  requireRole("PATROL", "PATROLLER"),
   async (req, res) => {
     try {
       const checklist = await prisma.prePatrolChecklist.findFirst({
