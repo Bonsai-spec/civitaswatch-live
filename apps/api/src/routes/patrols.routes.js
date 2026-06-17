@@ -563,6 +563,12 @@ router.post("/start", requireAuth, async (req, res) => {
       });
     }
 
+    if (!normalizedChecklist.callSignConfirmed) {
+      return res.status(400).json({
+        error: "Call sign confirmation required",
+      });
+    }
+
     const existing = await prisma.patrolSession.findFirst({
       where: {
         status: {
@@ -610,7 +616,7 @@ router.post("/start", requireAuth, async (req, res) => {
           safetyCheckCompleted: normalizedChecklist.safetyCheckCompleted,
           radioChecked: normalizedChecklist.phoneRadioCharged,
           vestChecked: normalizedChecklist.reflectiveJacketAvailable,
-          callSignConfirmed: true,
+          callSignConfirmed: normalizedChecklist.callSignConfirmed,
           vehicleFuelLevel: normalizedChecklist.vehicleFuelLevel || (normalizedChecklist.fuelLevelAcceptable ? "Acceptable" : null),
           notes: buildPrePatrolChecklistNotes(
             {
