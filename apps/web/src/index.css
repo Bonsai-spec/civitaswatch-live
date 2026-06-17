@@ -188,6 +188,17 @@ textarea {
   background: #f8fafc;
 }
 
+.control-room-vehicle-filter-bar {
+  grid-template-columns: minmax(240px, 1fr) auto;
+}
+
+.control-room-vehicle-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .register-table-scroll {
   width: 100%;
   overflow-x: auto;
@@ -1102,6 +1113,10 @@ th {
   }
 
   .assistance-queue-panel .item {
+    grid-template-columns: 1fr;
+  }
+
+  .control-room-vehicle-filter-bar {
     grid-template-columns: 1fr;
   }
 }

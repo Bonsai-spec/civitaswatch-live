@@ -1877,6 +1877,14 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
               Read-only operational view for Control Room. Admin manages vehicle records.
             </p>
           </div>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={refreshControlRoom}
+            disabled={controlRoomRefreshing}
+          >
+            {controlRoomRefreshing ? "Refreshing..." : "Refresh"}
+          </button>
         </div>
 
         <p className="card-detail">
@@ -1901,14 +1909,6 @@ const filteredRegisterOrganisations = filterRegisterOrganisations(
               disabled={!controlRoomVehicleSearch}
             >
               Clear Search
-            </button>
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={refreshControlRoom}
-              disabled={controlRoomRefreshing}
-            >
-              {controlRoomRefreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
         </div>
