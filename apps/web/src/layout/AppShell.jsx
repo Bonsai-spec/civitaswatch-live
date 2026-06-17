@@ -16,9 +16,34 @@ export default function AppShell({
     ? "Intelligence Workspace"
     : isPatrol
       ? "Patrol Console"
-      : isControlRoom
-        ? "Control Room Operations"
-        : "Admin Dashboard";
+        : isControlRoom
+          ? "Control Room Operations"
+          : "Admin Dashboard";
+
+  if (isPatrol) {
+    return (
+      <div className="admin-shell">
+        <div className="content">
+          <div className="header header-row">
+            <div>
+              <h1>{active}</h1>
+              <p>
+                {user
+                  ? `Logged in as ${getDisplayName(user)} (${user.role})`
+                  : "Live CivitasWatch data"}
+              </p>
+            </div>
+
+            <button className="secondary-btn" onClick={onLogout}>
+              Logout
+            </button>
+          </div>
+
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="admin-shell">

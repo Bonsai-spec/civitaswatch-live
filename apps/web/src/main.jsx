@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -942,7 +942,7 @@ function App() {
     }
   }, [active, isRegisterRoute]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (token && userRole) {
       setActive((current) => (current === "Dashboard" ? landingRoute : current));
     }
