@@ -376,20 +376,27 @@ function getPatrolCallSign(patrol) {
 }
 
 function getOperationalVehicleLabel(patrol) {
-  return (
-    patrol?.vehicleLabel ||
-    patrol?.vehicle?.registration ||
-    [
-      patrol?.tempVehicleRegistration,
-      patrol?.tempVehicleMake,
-      patrol?.tempVehicleModel,
-      patrol?.tempVehicleColour,
-      patrol?.tempVehicleType,
-    ]
-      .filter(Boolean)
-      .join(" ") ||
-    "Vehicle not set"
-  );
+  const vehicleMode = String(patrol?.vehicleMode || "").trim().toUpperCase();
+  const isTemporaryVehicle =
+    vehicleMode === "TEMPORARY" ||
+    (!patrol?.vehicle && Boolean(patrol?.tempVehicleRegistration));
+  const temporaryVehicleLabel = [
+    patrol?.tempVehicleRegistration,
+    patrol?.tempVehicleMake,
+    patrol?.tempVehicleModel,
+    patrol?.tempVehicleType,
+    patrol?.tempVehicleColour,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (isTemporaryVehicle) {
+    return `Private / CPF vehicle${temporaryVehicleLabel ? `: ${temporaryVehicleLabel}` : ""}`;
+  }
+
+  const registeredVehicleLabel = patrol?.vehicle?.registration || patrol?.vehicleLabel || "Vehicle not set";
+
+  return `Registered / SC vehicle: ${registeredVehicleLabel}`;
 }
 
 function getPatrolCrewSummary(patrol) {

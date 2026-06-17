@@ -53,6 +53,7 @@ const INCIDENT_CODES_ENDPOINT = `${API}/admin/incident-codes`;
 const INCIDENT_SUBCODES_ENDPOINT = `${API}/admin/incident-subcodes`;
 const SERVICE_TYPES_ENDPOINT = `${API}/admin/service-types`;
 const INFRASTRUCTURE_TYPES_ENDPOINT = `${API}/admin/infrastructure-types`;
+const PRE_PATROL_CHECKLIST_ENDPOINT = `${API}/checklists/pre-patrol`;
 
 const OBSERVATION_TYPES = [
   "General",
@@ -85,11 +86,30 @@ const COMMUNITY_TIP_SOURCE_TYPES = [
 ];
 
 const INITIAL_START_FORM = {
+  vehicleMode: "TEMPORARY",
   vehicleId: "",
   callSign: "",
   sector: "Sector 1",
   startKm: "",
   crewCallSigns: "",
+  tempVehicleRegistration: "",
+  tempVehicleMake: "",
+  tempVehicleType: "",
+  tempVehicleColour: "",
+  tempVehicleNotes: "",
+};
+
+const INITIAL_PRE_PATROL_CHECKLIST = {
+  vehicleInspected: false,
+  lightsHazardsWorking: false,
+  fuelLevelAcceptable: false,
+  phoneRadioCharged: false,
+  reflectiveJacketAvailable: false,
+  torchAvailable: false,
+  emergencyNumbersAvailable: false,
+  firstAidKitAvailable: false,
+  damageNotes: "",
+  safetyCheckCompleted: false,
 };
 
 const INITIAL_EVENT_FORM = {
@@ -223,20 +243,50 @@ function getCrewName(item) {
 }
 
 function getVehicleLabel(patrol) {
-  return (
-    patrol?.vehicleLabel ||
-    patrol?.vehicle?.registration ||
-    [
-      patrol?.tempVehicleRegistration,
-      patrol?.tempVehicleMake,
-      patrol?.tempVehicleModel,
-      patrol?.tempVehicleColour,
-      patrol?.tempVehicleType,
-    ]
-      .filter(Boolean)
-      .join(" ") ||
-    "Vehicle not set"
-  );
+  const vehicleMode = String(patrol?.vehicleMode || "").trim().toUpperCase();
+  const isTemporaryVehicle =
+    vehicleMode === "TEMPORARY" ||
+    (!patrol?.vehicle && Boolean(patrol?.tempVehicleRegistration));
+  const temporaryVehicleLabel = [
+    patrol?.tempVehicleRegistration,
+    patrol?.tempVehicleMake,
+    patrol?.tempVehicleModel,
+    patrol?.tempVehicleType,
+    patrol?.tempVehicleColour,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (isTemporaryVehicle) {
+    return `Private / CPF vehicle${temporaryVehicleLabel ? `: ${temporaryVehicleLabel}` : ""}`;
+  }
+
+  const registeredVehicleLabel = patrol?.vehicle?.registration || patrol?.vehicleLabel || "Vehicle not set";
+
+  return `Registered / SC vehicle: ${registeredVehicleLabel}`;
+}
+
+function buildPrePatrolChecklistNotes(startForm, checklist) {
+  const vehiclePath = String(startForm.vehicleMode || "").toUpperCase() === "TEMPORARY"
+    ? "Private / CPF vehicle"
+    : "Registered / SC vehicle";
+
+  return [
+    "Pre-patrol checklist",
+    `Vehicle path: ${vehiclePath}`,
+    `Call sign: ${startForm.callSign?.trim() || "-"}`,
+    `Tyres visually checked: ${checklist.vehicleInspected ? "Yes" : "No"}`,
+    `Call sign confirmed: ${startForm.callSign?.trim() ? "Yes" : "No"}`,
+    `Lights / hazards working: ${checklist.lightsHazardsWorking ? "Yes" : "No"}`,
+    `Fuel level acceptable: ${checklist.fuelLevelAcceptable ? "Yes" : "No"}`,
+    `Phone / radio charged: ${checklist.phoneRadioCharged ? "Yes" : "No"}`,
+    `Reflective jacket / bib available: ${checklist.reflectiveJacketAvailable ? "Yes" : "No"}`,
+    `Torch available: ${checklist.torchAvailable ? "Yes" : "No"}`,
+    `Emergency numbers available: ${checklist.emergencyNumbersAvailable ? "Yes" : "No"}`,
+    `First aid kit available: ${checklist.firstAidKitAvailable ? "Yes" : "No / not carried"}`,
+    `Vehicle damage / defects notes: ${checklist.damageNotes?.trim() || "None noted"}`,
+    `Final readiness confirmation: ${checklist.safetyCheckCompleted ? "Confirmed" : "Not confirmed"}`,
+  ].join("\n");
 }
 
 function hasValue(value) {
@@ -349,6 +399,7 @@ export default function PatrolOperationsSection({
   const [crewSearch, setCrewSearch] = useState("");
   const [crewLoadError, setCrewLoadError] = useState("");
   const [startForm, setStartForm] = useState(INITIAL_START_FORM);
+  const [prePatrolChecklist, setPrePatrolChecklist] = useState(INITIAL_PRE_PATROL_CHECKLIST);
   const [eventForm, setEventForm] = useState(INITIAL_EVENT_FORM);
   const [endForm, setEndForm] = useState({ endKm: "", summary: "" });
   const [incidentCodes, setIncidentCodes] = useState([]);
@@ -384,6 +435,61 @@ export default function PatrolOperationsSection({
   const assignedIncident = (activePatrol?.incidents || []).find((incident) => incident?.id) || null;
   const showIncidentStatusPanel = showIncidentResponseForm && Boolean(assignedIncident?.id);
   const displayMessage = operationLabel || (/incident not found/i.test(message) ? "" : message);
+  const isTemporaryVehicleMode = String(startForm.vehicleMode || "").trim().toUpperCase() === "TEMPORARY";
+  const requiredVehicleDetailsComplete = isTemporaryVehicleMode
+    ? Boolean(startForm.tempVehicleRegistration.trim())
+    : Boolean(startForm.vehicleId);
+  const requiredChecklistComplete = useMemo(
+    () => [
+      prePatrolChecklist.vehicleInspected,
+      prePatrolChecklist.lightsHazardsWorking,
+      prePatrolChecklist.fuelLevelAcceptable,
+      prePatrolChecklist.phoneRadioCharged,
+      prePatrolChecklist.reflectiveJacketAvailable,
+      prePatrolChecklist.torchAvailable,
+      prePatrolChecklist.emergencyNumbersAvailable,
+      prePatrolChecklist.safetyCheckCompleted,
+    ].every(Boolean),
+    [prePatrolChecklist]
+  );
+  const startPatrolReady = useMemo(() => {
+    if (!startForm.callSign.trim()) {
+      return { ready: false, message: "Call Sign is required." };
+    }
+
+    if (!startForm.sector.trim()) {
+      return { ready: false, message: "Sector is required." };
+    }
+
+    if (!String(startForm.startKm || "").trim()) {
+      return { ready: false, message: "Start KM is required." };
+    }
+
+    if (!requiredVehicleDetailsComplete) {
+      return {
+        ready: false,
+        message: isTemporaryVehicleMode
+          ? "Private / CPF vehicle registration is required."
+          : "Select a registered vehicle or switch to Private / CPF Vehicle.",
+      };
+    }
+
+    if (!requiredChecklistComplete) {
+      return {
+        ready: false,
+        message: "Complete the pre-patrol checklist and final readiness confirmation before starting patrol.",
+      };
+    }
+
+    return { ready: true, message: "" };
+  }, [
+    isTemporaryVehicleMode,
+    requiredChecklistComplete,
+    requiredVehicleDetailsComplete,
+    startForm.callSign,
+    startForm.sector,
+    startForm.startKm,
+  ]);
 
   function beginOperation(label) {
     if (requestInFlightRef.current) return false;
@@ -506,7 +612,7 @@ export default function PatrolOperationsSection({
       setVehicles(nextVehicles);
       setPatrollers(nextPatrollers);
 
-      if (!startForm.vehicleId && nextVehicles[0]?.id) {
+      if (startForm.vehicleMode === "REGISTERED" && !startForm.vehicleId && nextVehicles[0]?.id) {
         setStartForm((current) => ({
           ...current,
           vehicleId: current.vehicleId || nextVehicles[0].id,
@@ -668,6 +774,24 @@ export default function PatrolOperationsSection({
     }));
   }
 
+  function updateStartVehicleMode(vehicleMode) {
+    setStartForm((current) => ({
+      ...current,
+      vehicleMode,
+      vehicleId:
+        vehicleMode === "REGISTERED"
+          ? current.vehicleId || vehicles[0]?.id || ""
+          : "",
+    }));
+  }
+
+  function updatePrePatrolChecklist(field, value) {
+    setPrePatrolChecklist((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
   function addCrewMember(memberId) {
     setSelectedCrewIds((current) => (
       current.includes(memberId) ? current : [...current, memberId]
@@ -795,13 +919,41 @@ export default function PatrolOperationsSection({
     if (!beginOperation("Starting patrol...")) return;
 
     try {
+      if (!startPatrolReady.ready) {
+        setMessage(startPatrolReady.message);
+        return;
+      }
+
+      const isTemporaryVehicle = String(startForm.vehicleMode || "").trim().toUpperCase() === "TEMPORARY";
+      const checklistPayload = {
+        vehicleInspected: prePatrolChecklist.vehicleInspected,
+        safetyCheckCompleted: prePatrolChecklist.safetyCheckCompleted,
+        radioChecked: prePatrolChecklist.phoneRadioCharged,
+        vestChecked: prePatrolChecklist.reflectiveJacketAvailable,
+        callSignConfirmed: true,
+        vehicleFuelLevel: prePatrolChecklist.fuelLevelAcceptable ? "Acceptable" : null,
+        notes: buildPrePatrolChecklistNotes(startForm, prePatrolChecklist),
+      };
+
+      await loadJson(PRE_PATROL_CHECKLIST_ENDPOINT, {
+        method: "POST",
+        headers: getJsonAuthHeaders(),
+        body: JSON.stringify(checklistPayload),
+      });
+
       const payload = {
-        vehicleId: startForm.vehicleId,
+        vehicleMode: isTemporaryVehicle ? "TEMPORARY" : "REGISTERED",
+        vehicleId: isTemporaryVehicle ? null : startForm.vehicleId,
         callSign,
         sector: startForm.sector,
         startKm: startForm.startKm,
         crewIds: selectedCrewIds,
         crewCallSigns: startForm.crewCallSigns,
+        tempVehicleRegistration: isTemporaryVehicle ? startForm.tempVehicleRegistration : null,
+        tempVehicleMake: isTemporaryVehicle ? startForm.tempVehicleMake : null,
+        tempVehicleType: isTemporaryVehicle ? startForm.tempVehicleType : null,
+        tempVehicleColour: isTemporaryVehicle ? startForm.tempVehicleColour : null,
+        tempVehicleNotes: isTemporaryVehicle ? startForm.tempVehicleNotes : null,
       };
 
       await loadJson(PATROL_ENDPOINTS.start, {
@@ -811,6 +963,7 @@ export default function PatrolOperationsSection({
       });
 
       setStartForm(INITIAL_START_FORM);
+      setPrePatrolChecklist(INITIAL_PRE_PATROL_CHECKLIST);
       setSelectedCrewIds([]);
       setCrewPickerOpen(false);
       setCrewSearch("");
@@ -1271,21 +1424,97 @@ export default function PatrolOperationsSection({
             <div className="patrol-step-card">
               <div className="patrol-step-label">Start Patrol</div>
 
-              <label>
-                Registered Vehicle
-                <select
-                  value={startForm.vehicleId}
-                  onChange={(event) => updateStartForm("vehicleId", event.target.value)}
-                  required
-                >
-                  <option value="">Select vehicle</option>
-                  {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>
-                      {vehicle.registration} {vehicle.make ? `- ${vehicle.make}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <p className="patrol-muted">
+                Private / CPF vehicle is the default path. Use Registered / SC Vehicle when booking on an official patrol vehicle.
+              </p>
+
+              <div className="patrol-field-stack">
+                <label className="patrol-check-option">
+                  <input
+                    type="radio"
+                    name="vehicleMode"
+                    checked={isTemporaryVehicleMode}
+                    onChange={() => updateStartVehicleMode("TEMPORARY")}
+                  />
+                  <span>Private / CPF Vehicle</span>
+                </label>
+                <label className="patrol-check-option">
+                  <input
+                    type="radio"
+                    name="vehicleMode"
+                    checked={!isTemporaryVehicleMode}
+                    onChange={() => updateStartVehicleMode("REGISTERED")}
+                  />
+                  <span>Registered / SC Vehicle</span>
+                </label>
+              </div>
+
+              {isTemporaryVehicleMode ? (
+                <>
+                  <label>
+                    Private / CPF Vehicle Registration
+                    <input
+                      type="text"
+                      value={startForm.tempVehicleRegistration}
+                      onChange={(event) => updateStartForm("tempVehicleRegistration", event.target.value)}
+                      placeholder="Registration number"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Make
+                    <input
+                      type="text"
+                      value={startForm.tempVehicleMake}
+                      onChange={(event) => updateStartForm("tempVehicleMake", event.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <label>
+                    Type
+                    <input
+                      type="text"
+                      value={startForm.tempVehicleType}
+                      onChange={(event) => updateStartForm("tempVehicleType", event.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <label>
+                    Colour
+                    <input
+                      type="text"
+                      value={startForm.tempVehicleColour}
+                      onChange={(event) => updateStartForm("tempVehicleColour", event.target.value)}
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <label>
+                    Vehicle note / reason
+                    <textarea
+                      value={startForm.tempVehicleNotes}
+                      onChange={(event) => updateStartForm("tempVehicleNotes", event.target.value)}
+                      placeholder="Optional operational note"
+                      rows="3"
+                    />
+                  </label>
+                </>
+              ) : (
+                <label>
+                  Registered Vehicle
+                  <select
+                    value={startForm.vehicleId}
+                    onChange={(event) => updateStartForm("vehicleId", event.target.value)}
+                    required
+                  >
+                    <option value="">Select vehicle</option>
+                    {vehicles.map((vehicle) => (
+                      <option key={vehicle.id} value={vehicle.id}>
+                        {vehicle.registration} {vehicle.make ? `- ${vehicle.make}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               <label>
                 Call Sign
@@ -1311,6 +1540,101 @@ export default function PatrolOperationsSection({
                   onChange={(event) => updateStartForm("startKm", event.target.value)}
                   required
                 />
+              </label>
+            </div>
+
+            <div className="patrol-step-card">
+              <div className="patrol-step-label">Pre-Patrol Checklist</div>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.vehicleInspected}
+                  onChange={(event) => updatePrePatrolChecklist("vehicleInspected", event.target.checked)}
+                />
+                <span>Tyres visually checked</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.lightsHazardsWorking}
+                  onChange={(event) => updatePrePatrolChecklist("lightsHazardsWorking", event.target.checked)}
+                />
+                <span>Lights / hazards working</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.fuelLevelAcceptable}
+                  onChange={(event) => updatePrePatrolChecklist("fuelLevelAcceptable", event.target.checked)}
+                />
+                <span>Fuel level acceptable</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.phoneRadioCharged}
+                  onChange={(event) => updatePrePatrolChecklist("phoneRadioCharged", event.target.checked)}
+                />
+                <span>Phone / radio charged</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.reflectiveJacketAvailable}
+                  onChange={(event) => updatePrePatrolChecklist("reflectiveJacketAvailable", event.target.checked)}
+                />
+                <span>Reflective jacket / bib available</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.torchAvailable}
+                  onChange={(event) => updatePrePatrolChecklist("torchAvailable", event.target.checked)}
+                />
+                <span>Torch available</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.emergencyNumbersAvailable}
+                  onChange={(event) => updatePrePatrolChecklist("emergencyNumbersAvailable", event.target.checked)}
+                />
+                <span>Emergency numbers available</span>
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.firstAidKitAvailable}
+                  onChange={(event) => updatePrePatrolChecklist("firstAidKitAvailable", event.target.checked)}
+                />
+                <span>First aid kit if available</span>
+              </label>
+
+              <label>
+                Vehicle damage / defects notes
+                <textarea
+                  value={prePatrolChecklist.damageNotes}
+                  onChange={(event) => updatePrePatrolChecklist("damageNotes", event.target.value)}
+                  placeholder="Optional defects, scratches, warning lights, or other notes"
+                  rows="3"
+                />
+              </label>
+
+              <label className="patrol-check-option">
+                <input
+                  type="checkbox"
+                  checked={prePatrolChecklist.safetyCheckCompleted}
+                  onChange={(event) => updatePrePatrolChecklist("safetyCheckCompleted", event.target.checked)}
+                />
+                <span>I confirm the vehicle and required patrol equipment are safe/ready for patrol.</span>
               </label>
             </div>
 
@@ -1400,7 +1724,11 @@ export default function PatrolOperationsSection({
               )}
             </div>
 
-            <button className="patrol-primary-action" type="submit" disabled={loading}>
+            {!startPatrolReady.ready && (
+              <p className="patrol-muted">{startPatrolReady.message}</p>
+            )}
+
+            <button className="patrol-primary-action" type="submit" disabled={loading || !startPatrolReady.ready}>
               {getSubmitLabel("Start Patrol")}
             </button>
           </form>
