@@ -442,6 +442,7 @@ export default function PatrolOperationsSection({
   const [operationLabel, setOperationLabel] = useState("");
   const [message, setMessage] = useState("");
   const requestInFlightRef = useRef(false);
+  const authSessionVersionRef = useRef(0);
 
   // The patrol session is the active operational context. Driver, vehicle/call
   // sign, and selected crew travel under this same session.
@@ -531,6 +532,10 @@ export default function PatrolOperationsSection({
 
   const authSessionKey = `${token || ""}|${user?.id || ""}|${user?.role || ""}`;
 
+  function isCurrentAuthSession(requestVersion) {
+    return requestVersion === authSessionVersionRef.current;
+  }
+
   function getSubmitLabel(defaultLabel) {
     return loading ? operationLabel || "Submitting..." : defaultLabel;
   }
@@ -589,8 +594,10 @@ export default function PatrolOperationsSection({
   async function loadPatrolOperations(options = {}) {
     if (!token) return;
     const { preserveMessage = false } = options;
+    const requestVersion = authSessionVersionRef.current;
 
     try {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setLoading(true);
       setOperationLabel("Refreshing patrol...");
       if (!preserveMessage) setMessage("");
@@ -605,6 +612,8 @@ export default function PatrolOperationsSection({
         }).catch(() => []),
       ]);
 
+      if (!isCurrentAuthSession(requestVersion)) return;
+
       const nextActivePatrols = Array.isArray(activeJson) ? activeJson : activeJson ? [activeJson] : [];
       const nextVehicles = Array.isArray(vehicleJson) ? vehicleJson : [];
       let nextPatrollers = members || [];
@@ -613,6 +622,7 @@ export default function PatrolOperationsSection({
         const patrollerJson = await loadJson(MEMBER_ENDPOINTS.list, {
           headers: getAuthHeaders(),
         });
+        if (!isCurrentAuthSession(requestVersion)) return;
         const loadedPatrollers = Array.isArray(patrollerJson) ? patrollerJson : [];
 
         // Keep the parent dashboard/register data as a fallback if the crew lookup
@@ -643,14 +653,18 @@ export default function PatrolOperationsSection({
         }));
       }
     } catch (error) {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setMessage(error.message || "Failed to load patrol operations");
     } finally {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setLoading(false);
       setOperationLabel("");
     }
   }
 
   useEffect(() => {
+    authSessionVersionRef.current += 1;
+
     setIncidentCodes([]);
     setIncidentCodesLoaded(false);
     setIncidentCodesError("");
@@ -719,8 +733,46 @@ export default function PatrolOperationsSection({
     }
   }, [showObservationForm, eventForm.observationType, token, infrastructureTypesLoaded, infrastructureTypesLoading, infrastructureTypeError]);
 
+  useEffect(() => {
+    if (!token || !eventForm.incidentCodeId) return;
+    if (!incidentCodesLoaded || incidentCodesLoading || incidentCodesError) return;
+
+    const selectedIncidentCodeExists = incidentCodes.some((item) => item.id === eventForm.incidentCodeId);
+
+    if (!selectedIncidentCodeExists) {
+      setIncidentSubcodes([]);
+      setIncidentSubcodesLoaded(false);
+      setIncidentSubcodesError("");
+      setEventForm((current) => ({
+        ...current,
+        incidentCodeId: "",
+        incidentSubcodeId: "",
+        incidentCode: "",
+        incidentType: "",
+      }));
+      return;
+    }
+
+    if (!incidentSubcodesLoaded && !incidentSubcodesLoading && !incidentSubcodesError) {
+      loadIncidentSubcodes(eventForm.incidentCodeId);
+    }
+  }, [
+    token,
+    eventForm.incidentCodeId,
+    incidentCodes,
+    incidentCodesLoaded,
+    incidentCodesLoading,
+    incidentCodesError,
+    incidentSubcodesLoaded,
+    incidentSubcodesLoading,
+    incidentSubcodesError,
+  ]);
+
   async function loadIncidentCodes() {
+    const requestVersion = authSessionVersionRef.current;
+
     try {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setIncidentCodesLoading(true);
       setIncidentCodesError("");
 
@@ -728,12 +780,16 @@ export default function PatrolOperationsSection({
         headers: getAuthHeaders(),
       });
 
+      if (!isCurrentAuthSession(requestVersion)) return;
+
       setIncidentCodes(Array.isArray(json) ? json : []);
       setIncidentCodesLoaded(true);
     } catch (error) {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setIncidentCodesLoaded(false);
       setIncidentCodesError(error.message || "Failed to load incident codes.");
     } finally {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setIncidentCodesLoading(false);
     }
   }
@@ -752,7 +808,10 @@ export default function PatrolOperationsSection({
       return;
     }
 
+    const requestVersion = authSessionVersionRef.current;
+
     try {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setIncidentSubcodesLoading(true);
       setIncidentSubcodesError("");
 
@@ -764,12 +823,16 @@ export default function PatrolOperationsSection({
         headers: getAuthHeaders(),
       });
 
+      if (!isCurrentAuthSession(requestVersion)) return;
+
       setIncidentSubcodes(Array.isArray(json) ? json : []);
       setIncidentSubcodesLoaded(true);
     } catch (error) {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setIncidentSubcodesLoaded(false);
       setIncidentSubcodesError(error.message || "Failed to load incident subcodes.");
     } finally {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setIncidentSubcodesLoading(false);
     }
   }
@@ -782,7 +845,10 @@ export default function PatrolOperationsSection({
   }
 
   async function loadServiceTypes() {
+    const requestVersion = authSessionVersionRef.current;
+
     try {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setServiceTypesLoading(true);
       setServiceTypeError("");
 
@@ -790,12 +856,16 @@ export default function PatrolOperationsSection({
         headers: getAuthHeaders(),
       });
 
+      if (!isCurrentAuthSession(requestVersion)) return;
+
       setServiceTypes(Array.isArray(json) ? json : []);
       setServiceTypesLoaded(true);
     } catch (error) {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setServiceTypesLoaded(false);
       setServiceTypeError(error.message || "Failed to load service types.");
     } finally {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setServiceTypesLoading(false);
     }
   }
@@ -807,7 +877,10 @@ export default function PatrolOperationsSection({
   }
 
   async function loadInfrastructureTypes() {
+    const requestVersion = authSessionVersionRef.current;
+
     try {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setInfrastructureTypesLoading(true);
       setInfrastructureTypeError("");
 
@@ -815,12 +888,16 @@ export default function PatrolOperationsSection({
         headers: getAuthHeaders(),
       });
 
+      if (!isCurrentAuthSession(requestVersion)) return;
+
       setInfrastructureTypes(Array.isArray(json) ? json : []);
       setInfrastructureTypesLoaded(true);
     } catch (error) {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setInfrastructureTypeError(error.message || "Failed to load infrastructure types.");
       setInfrastructureTypesLoaded(false);
     } finally {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setInfrastructureTypesLoading(false);
     }
   }
@@ -832,14 +909,20 @@ export default function PatrolOperationsSection({
   }
 
   async function loadAreas() {
+    const requestVersion = authSessionVersionRef.current;
+
     try {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setAreaError("");
       const json = await loadJson(`${ADMIN_REGISTER_ENDPOINTS.areas}?active=true`, {
         headers: getAuthHeaders(),
       });
 
+      if (!isCurrentAuthSession(requestVersion)) return;
+
       setAreas(Array.isArray(json) ? json : []);
     } catch (error) {
+      if (!isCurrentAuthSession(requestVersion)) return;
       setAreaError(error.message || "Failed to load areas.");
     }
   }
