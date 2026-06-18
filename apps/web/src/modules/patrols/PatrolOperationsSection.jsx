@@ -656,9 +656,10 @@ export default function PatrolOperationsSection({
       if (!isCurrentAuthSession(requestVersion)) return;
       setMessage(error.message || "Failed to load patrol operations");
     } finally {
-      if (!isCurrentAuthSession(requestVersion)) return;
-      setLoading(false);
-      setOperationLabel("");
+      if (isCurrentAuthSession(requestVersion)) {
+        setLoading(false);
+        setOperationLabel("");
+      }
     }
   }
 
@@ -668,17 +669,24 @@ export default function PatrolOperationsSection({
     setIncidentCodes([]);
     setIncidentCodesLoaded(false);
     setIncidentCodesError("");
+    setIncidentCodesLoading(false);
     setIncidentSubcodes([]);
     setIncidentSubcodesLoaded(false);
     setIncidentSubcodesError("");
+    setIncidentSubcodesLoading(false);
     setServiceTypes([]);
     setServiceTypesLoaded(false);
     setServiceTypeError("");
+    setServiceTypesLoading(false);
     setInfrastructureTypes([]);
     setInfrastructureTypesLoaded(false);
     setInfrastructureTypeError("");
+    setInfrastructureTypesLoading(false);
     setAreas([]);
     setAreaError("");
+    requestInFlightRef.current = false;
+    setLoading(false);
+    setOperationLabel("");
   }, [authSessionKey]);
 
   useEffect(() => {
@@ -789,8 +797,9 @@ export default function PatrolOperationsSection({
       setIncidentCodesLoaded(false);
       setIncidentCodesError(error.message || "Failed to load incident codes.");
     } finally {
-      if (!isCurrentAuthSession(requestVersion)) return;
-      setIncidentCodesLoading(false);
+      if (isCurrentAuthSession(requestVersion)) {
+        setIncidentCodesLoading(false);
+      }
     }
   }
 
@@ -832,8 +841,9 @@ export default function PatrolOperationsSection({
       setIncidentSubcodesLoaded(false);
       setIncidentSubcodesError(error.message || "Failed to load incident subcodes.");
     } finally {
-      if (!isCurrentAuthSession(requestVersion)) return;
-      setIncidentSubcodesLoading(false);
+      if (isCurrentAuthSession(requestVersion)) {
+        setIncidentSubcodesLoading(false);
+      }
     }
   }
 
@@ -865,8 +875,9 @@ export default function PatrolOperationsSection({
       setServiceTypesLoaded(false);
       setServiceTypeError(error.message || "Failed to load service types.");
     } finally {
-      if (!isCurrentAuthSession(requestVersion)) return;
-      setServiceTypesLoading(false);
+      if (isCurrentAuthSession(requestVersion)) {
+        setServiceTypesLoading(false);
+      }
     }
   }
 
@@ -897,8 +908,9 @@ export default function PatrolOperationsSection({
       setInfrastructureTypeError(error.message || "Failed to load infrastructure types.");
       setInfrastructureTypesLoaded(false);
     } finally {
-      if (!isCurrentAuthSession(requestVersion)) return;
-      setInfrastructureTypesLoading(false);
+      if (isCurrentAuthSession(requestVersion)) {
+        setInfrastructureTypesLoading(false);
+      }
     }
   }
 
