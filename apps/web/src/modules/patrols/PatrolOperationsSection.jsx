@@ -634,6 +634,7 @@ export default function PatrolOperationsSection({
           setCrewLoadError("Crew lookup returned no members. Showing available register members from the current session.");
         }
       } catch (memberError) {
+        if (!isCurrentAuthSession(requestVersion)) return;
         nextPatrollers = members || [];
         setCrewLoadError(
           (members || []).length
