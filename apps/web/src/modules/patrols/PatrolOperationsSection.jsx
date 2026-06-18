@@ -428,6 +428,7 @@ export default function PatrolOperationsSection({
   const [incidentSubcodesLoading, setIncidentSubcodesLoading] = useState(false);
   const [serviceTypesLoading, setServiceTypesLoading] = useState(false);
   const [infrastructureTypesLoading, setInfrastructureTypesLoading] = useState(false);
+  const [infrastructureTypesLoaded, setInfrastructureTypesLoaded] = useState(false);
   const [incidentRegisterError, setIncidentRegisterError] = useState("");
   const [serviceTypeError, setServiceTypeError] = useState("");
   const [infrastructureTypeError, setInfrastructureTypeError] = useState("");
@@ -660,10 +661,10 @@ export default function PatrolOperationsSection({
   }, [showEmergencyForm, token, serviceTypes.length, serviceTypesLoading]);
 
   useEffect(() => {
-    if (showInfrastructureForm && token && infrastructureTypes.length === 0 && !infrastructureTypesLoading) {
+    if (showInfrastructureForm && token && !infrastructureTypesLoaded && !infrastructureTypesLoading) {
       loadInfrastructureTypes();
     }
-  }, [showInfrastructureForm, token, infrastructureTypes.length, infrastructureTypesLoading]);
+  }, [showInfrastructureForm, token, infrastructureTypesLoaded, infrastructureTypesLoading]);
 
   useEffect(() => {
     if (
@@ -687,12 +688,12 @@ export default function PatrolOperationsSection({
       showObservationForm &&
       eventForm.observationType === "Infrastructure Concern" &&
       token &&
-      infrastructureTypes.length === 0 &&
+      !infrastructureTypesLoaded &&
       !infrastructureTypesLoading
     ) {
       loadInfrastructureTypes();
     }
-  }, [showObservationForm, eventForm.observationType, token, infrastructureTypes.length, infrastructureTypesLoading]);
+  }, [showObservationForm, eventForm.observationType, token, infrastructureTypesLoaded, infrastructureTypesLoading]);
 
   async function loadIncidentCodes() {
     try {
@@ -768,6 +769,7 @@ export default function PatrolOperationsSection({
       setInfrastructureTypeError(error.message || "Failed to load infrastructure types.");
     } finally {
       setInfrastructureTypesLoading(false);
+      setInfrastructureTypesLoaded(true);
     }
   }
 
