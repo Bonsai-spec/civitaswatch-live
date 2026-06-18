@@ -425,11 +425,15 @@ export default function PatrolOperationsSection({
   const [infrastructureTypes, setInfrastructureTypes] = useState([]);
   const [areas, setAreas] = useState([]);
   const [incidentCodesLoading, setIncidentCodesLoading] = useState(false);
+  const [incidentCodesLoaded, setIncidentCodesLoaded] = useState(false);
   const [incidentSubcodesLoading, setIncidentSubcodesLoading] = useState(false);
   const [serviceTypesLoading, setServiceTypesLoading] = useState(false);
+  const [serviceTypesLoaded, setServiceTypesLoaded] = useState(false);
   const [infrastructureTypesLoading, setInfrastructureTypesLoading] = useState(false);
   const [infrastructureTypesLoaded, setInfrastructureTypesLoaded] = useState(false);
-  const [incidentRegisterError, setIncidentRegisterError] = useState("");
+  const [incidentCodesError, setIncidentCodesError] = useState("");
+  const [incidentSubcodesLoaded, setIncidentSubcodesLoaded] = useState(false);
+  const [incidentSubcodesError, setIncidentSubcodesError] = useState("");
   const [serviceTypeError, setServiceTypeError] = useState("");
   const [infrastructureTypeError, setInfrastructureTypeError] = useState("");
   const [areaError, setAreaError] = useState("");
@@ -649,16 +653,16 @@ export default function PatrolOperationsSection({
   }, [token]);
 
   useEffect(() => {
-    if (showIncidentResponseForm && token && incidentCodes.length === 0 && !incidentCodesLoading) {
+    if (showIncidentResponseForm && token && !incidentCodesLoaded && !incidentCodesLoading && !incidentCodesError) {
       loadIncidentCodes();
     }
-  }, [showIncidentResponseForm, token, incidentCodes.length, incidentCodesLoading]);
+  }, [showIncidentResponseForm, token, incidentCodesLoaded, incidentCodesLoading, incidentCodesError]);
 
   useEffect(() => {
-    if (showEmergencyForm && token && serviceTypes.length === 0 && !serviceTypesLoading) {
+    if (showEmergencyForm && token && !serviceTypesLoaded && !serviceTypesLoading && !serviceTypeError) {
       loadServiceTypes();
     }
-  }, [showEmergencyForm, token, serviceTypes.length, serviceTypesLoading]);
+  }, [showEmergencyForm, token, serviceTypesLoaded, serviceTypesLoading, serviceTypeError]);
 
   useEffect(() => {
     if (showInfrastructureForm && token && !infrastructureTypesLoaded && !infrastructureTypesLoading && !infrastructureTypeError) {
@@ -699,29 +703,39 @@ export default function PatrolOperationsSection({
   async function loadIncidentCodes() {
     try {
       setIncidentCodesLoading(true);
-      setIncidentRegisterError("");
+      setIncidentCodesError("");
 
       const json = await loadJson(`${INCIDENT_CODES_ENDPOINT}?active=true`, {
         headers: getAuthHeaders(),
       });
 
       setIncidentCodes(Array.isArray(json) ? json : []);
+      setIncidentCodesLoaded(true);
     } catch (error) {
-      setIncidentRegisterError(error.message || "Failed to load incident codes.");
+      setIncidentCodesLoaded(false);
+      setIncidentCodesError(error.message || "Failed to load incident codes.");
     } finally {
       setIncidentCodesLoading(false);
     }
   }
 
+  function retryIncidentCodes() {
+    setIncidentCodesError("");
+    setIncidentCodesLoaded(false);
+    loadIncidentCodes();
+  }
+
   async function loadIncidentSubcodes(incidentCodeId) {
     if (!incidentCodeId) {
       setIncidentSubcodes([]);
+      setIncidentSubcodesLoaded(false);
+      setIncidentSubcodesError("");
       return;
     }
 
     try {
       setIncidentSubcodesLoading(true);
-      setIncidentRegisterError("");
+      setIncidentSubcodesError("");
 
       const query = new URLSearchParams({
         incidentCodeId,
@@ -732,11 +746,20 @@ export default function PatrolOperationsSection({
       });
 
       setIncidentSubcodes(Array.isArray(json) ? json : []);
+      setIncidentSubcodesLoaded(true);
     } catch (error) {
-      setIncidentRegisterError(error.message || "Failed to load incident subcodes.");
+      setIncidentSubcodesLoaded(false);
+      setIncidentSubcodesError(error.message || "Failed to load incident subcodes.");
     } finally {
       setIncidentSubcodesLoading(false);
     }
+  }
+
+  function retryIncidentSubcodes() {
+    if (!eventForm.incidentCodeId) return;
+    setIncidentSubcodesError("");
+    setIncidentSubcodesLoaded(false);
+    loadIncidentSubcodes(eventForm.incidentCodeId);
   }
 
   async function loadServiceTypes() {
@@ -749,11 +772,19 @@ export default function PatrolOperationsSection({
       });
 
       setServiceTypes(Array.isArray(json) ? json : []);
+      setServiceTypesLoaded(true);
     } catch (error) {
+      setServiceTypesLoaded(false);
       setServiceTypeError(error.message || "Failed to load service types.");
     } finally {
       setServiceTypesLoading(false);
     }
+  }
+
+  function retryServiceTypes() {
+    setServiceTypeError("");
+    setServiceTypesLoaded(false);
+    loadServiceTypes();
   }
 
   async function loadInfrastructureTypes() {
@@ -777,6 +808,7 @@ export default function PatrolOperationsSection({
 
   function retryInfrastructureTypes() {
     setInfrastructureTypeError("");
+    setInfrastructureTypesLoaded(false);
     loadInfrastructureTypes();
   }
 
@@ -832,6 +864,9 @@ export default function PatrolOperationsSection({
   function updateIncidentCodeSelection(incidentCodeId) {
     const selectedIncidentCode = incidentCodes.find((item) => item.id === incidentCodeId);
 
+    setIncidentSubcodes([]);
+    setIncidentSubcodesLoaded(false);
+    setIncidentSubcodesError("");
     setEventForm((current) => ({
       ...current,
       incidentCodeId,
@@ -839,7 +874,6 @@ export default function PatrolOperationsSection({
       incidentCode: selectedIncidentCode?.code || "",
       incidentType: selectedIncidentCode?.code || "",
     }));
-    setIncidentSubcodes([]);
 
     if (incidentCodeId) {
       loadIncidentSubcodes(incidentCodeId);
@@ -1897,7 +1931,20 @@ export default function PatrolOperationsSection({
                 <p className="patrol-muted">Loading service types...</p>
               )}
               {serviceTypeError && (
-                <div className="patrol-message">{serviceTypeError}</div>
+                <div className="patrol-message">
+                  <div>{serviceTypeError}</div>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={retryServiceTypes}
+                    disabled={serviceTypesLoading}
+                  >
+                    Retry service types
+                  </button>
+                </div>
+              )}
+              {!serviceTypesLoading && serviceTypesLoaded && serviceTypes.length === 0 && !serviceTypeError && (
+                <p className="patrol-muted">No service types configured.</p>
               )}
               <label>
                 Assistance / Service Type
@@ -1943,8 +1990,21 @@ export default function PatrolOperationsSection({
               {incidentCodesLoading && (
                 <p className="patrol-muted">Loading incident codes...</p>
               )}
-              {incidentRegisterError && (
-                <div className="patrol-message">{incidentRegisterError}</div>
+              {incidentCodesError && (
+                <div className="patrol-message">
+                  <div>{incidentCodesError}</div>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={retryIncidentCodes}
+                    disabled={incidentCodesLoading}
+                  >
+                    Retry incident codes
+                  </button>
+                </div>
+              )}
+              {!incidentCodesLoading && incidentCodesLoaded && incidentCodes.length === 0 && !incidentCodesError && (
+                <p className="patrol-muted">No incident codes configured.</p>
               )}
               <label>
                 Incident Code
@@ -1983,7 +2043,20 @@ export default function PatrolOperationsSection({
               {incidentSubcodesLoading && (
                 <p className="patrol-muted">Loading incident subcodes...</p>
               )}
-              {eventForm.incidentCodeId && !incidentSubcodesLoading && incidentSubcodes.length === 0 && (
+              {incidentSubcodesError && (
+                <div className="patrol-message">
+                  <div>{incidentSubcodesError}</div>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={retryIncidentSubcodes}
+                    disabled={incidentSubcodesLoading}
+                  >
+                    Retry subcodes
+                  </button>
+                </div>
+              )}
+              {eventForm.incidentCodeId && incidentSubcodesLoaded && !incidentSubcodesLoading && incidentSubcodes.length === 0 && !incidentSubcodesError && (
                 <p className="patrol-muted">No subcodes available for this incident code.</p>
               )}
               <label>
@@ -2052,6 +2125,9 @@ export default function PatrolOperationsSection({
                     Retry infrastructure
                   </button>
                 </div>
+              )}
+              {!infrastructureTypesLoading && infrastructureTypesLoaded && infrastructureTypes.length === 0 && !infrastructureTypeError && (
+                <p className="patrol-muted">No infrastructure types configured.</p>
               )}
               <label>
                 Infrastructure Type
