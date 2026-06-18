@@ -139,18 +139,18 @@ async function deleteTargets(state) {
       });
     }
 
-    if (state.checklists.length) {
-      await tx.prePatrolChecklist.deleteMany({
-        where: {
-          id: { in: state.checklists.map((checklist) => checklist.id) },
-        },
-      });
-    }
-
     if (state.sessions.length) {
       await tx.patrolSession.deleteMany({
         where: {
           id: { in: state.sessions.map((session) => session.id) },
+        },
+      });
+    }
+
+    if (state.checklists.length) {
+      await tx.prePatrolChecklist.deleteMany({
+        where: {
+          id: { in: state.checklists.map((checklist) => checklist.id) },
         },
       });
     }
