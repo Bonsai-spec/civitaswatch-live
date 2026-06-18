@@ -1598,8 +1598,8 @@ export default function PatrolOperationsSection({
                 Private / CPF vehicle is the default path. Use Registered / SC Vehicle when booking on an official patrol vehicle.
               </p>
 
-              <div className="patrol-field-stack">
-                <label className="patrol-check-option">
+              <div className="patrol-field-stack patrol-vehicle-mode-grid">
+                <label className="patrol-check-option patrol-vehicle-mode-option">
                   <input
                     type="radio"
                     name="vehicleMode"
@@ -1608,7 +1608,7 @@ export default function PatrolOperationsSection({
                   />
                   <span>Private / CPF Vehicle</span>
                 </label>
-                <label className="patrol-check-option">
+                <label className="patrol-check-option patrol-vehicle-mode-option">
                   <input
                     type="radio"
                     name="vehicleMode"
