@@ -2,6 +2,7 @@ import "dotenv/config";
 
 const API_BASE_URL = String(process.env.API_BASE_URL || "http://localhost:4000").replace(/\/$/, "");
 const TEST_RUN_ID = String(process.env.TEST_RUN_ID || `TEST-RUN-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`).trim();
+const TEST_RUN_TOKEN = `[${TEST_RUN_ID}]`;
 const PATROLLER_EMAIL = String(process.env.PATROLLER_EMAIL || "patroller@civitaswatch.com").trim().toLowerCase();
 const PATROLLER_PASSWORD = String(process.env.PATROLLER_PASSWORD || "").trim();
 const CONTROL_ROOM_EMAIL = String(process.env.CONTROL_ROOM_EMAIL || "control@civitaswatch.com").trim().toLowerCase();
@@ -67,7 +68,7 @@ async function login(email, password, label) {
 
 function checklistFor(index, callSign, vehicleLabel) {
   const notes = [
-    `[${TEST_RUN_ID}]`,
+    TEST_RUN_TOKEN,
     `Session: ${callSign}`,
     `Vehicle: ${vehicleLabel}`,
     "Tyres visually checked",
@@ -80,7 +81,6 @@ function checklistFor(index, callSign, vehicleLabel) {
     "First aid kit available",
     "Vehicle damage / defects: none noted",
     "Final readiness confirmed",
-    "[/TEST-RUN]",
   ].join("\n");
 
   return {
@@ -92,18 +92,18 @@ function checklistFor(index, callSign, vehicleLabel) {
     torchAvailable: true,
     emergencyNumbersAvailable: true,
     firstAidKitAvailable: true,
-    damageNotes: `${TEST_RUN_ID} no damage noted`,
+    damageNotes: `${TEST_RUN_TOKEN} no damage noted`,
     safetyCheckCompleted: true,
     callSignConfirmed: true,
     vehicleFuelLevel: "Acceptable",
-    notes,
+    notes: `${notes}\n[/TEST-RUN]`,
     _index: index,
   };
 }
 
 function sessionPlan(index, kind, vehicle, crewCallSigns = []) {
   const suffix = String.fromCharCode(65 + index);
-  const callSign = `${TEST_RUN_ID}-${suffix}`;
+  const callSign = `${TEST_RUN_TOKEN}-${suffix}`;
   const temporary = kind === "TEMPORARY";
 
   return {
@@ -114,25 +114,26 @@ function sessionPlan(index, kind, vehicle, crewCallSigns = []) {
     vehicleMode: kind,
     vehicleId: temporary ? "" : vehicle.id,
     crewCallSigns,
-    tempVehicleRegistration: temporary ? `${TEST_RUN_ID}-TEMP-${suffix}` : "",
+    tempVehicleRegistration: temporary ? `${TEST_RUN_TOKEN}-TEMP-${suffix}` : "",
     tempVehicleMake: temporary ? "QA" : "",
     tempVehicleModel: temporary ? "Test" : "",
     tempVehicleColour: temporary ? "White" : "",
     tempVehicleType: temporary ? "Passenger" : "",
-    tempVehicleNotes: temporary ? `${TEST_RUN_ID} temporary patrol vehicle` : "",
-    checklist: checklistFor(index, callSign, temporary ? `${TEST_RUN_ID}-TEMP-${suffix}` : vehicle.registration),
+    tempVehicleNotes: temporary ? `${TEST_RUN_TOKEN} temporary patrol vehicle` : "",
+    checklist: checklistFor(index, callSign, temporary ? `${TEST_RUN_TOKEN}-TEMP-${suffix}` : vehicle.registration),
   };
 }
 
 function createIncidentPayload(index, code, subcode, timestamp) {
   const suffix = String.fromCharCode(65 + index);
-  const stamp = `${TEST_RUN_ID}-${suffix}`;
+  const stamp = `${TEST_RUN_TOKEN}-${suffix}`;
   return {
-    title: `${TEST_RUN_ID} Incident ${suffix}`,
+    title: `${TEST_RUN_TOKEN} Incident ${suffix}`,
+    incidentCode: `${TEST_RUN_TOKEN}-INC-${suffix}`,
     incidentType: "Patrol Test",
     street: `${stamp} Street`,
     suburb: `${stamp} Suburb`,
-    description: `${stamp} patrol workflow incident`,
+    description: `${TEST_RUN_TOKEN} patrol workflow incident`,
     sector: "Sector 1",
     severity: index % 2 === 0 ? "MEDIUM" : "HIGH",
     date: timestamp.date,
@@ -149,6 +150,7 @@ async function main() {
   console.log("Patrol workflow smoke test");
   console.log(`API base: ${API_BASE_URL}`);
   console.log(`Test run: ${TEST_RUN_ID}`);
+  console.log(`Test token: ${TEST_RUN_TOKEN}`);
   console.log(`Mode: ${apply ? "APPLY" : "DRY RUN"}`);
   console.log("");
 
@@ -249,7 +251,7 @@ async function main() {
       throw new Error(`Control Room could not see active patrol ${startResponse.id}.`);
     }
 
-    if (session.vehicleMode === "TEMPORARY" && !String(activeMatch.vehicleLabel || "").includes(TEST_RUN_ID)) {
+    if (session.vehicleMode === "TEMPORARY" && !String(activeMatch.vehicleLabel || "").includes(TEST_RUN_TOKEN)) {
       throw new Error(`Temporary vehicle label did not include the test marker for ${session.callSign}.`);
     }
 
@@ -264,11 +266,11 @@ async function main() {
         body: {
           patrolId: startResponse.id,
           type: "MOBILE",
-          referenceNumber: `${TEST_RUN_ID}-OBS-A`,
-          description: `${TEST_RUN_ID} observation/status update`,
-          streetName: `${TEST_RUN_ID} Observation Street`,
+          referenceNumber: `${TEST_RUN_TOKEN}-OBS-A`,
+          description: `${TEST_RUN_TOKEN} observation/status update`,
+          streetName: `${TEST_RUN_TOKEN} Observation Street`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} observation note`,
+          locationNotes: `${TEST_RUN_TOKEN} observation note`,
           latitude: "",
           longitude: "",
         },
@@ -281,13 +283,13 @@ async function main() {
         body: {
           patrolId: startResponse.id,
           type: "MOBILE",
-          referenceNumber: `${TEST_RUN_ID}-ASST-A`,
-          assistance: `${TEST_RUN_ID} assistance request 1`,
+          referenceNumber: `${TEST_RUN_TOKEN}-ASST-A`,
+          assistance: `${TEST_RUN_TOKEN} assistance request 1`,
           serviceTypeId: selectedServiceType.id,
-          description: `${TEST_RUN_ID} assistance request 1`,
-          streetName: `${TEST_RUN_ID} Assistance Street`,
+          description: `${TEST_RUN_TOKEN} assistance request 1`,
+          streetName: `${TEST_RUN_TOKEN} Assistance Street`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} assistance note`,
+          locationNotes: `${TEST_RUN_TOKEN} assistance note`,
           latitude: "",
           longitude: "",
         },
@@ -300,12 +302,12 @@ async function main() {
         body: {
           patrolId: startResponse.id,
           type: "INFRASTRUCTURE",
-          referenceNumber: `${TEST_RUN_ID}-INF-A`,
+          referenceNumber: `${TEST_RUN_TOKEN}-INF-A`,
           infrastructureTypeId: selectedInfrastructureType.id,
-          description: `${TEST_RUN_ID} infrastructure report 1`,
-          streetName: `${TEST_RUN_ID} Infrastructure Street`,
+          description: `${TEST_RUN_TOKEN} infrastructure report 1`,
+          streetName: `${TEST_RUN_TOKEN} Infrastructure Street`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} infrastructure note`,
+          locationNotes: `${TEST_RUN_TOKEN} infrastructure note`,
           latitude: "",
           longitude: "",
         },
@@ -330,11 +332,11 @@ async function main() {
           incidentId: incident.id,
           incidentCodeId: selectedIncidentCode.id,
           incidentSubcodeId: selectedIncidentSubcode.id,
-          referenceNumber: `${TEST_RUN_ID}-INC-A`,
-          description: `${TEST_RUN_ID} incident response 1`,
-          streetName: `${TEST_RUN_ID} Incident Street`,
+          referenceNumber: `${TEST_RUN_TOKEN}-INC-A`,
+          description: `${TEST_RUN_TOKEN} incident response 1`,
+          streetName: `${TEST_RUN_TOKEN} Incident Street`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} incident note`,
+          locationNotes: `${TEST_RUN_TOKEN} incident note`,
           latitude: "",
           longitude: "",
         },
@@ -347,12 +349,12 @@ async function main() {
         body: {
           patrolId: startResponse.id,
           type: "INFRASTRUCTURE",
-          referenceNumber: `${TEST_RUN_ID}-INF-B`,
+          referenceNumber: `${TEST_RUN_TOKEN}-INF-B`,
           infrastructureTypeId: selectedInfrastructureType.id,
-          description: `${TEST_RUN_ID} infrastructure report 2`,
-          streetName: `${TEST_RUN_ID} Infrastructure Street 2`,
+          description: `${TEST_RUN_TOKEN} infrastructure report 2`,
+          streetName: `${TEST_RUN_TOKEN} Infrastructure Street 2`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} infrastructure note 2`,
+          locationNotes: `${TEST_RUN_TOKEN} infrastructure note 2`,
           latitude: "",
           longitude: "",
         },
@@ -377,11 +379,11 @@ async function main() {
           incidentId: incident.id,
           incidentCodeId: selectedIncidentCode.id,
           incidentSubcodeId: selectedIncidentSubcode.id,
-          referenceNumber: `${TEST_RUN_ID}-INC-B`,
-          description: `${TEST_RUN_ID} incident response 2`,
-          streetName: `${TEST_RUN_ID} Incident Street 2`,
+          referenceNumber: `${TEST_RUN_TOKEN}-INC-B`,
+          description: `${TEST_RUN_TOKEN} incident response 2`,
+          streetName: `${TEST_RUN_TOKEN} Incident Street 2`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} incident note 2`,
+          locationNotes: `${TEST_RUN_TOKEN} incident note 2`,
           latitude: "",
           longitude: "",
         },
@@ -394,13 +396,13 @@ async function main() {
         body: {
           patrolId: startResponse.id,
           type: "MOBILE",
-          referenceNumber: `${TEST_RUN_ID}-ASST-B`,
-          assistance: `${TEST_RUN_ID} assistance request 2`,
+          referenceNumber: `${TEST_RUN_TOKEN}-ASST-B`,
+          assistance: `${TEST_RUN_TOKEN} assistance request 2`,
           serviceTypeId: selectedServiceType.id,
-          description: `${TEST_RUN_ID} assistance request 2`,
-          streetName: `${TEST_RUN_ID} Assistance Street 2`,
+          description: `${TEST_RUN_TOKEN} assistance request 2`,
+          streetName: `${TEST_RUN_TOKEN} Assistance Street 2`,
           suburb: "Sector 1",
-          locationNotes: `${TEST_RUN_ID} assistance note 2`,
+          locationNotes: `${TEST_RUN_TOKEN} assistance note 2`,
           latitude: "",
           longitude: "",
         },
@@ -413,7 +415,7 @@ async function main() {
       token: patroller.token,
       body: {
         endKm: session.startKm + 18,
-        summary: `${TEST_RUN_ID} completed ${session.callSign}`,
+        summary: `${TEST_RUN_TOKEN} completed ${session.callSign}`,
       },
     });
 
@@ -424,7 +426,7 @@ async function main() {
   }
 
   const activeAfter = await requestJson("/patrols/active", { token: controlRoom.token });
-  const remainingTestPatrols = activeAfter.filter((patrol) => String(patrol.callSign || "").includes(TEST_RUN_ID));
+  const remainingTestPatrols = activeAfter.filter((patrol) => String(patrol.callSign || "").includes(TEST_RUN_TOKEN));
 
   if (remainingTestPatrols.length) {
     throw new Error(`Test patrols still active after end: ${remainingTestPatrols.map((patrol) => patrol.id).join(", ")}`);
@@ -433,16 +435,16 @@ async function main() {
   const dashboard = await requestJson("/admin/dashboard?status=ALL", { token: controlRoom.token });
   const testPatrols = (dashboard.patrols || []).filter(
     (patrol) =>
-      String(patrol.callSign || "").includes(TEST_RUN_ID) ||
-      String(patrol.summary || "").includes(TEST_RUN_ID) ||
-      String(patrol.tempVehicleRegistration || "").includes(TEST_RUN_ID)
+      String(patrol.callSign || "").includes(TEST_RUN_TOKEN) ||
+      String(patrol.summary || "").includes(TEST_RUN_TOKEN) ||
+      String(patrol.tempVehicleRegistration || "").includes(TEST_RUN_TOKEN)
   );
 
   const testIncidents = (dashboard.incidents || []).filter(
     (incident) =>
-      String(incident.title || "").includes(TEST_RUN_ID) ||
-      String(incident.description || "").includes(TEST_RUN_ID) ||
-      String(incident.incidentCode || "").includes(TEST_RUN_ID)
+      String(incident.title || "").includes(TEST_RUN_TOKEN) ||
+      String(incident.description || "").includes(TEST_RUN_TOKEN) ||
+      String(incident.incidentCode || "").includes(TEST_RUN_TOKEN)
   );
 
   console.log("");

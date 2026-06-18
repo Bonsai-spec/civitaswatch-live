@@ -5,6 +5,7 @@ const APPLY_FLAG = "--apply";
 const CONFIRM_ENV = "CONFIRM_TEST_RUN_CLEANUP";
 const CONFIRM_VALUE = "YES";
 const TEST_RUN_ID = String(process.env.TEST_RUN_ID || `TEST-RUN-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-001`).trim();
+const TEST_RUN_TOKEN = `[${TEST_RUN_ID}]`;
 
 function isApplyMode(args = process.argv.slice(2)) {
   return args.includes(APPLY_FLAG);
@@ -14,23 +15,23 @@ function hasConfirmation(env = process.env) {
   return env[CONFIRM_ENV] === CONFIRM_VALUE;
 }
 
-function markerWhere(marker) {
+function markerWhere(markerToken) {
   return {
     OR: [
-      { callSign: { contains: marker } },
-      { summary: { contains: marker } },
-      { tempVehicleRegistration: { contains: marker } },
-      { tempVehicleNotes: { contains: marker } },
+      { callSign: { contains: markerToken } },
+      { summary: { contains: markerToken } },
+      { tempVehicleRegistration: { contains: markerToken } },
+      { tempVehicleNotes: { contains: markerToken } },
     ],
   };
 }
 
-function incidentWhere(marker, sessionIds = []) {
+function incidentWhere(markerToken, sessionIds = []) {
   const where = {
     OR: [
-      { title: { contains: marker } },
-      { description: { contains: marker } },
-      { incidentCode: { contains: marker } },
+      { title: { contains: markerToken } },
+      { description: { contains: markerToken } },
+      { incidentCode: { contains: markerToken } },
     ],
   };
 
@@ -41,9 +42,9 @@ function incidentWhere(marker, sessionIds = []) {
   return where;
 }
 
-function checklistWhere(marker, checklistIds = []) {
+function checklistWhere(markerToken, checklistIds = []) {
   const where = {
-    OR: [{ notes: { contains: marker } }],
+    OR: [{ notes: { contains: markerToken } }],
   };
 
   if (checklistIds.length) {
@@ -53,9 +54,9 @@ function checklistWhere(marker, checklistIds = []) {
   return where;
 }
 
-async function collectTargetState(marker) {
+async function collectTargetState(markerToken) {
   const sessions = await prisma.patrolSession.findMany({
-    where: markerWhere(marker),
+    where: markerWhere(markerToken),
     select: {
       id: true,
       callSign: true,
@@ -71,7 +72,7 @@ async function collectTargetState(marker) {
   const checklistIds = sessions.map((session) => session.checklistId).filter(Boolean);
 
   const incidents = await prisma.incident.findMany({
-    where: incidentWhere(marker, sessionIds),
+    where: incidentWhere(markerToken, sessionIds),
     select: {
       id: true,
       title: true,
@@ -82,7 +83,7 @@ async function collectTargetState(marker) {
   });
 
   const checklists = await prisma.prePatrolChecklist.findMany({
-    where: checklistWhere(marker, checklistIds),
+    where: checklistWhere(markerToken, checklistIds),
     select: {
       id: true,
       notes: true,
@@ -95,9 +96,9 @@ async function collectTargetState(marker) {
     where: {
       OR: [
         { patrolId: { in: sessionIds } },
-        { description: { contains: marker } },
-        { assistance: { contains: marker } },
-        { referenceNumber: { contains: marker } },
+        { description: { contains: markerToken } },
+        { assistance: { contains: markerToken } },
+        { referenceNumber: { contains: markerToken } },
       ],
     },
     select: {
@@ -122,10 +123,10 @@ async function collectTargetState(marker) {
 
 async function deleteTargets(state) {
   await prisma.$transaction(async (tx) => {
-    if (state.sessions.length) {
-      await tx.patrolSession.deleteMany({
+    if (state.events.length) {
+      await tx.patrolEvent.deleteMany({
         where: {
-          id: { in: state.sessions.map((session) => session.id) },
+          id: { in: state.events.map((event) => event.id) },
         },
       });
     }
@@ -145,6 +146,14 @@ async function deleteTargets(state) {
         },
       });
     }
+
+    if (state.sessions.length) {
+      await tx.patrolSession.deleteMany({
+        where: {
+          id: { in: state.sessions.map((session) => session.id) },
+        },
+      });
+    }
   });
 }
 
@@ -153,10 +162,11 @@ async function main() {
 
   console.log("Patrol workflow test-run cleanup");
   console.log(`Marker: ${TEST_RUN_ID}`);
+  console.log(`Marker token: ${TEST_RUN_TOKEN}`);
   console.log(`Mode: ${apply ? "APPLY" : "DRY RUN"}`);
   console.log(`Confirmation env: ${CONFIRM_ENV}=${CONFIRM_VALUE}`);
 
-  const state = await collectTargetState(TEST_RUN_ID);
+  const state = await collectTargetState(TEST_RUN_TOKEN);
 
   console.log("");
   console.log("Target rows:");
@@ -174,7 +184,7 @@ async function main() {
 
   await deleteTargets(state);
 
-  const after = await collectTargetState(TEST_RUN_ID);
+  const after = await collectTargetState(TEST_RUN_TOKEN);
 
   console.log("");
   console.log("Cleanup complete.");
