@@ -661,10 +661,10 @@ export default function PatrolOperationsSection({
   }, [showEmergencyForm, token, serviceTypes.length, serviceTypesLoading]);
 
   useEffect(() => {
-    if (showInfrastructureForm && token && !infrastructureTypesLoaded && !infrastructureTypesLoading) {
+    if (showInfrastructureForm && token && !infrastructureTypesLoaded && !infrastructureTypesLoading && !infrastructureTypeError) {
       loadInfrastructureTypes();
     }
-  }, [showInfrastructureForm, token, infrastructureTypesLoaded, infrastructureTypesLoading]);
+  }, [showInfrastructureForm, token, infrastructureTypesLoaded, infrastructureTypesLoading, infrastructureTypeError]);
 
   useEffect(() => {
     if (
@@ -689,11 +689,12 @@ export default function PatrolOperationsSection({
       eventForm.observationType === "Infrastructure Concern" &&
       token &&
       !infrastructureTypesLoaded &&
-      !infrastructureTypesLoading
+      !infrastructureTypesLoading &&
+      !infrastructureTypeError
     ) {
       loadInfrastructureTypes();
     }
-  }, [showObservationForm, eventForm.observationType, token, infrastructureTypesLoaded, infrastructureTypesLoading]);
+  }, [showObservationForm, eventForm.observationType, token, infrastructureTypesLoaded, infrastructureTypesLoading, infrastructureTypeError]);
 
   async function loadIncidentCodes() {
     try {
@@ -765,12 +766,18 @@ export default function PatrolOperationsSection({
       });
 
       setInfrastructureTypes(Array.isArray(json) ? json : []);
+      setInfrastructureTypesLoaded(true);
     } catch (error) {
       setInfrastructureTypeError(error.message || "Failed to load infrastructure types.");
+      setInfrastructureTypesLoaded(false);
     } finally {
       setInfrastructureTypesLoading(false);
-      setInfrastructureTypesLoaded(true);
     }
+  }
+
+  function retryInfrastructureTypes() {
+    setInfrastructureTypeError("");
+    loadInfrastructureTypes();
   }
 
   async function loadAreas() {
@@ -1330,7 +1337,17 @@ export default function PatrolOperationsSection({
             <p className="patrol-muted">Loading infrastructure types...</p>
           )}
           {infrastructureTypeError && (
-            <div className="patrol-message">{infrastructureTypeError}</div>
+            <div className="patrol-message">
+              <div>{infrastructureTypeError}</div>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={retryInfrastructureTypes}
+                disabled={infrastructureTypesLoading}
+              >
+                Retry infrastructure
+              </button>
+            </div>
           )}
           <label>
             Infrastructure Type
@@ -2024,7 +2041,17 @@ export default function PatrolOperationsSection({
                 <p className="patrol-muted">Loading infrastructure types...</p>
               )}
               {infrastructureTypeError && (
-                <div className="patrol-message">{infrastructureTypeError}</div>
+                <div className="patrol-message">
+                  <div>{infrastructureTypeError}</div>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={retryInfrastructureTypes}
+                    disabled={infrastructureTypesLoading}
+                  >
+                    Retry infrastructure
+                  </button>
+                </div>
               )}
               <label>
                 Infrastructure Type
