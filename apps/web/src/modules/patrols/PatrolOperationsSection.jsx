@@ -529,6 +529,8 @@ export default function PatrolOperationsSection({
     setOperationLabel("");
   }
 
+  const authSessionKey = `${token || ""}|${user?.id || ""}|${user?.role || ""}`;
+
   function getSubmitLabel(defaultLabel) {
     return loading ? operationLabel || "Submitting..." : defaultLabel;
   }
@@ -649,8 +651,25 @@ export default function PatrolOperationsSection({
   }
 
   useEffect(() => {
+    setIncidentCodes([]);
+    setIncidentCodesLoaded(false);
+    setIncidentCodesError("");
+    setIncidentSubcodes([]);
+    setIncidentSubcodesLoaded(false);
+    setIncidentSubcodesError("");
+    setServiceTypes([]);
+    setServiceTypesLoaded(false);
+    setServiceTypeError("");
+    setInfrastructureTypes([]);
+    setInfrastructureTypesLoaded(false);
+    setInfrastructureTypeError("");
+    setAreas([]);
+    setAreaError("");
+  }, [authSessionKey]);
+
+  useEffect(() => {
     loadPatrolOperations();
-  }, [token]);
+  }, [authSessionKey]);
 
   useEffect(() => {
     if (showIncidentResponseForm && token && !incidentCodesLoaded && !incidentCodesLoading && !incidentCodesError) {
