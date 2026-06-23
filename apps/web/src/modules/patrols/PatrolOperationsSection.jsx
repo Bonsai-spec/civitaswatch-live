@@ -443,6 +443,7 @@ export default function PatrolOperationsSection({
   const [message, setMessage] = useState("");
   const requestInFlightRef = useRef(false);
   const authSessionVersionRef = useRef(0);
+  const incidentSubcodesRequestRef = useRef({ requestId: 0, incidentCodeId: "" });
 
   // The patrol session is the active operational context. Driver, vehicle/call
   // sign, and selected crew travel under this same session.
@@ -675,6 +676,7 @@ export default function PatrolOperationsSection({
     setIncidentSubcodesLoaded(false);
     setIncidentSubcodesError("");
     setIncidentSubcodesLoading(false);
+    incidentSubcodesRequestRef.current = { requestId: 0, incidentCodeId: "" };
     setServiceTypes([]);
     setServiceTypesLoaded(false);
     setServiceTypeError("");
@@ -812,6 +814,7 @@ export default function PatrolOperationsSection({
 
   async function loadIncidentSubcodes(incidentCodeId) {
     if (!incidentCodeId) {
+      incidentSubcodesRequestRef.current = { requestId: 0, incidentCodeId: "" };
       setIncidentSubcodes([]);
       setIncidentSubcodesLoaded(false);
       setIncidentSubcodesError("");
@@ -819,6 +822,8 @@ export default function PatrolOperationsSection({
     }
 
     const requestVersion = authSessionVersionRef.current;
+    const requestId = incidentSubcodesRequestRef.current.requestId + 1;
+    incidentSubcodesRequestRef.current = { requestId, incidentCodeId };
 
     try {
       if (!isCurrentAuthSession(requestVersion)) return;
@@ -834,15 +839,17 @@ export default function PatrolOperationsSection({
       });
 
       if (!isCurrentAuthSession(requestVersion)) return;
+      if (incidentSubcodesRequestRef.current.requestId !== requestId) return;
 
       setIncidentSubcodes(Array.isArray(json) ? json : []);
       setIncidentSubcodesLoaded(true);
     } catch (error) {
       if (!isCurrentAuthSession(requestVersion)) return;
+      if (incidentSubcodesRequestRef.current.requestId !== requestId) return;
       setIncidentSubcodesLoaded(false);
       setIncidentSubcodesError(error.message || "Failed to load incident subcodes.");
     } finally {
-      if (isCurrentAuthSession(requestVersion)) {
+      if (isCurrentAuthSession(requestVersion) && incidentSubcodesRequestRef.current.requestId === requestId) {
         setIncidentSubcodesLoading(false);
       }
     }
@@ -2172,7 +2179,7 @@ export default function PatrolOperationsSection({
                 </div>
               )}
               {eventForm.incidentCodeId && incidentSubcodesLoaded && !incidentSubcodesLoading && incidentSubcodes.length === 0 && !incidentSubcodesError && (
-                <p className="patrol-muted">No subcodes available for this incident code.</p>
+                <p className="patrol-muted">No subcodes configured for this code.</p>
               )}
               <label>
                 Description
