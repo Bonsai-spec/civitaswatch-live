@@ -751,9 +751,14 @@ export default function PatrolOperationsSection({
     const selectedIncidentCodeExists = incidentCodes.some((item) => item.id === eventForm.incidentCodeId);
 
     if (!selectedIncidentCodeExists) {
+      incidentSubcodesRequestRef.current = {
+        requestId: incidentSubcodesRequestRef.current.requestId + 1,
+        incidentCodeId: "",
+      };
       setIncidentSubcodes([]);
       setIncidentSubcodesLoaded(false);
       setIncidentSubcodesError("");
+      setIncidentSubcodesLoading(false);
       setEventForm((current) => ({
         ...current,
         incidentCodeId: "",
@@ -818,6 +823,7 @@ export default function PatrolOperationsSection({
       setIncidentSubcodes([]);
       setIncidentSubcodesLoaded(false);
       setIncidentSubcodesError("");
+      setIncidentSubcodesLoading(false);
       return;
     }
 
